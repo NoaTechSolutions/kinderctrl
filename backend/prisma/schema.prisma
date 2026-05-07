@@ -1,0 +1,744 @@
+// This is your Prisma schema file
+// KinderCtrl - Complete Database Schema
+// PostgreSQL 15+ with Prisma 7.x
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url configured in prisma.config.ts
+}
+
+// ============================================
+// CORE: AUTHENTICATION & USERS
+// ============================================
+
+model User {
+  id       String     @id @default(uuid()) @db.Uuid
+  email    String     @unique
+  password String
+  role     UserRole
+  status   UserStatus @default(PENDING_ACTIVATION)
+
+  // Relations
+  centerId String? @map("center_id") @db.Uuid
+  center   Center? @relation("CenterUsers", fields: [centerId], references: [id])
+
+  staffId String? @unique @map("staff_id") @db.Uuid
+  staff   Staff?  @relation(fields: [staffId], references: [id])
+
+  parentId String? @unique @map("parent_id") @db.Uuid
+  parent   Parent? @relation(fields: [parentId], references: [id])
+
+  // Reverse relations
+  ownedCenters Center[]  @relation("CenterOwner")
+  sessions     Session[]
+
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  activatedAt DateTime? @map("activated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@map("users")
+}
+
+enum UserRole {
+  DIRECTOR
+  STAFF
+  PARENT
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_ACTIVATION
+  SUSPENDED
+  DELETED
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sessions")
+}
+
+// ============================================
+// CENTERS
+// ============================================
+
+model Center {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+
+  // Address
+  street  String
+  city    String
+  state   String
+  zipCode String @map("zip_code")
+
+  // Info
+  licenseNumber String? @map("license_number")
+  capacity      Int
+  phone         String
+  email         String
+
+  // Status
+  status CenterStatus @default(SETUP_PENDING)
+
+  // Relations
+  ownerId String @map("owner_id") @db.Uuid
+  owner   User   @relation("CenterOwner", fields: [ownerId], references: [id])
+
+  users            User[]            @relation("CenterUsers")
+  staff            Staff[]
+  parents          Parent[]
+  children         Child[]
+  classrooms       Classroom[]
+  centerHours      CenterHours[]
+  milestoneConfigs MilestoneConfig[]
+  pricingConfig    PricingConfig?
+  invoices         Invoice[]
+  attendance       Attendance[]
+  documents        Document[]
+
+  // Timestamps
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  setupCompletedAt DateTime? @map("setup_completed_at")
+
+  @@map("centers")
+}
+
+enum CenterStatus {
+  SETUP_PENDING
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+model CenterHours {
+  id       String @id @default(uuid()) @db.Uuid
+  centerId String @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  dayOfWeek Int     @map("day_of_week") // 0-6
+  openTime  String  @map("open_time") // "07:00"
+  closeTime String  @map("close_time") // "18:00"
+  isOpen    Boolean @default(true) @map("is_open")
+
+  @@map("center_hours")
+}
+
+// ============================================
+// CLASSROOMS
+// ============================================
+
+model Classroom {
+  id       String @id @default(uuid()) @db.Uuid
+  centerId String @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  name         String
+  ageMinMonths Int    @map("age_min_months")
+  ageMaxMonths Int    @map("age_max_months")
+  capacity     Int
+  staffRatio   Int    @map("staff_ratio") // 1 staff per X children
+
+  // Relations
+  classroomChildren ClassroomChild[]
+  classroomStaff    ClassroomStaff[]
+
+  // Stats
+  currentEnrollment Int @default(0) @map("current_enrollment")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("classrooms")
+}
+
+model ClassroomChild {
+  id          String    @id @default(uuid()) @db.Uuid
+  classroomId String    @map("classroom_id") @db.Uuid
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  childId String @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  enrolledAt DateTime @default(now()) @map("enrolled_at")
+
+  @@unique([classroomId, childId])
+  @@map("classroom_children")
+}
+
+model ClassroomStaff {
+  id          String    @id @default(uuid()) @db.Uuid
+  classroomId String    @map("classroom_id") @db.Uuid
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  staffId String @map("staff_id") @db.Uuid
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  @@unique([classroomId, staffId])
+  @@map("classroom_staff")
+}
+
+// ============================================
+// STAFF
+// ============================================
+
+model Staff {
+  id       String @id @default(uuid()) @db.Uuid
+  centerId String @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  firstName String    @map("first_name")
+  lastName  String    @map("last_name")
+  email     String
+  role      StaffRole
+
+  hireDate       DateTime @map("hire_date")
+  hourlyRate     Decimal? @map("hourly_rate") @db.Decimal(10, 2)
+  employmentType String   @map("employment_type") // full_time, part_time
+
+  status StaffStatus @default(INVITED)
+
+  // Relations
+  user           User?
+  classroomStaff ClassroomStaff[]
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  activatedAt DateTime? @map("activated_at")
+
+  @@map("staff")
+}
+
+enum StaffRole {
+  TEACHER
+  ASSISTANT
+  ADMIN
+}
+
+enum StaffStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+// ============================================
+// PARENTS & CHILDREN
+// ============================================
+
+model Parent {
+  id       String @id @default(uuid()) @db.Uuid
+  centerId String @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  firstName      String  @map("first_name")
+  lastName       String  @map("last_name")
+  email          String
+  phonePrimary   String  @map("phone_primary")
+  phoneSecondary String? @map("phone_secondary")
+
+  // Address stored as JSON
+  address Json
+
+  status ParentStatus @default(INVITED)
+
+  // Relations
+  user         User?
+  childParents ChildParent[]
+  invoices     Invoice[]
+
+  // Stripe
+  stripeCustomerId String? @map("stripe_customer_id")
+  autoPayEnabled   Boolean @default(false) @map("auto_pay_enabled")
+  paymentMethodId  String? @map("payment_method_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("parents")
+}
+
+enum ParentStatus {
+  INVITED
+  ACTIVE
+  INACTIVE
+}
+
+model Child {
+  id       String @id @default(uuid()) @db.Uuid
+  centerId String @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  firstName   String   @map("first_name")
+  lastName    String   @map("last_name")
+  dateOfBirth DateTime @map("date_of_birth") @db.Date
+  gender      String
+  photoUrl    String?  @map("photo_url")
+
+  status ChildStatus @default(ACTIVE)
+
+  // Relations
+  childParents      ChildParent[]
+  classroomChildren ClassroomChild[]
+  attendance        Attendance[]
+  dailyLogs         DailyLog[]
+  milestones        ChildMilestone[]
+  immunizations     Immunization[]
+  medicalInfo       ChildMedicalInfo?
+  invoices          Invoice[]
+
+  enrollmentDate DateTime @default(now()) @map("enrollment_date")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("children")
+}
+
+enum ChildStatus {
+  ACTIVE
+  WITHDRAWN
+  GRADUATED
+}
+
+// Pivot table
+model ChildParent {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  parentId String @map("parent_id") @db.Uuid
+  parent   Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  relationship    String // mother, father, guardian
+  isPrimary       Boolean @default(false) @map("is_primary")
+  canPickup       Boolean @default(true) @map("can_pickup")
+  receivesUpdates Boolean @default(true) @map("receives_updates")
+
+  @@unique([childId, parentId])
+  @@map("child_parents")
+}
+
+model ChildMedicalInfo {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @unique @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  allergies         Json // array of strings
+  medications       Json // array of objects
+  medicalConditions Json // array of strings
+
+  doctorName  String? @map("doctor_name")
+  doctorPhone String? @map("doctor_phone")
+
+  insuranceProvider String? @map("insurance_provider")
+  insurancePolicy   String? @map("insurance_policy")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("child_medical_info")
+}
+
+// ============================================
+// ATTENDANCE & DAILY OPERATIONS
+// ============================================
+
+model Attendance {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  centerId String @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id])
+
+  date         DateTime  @db.Date
+  checkInTime  DateTime  @map("check_in_time")
+  checkOutTime DateTime? @map("check_out_time")
+
+  checkedInBy  String  @map("checked_in_by") @db.Uuid // user_id
+  checkedOutBy String? @map("checked_out_by") @db.Uuid
+
+  checkInMethod String           @map("check_in_method") // qr_code, pin, manual
+  status        AttendanceStatus @default(CHECKED_IN)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([childId, date])
+  @@index([childId, date])
+  @@map("attendance")
+}
+
+enum AttendanceStatus {
+  CHECKED_IN
+  CHECKED_OUT
+}
+
+model DailyLog {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  date DateTime @db.Date
+
+  // Morning
+  temperatureMorning Decimal? @map("temperature_morning") @db.Decimal(4, 1)
+  moodMorning        String?  @map("mood_morning")
+  symptoms           Json?
+
+  // Meals (stored as JSON)
+  meals Json // { breakfast: {...}, lunch: {...}, snack: {...} }
+
+  // Nap
+  nap Json // { start_time, end_time, duration_minutes, quality }
+
+  // Activities
+  activities Json // array of activity objects
+
+  // Other
+  diaperChanges Json @default("[]") @map("diaper_changes")
+  observations  Json @default("[]")
+  photos        Json @default("[]")
+
+  // Report
+  reportSent   Boolean   @default(false) @map("report_sent")
+  reportSentAt DateTime? @map("report_sent_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([childId, date])
+  @@index([childId, date])
+  @@map("daily_logs")
+}
+
+// ============================================
+// DEVELOPMENT
+// ============================================
+
+model MilestoneConfig {
+  id       String @id @default(uuid()) @db.Uuid
+  centerId String @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  milestoneName String            @map("milestone_name")
+  category      MilestoneCategory
+  subcategory   String?
+
+  ageMonthsMin Int @map("age_months_min")
+  ageMonthsMax Int @map("age_months_max")
+
+  standard   String? // CDC, OMS, Custom
+  isRequired Boolean @default(false) @map("is_required")
+  isActive   Boolean @default(true) @map("is_active")
+
+  childMilestones ChildMilestone[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("milestones_config")
+}
+
+enum MilestoneCategory {
+  PHYSICAL
+  COGNITIVE
+  SOCIAL_EMOTIONAL
+  SELF_CARE
+  LANGUAGE
+}
+
+model ChildMilestone {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  milestoneConfigId String          @map("milestone_config_id") @db.Uuid
+  milestoneConfig   MilestoneConfig @relation(fields: [milestoneConfigId], references: [id])
+
+  achievedDate   DateTime?       @map("achieved_date") @db.Date
+  childAgeMonths Int?            @map("child_age_months")
+  status         MilestoneStatus @default(NOT_STARTED)
+
+  notes    String?
+  markedBy String? @map("marked_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([childId, milestoneConfigId])
+  @@map("child_milestones")
+}
+
+enum MilestoneStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  ACHIEVED
+  NEEDS_SUPPORT
+}
+
+model Immunization {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  vaccineName String  @map("vaccine_name")
+  vaccineType String? @map("vaccine_type")
+
+  doseNumber Int? @map("dose_number")
+  totalDoses Int? @map("total_doses")
+
+  administeredDate DateTime  @map("administered_date") @db.Date
+  nextDoseDueDate  DateTime? @map("next_dose_due_date") @db.Date
+  expirationDate   DateTime? @map("expiration_date") @db.Date
+
+  administeredBy String? @map("administered_by")
+  lotNumber      String? @map("lot_number")
+  certificateUrl String? @map("certificate_url")
+
+  isUpToDate       Boolean          @default(true) @map("is_up_to_date")
+  complianceStatus ComplianceStatus @default(COMPLIANT) @map("compliance_status")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([childId])
+  @@index([expirationDate])
+  @@map("immunizations")
+}
+
+enum ComplianceStatus {
+  COMPLIANT
+  PENDING
+  OVERDUE
+  EXEMPT
+}
+
+// ============================================
+// BILLING
+// ============================================
+
+model PricingConfig {
+  id       String @id @default(uuid()) @db.Uuid
+  centerId String @unique @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  infantMonthly  Decimal @map("infant_monthly") @db.Decimal(10, 2)
+  toddlerMonthly Decimal @map("toddler_monthly") @db.Decimal(10, 2)
+  prekMonthly    Decimal @map("prek_monthly") @db.Decimal(10, 2)
+
+  siblingDiscountPct Int     @default(10) @map("sibling_discount_pct")
+  registrationFee    Decimal @map("registration_fee") @db.Decimal(10, 2)
+  latePickupFee15min Decimal @map("late_pickup_fee_15min") @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("pricing_config")
+}
+
+model Invoice {
+  id       String @id @default(uuid()) @db.Uuid
+  centerId String @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id])
+
+  parentId String @map("parent_id") @db.Uuid
+  parent   Parent @relation(fields: [parentId], references: [id])
+
+  childId String @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id])
+
+  invoiceDate DateTime @map("invoice_date") @db.Date
+  dueDate     DateTime @map("due_date") @db.Date
+
+  subtotal       Decimal @db.Decimal(10, 2)
+  discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  totalAmount    Decimal @map("total_amount") @db.Decimal(10, 2)
+
+  status InvoiceStatus @default(PENDING)
+  pdfUrl String?       @map("pdf_url")
+
+  lateFeeApplied Boolean @default(false) @map("late_fee_applied")
+
+  invoiceItems InvoiceItem[]
+  payment      Payment?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  paidAt    DateTime? @map("paid_at")
+
+  @@index([parentId, status])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model InvoiceItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  invoiceId String  @map("invoice_id") @db.Uuid
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(10, 2)
+  amount      Decimal @db.Decimal(10, 2)
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id        String  @id @default(uuid()) @db.Uuid
+  invoiceId String  @unique @map("invoice_id") @db.Uuid
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+
+  amount Decimal       @db.Decimal(10, 2)
+  method PaymentMethod
+
+  stripePaymentIntentId String? @map("stripe_payment_intent_id")
+  stripeChargeId        String? @map("stripe_charge_id")
+
+  status PaymentStatus @default(PENDING)
+
+  paidAt    DateTime @map("paid_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  STRIPE_CARD
+  STRIPE_ACH
+  PAYPAL
+  VENMO
+  ZELLE
+  CASH
+  CHECK
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id          String @id @default(uuid()) @db.Uuid
+  recipientId String @map("recipient_id") @db.Uuid
+
+  type  String
+  title String
+  body  String?
+
+  priority NotificationPriority @default(NORMAL)
+
+  relatedEntityType String? @map("related_entity_type")
+  relatedEntityId   String? @map("related_entity_id") @db.Uuid
+
+  data Json?
+
+  channels Json // ['push', 'email', 'sms']
+  status   NotificationStatus @default(PENDING)
+
+  sentAt DateTime? @map("sent_at")
+  readAt DateTime? @map("read_at")
+
+  deliveryResults Json? @map("delivery_results")
+
+  actionUrl   String? @map("action_url")
+  actionTaken Boolean @default(false) @map("action_taken")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([recipientId])
+  @@index([type])
+  @@index([status])
+  @@map("notifications")
+}
+
+enum NotificationPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+// ============================================
+// DOCUMENTS
+// ============================================
+
+model Document {
+  id       String @id @default(uuid()) @db.Uuid
+  centerId String @map("center_id") @db.Uuid
+  center   Center @relation(fields: [centerId], references: [id])
+
+  entityType EntityType @map("entity_type")
+  entityId   String?    @map("entity_id") @db.Uuid
+
+  category    String
+  title       String
+  description String?
+  fileUrl     String  @map("file_url")
+  fileType    String? @map("file_type")
+  fileSize    Int?    @map("file_size")
+
+  status         DocumentStatus @default(ACTIVE)
+  expirationDate DateTime?      @map("expiration_date") @db.Date
+
+  requiresSignature Boolean   @default(false) @map("requires_signature")
+  isSigned          Boolean   @default(false) @map("is_signed")
+  signedBy          String?   @map("signed_by") @db.Uuid
+  signedAt          DateTime? @map("signed_at")
+
+  visibleToParents Boolean @default(false) @map("visible_to_parents")
+
+  uploadedBy String   @map("uploaded_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([entityType, entityId])
+  @@map("documents")
+}
+
+enum EntityType {
+  CHILD
+  STAFF
+  CENTER
+}
+
+enum DocumentStatus {
+  ACTIVE
+  EXPIRED
+  ARCHIVED
+}
