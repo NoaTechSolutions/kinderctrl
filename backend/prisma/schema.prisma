@@ -89,6 +89,7 @@ model Center {
   capacity      Int
   phone         String
   email         String
+  timezone      String  @default("America/Los_Angeles")
 
   // Status
   status CenterStatus @default(SETUP_PENDING)
