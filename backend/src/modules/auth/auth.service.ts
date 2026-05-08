@@ -86,26 +86,13 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
-  async logout(userId: string, sessionId?: string): Promise<void> {
-    if (sessionId) {
-      await this.prisma.session.delete({
-        where: { id: sessionId },
-      });
-    } else {
-      await this.prisma.session.deleteMany({
-        where: { userId },
-      });
-    }
+  async logout(sessionId: string): Promise<void> {
+    await this.prisma.session.delete({
+      where: { id: sessionId },
+    });
   }
 
   private async generateTokens(user: User): Promise<AuthResponseDto> {
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      centerId: user.centerId,
-    };
-
     const session = await this.prisma.session.create({
       data: {
         userId: user.id,
@@ -113,6 +100,14 @@ export class AuthService {
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      centerId: user.centerId,
+      sessionId: session.id,
+    };
 
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.getOrThrow<string>('JWT_SECRET'),

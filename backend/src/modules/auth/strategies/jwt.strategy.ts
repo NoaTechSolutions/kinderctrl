@@ -9,6 +9,7 @@ interface JwtPayload {
   email: string;
   role: string;
   centerId?: string;
+  sessionId: string;
 }
 
 @Injectable()
@@ -25,6 +26,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: JwtPayload) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: payload.sessionId },
+    });
+
+    if (!session || session.expiresAt < new Date()) {
+      throw new UnauthorizedException('Session expired or revoked');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
@@ -40,6 +49,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    return user;
+    return {
+      ...user,
+      sessionId: payload.sessionId,
+    };
   }
 }
