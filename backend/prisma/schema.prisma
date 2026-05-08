@@ -3,13 +3,12 @@
 // PostgreSQL 15+ with Prisma 7.x
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  // url configured in prisma.config.ts
+  url      = env("DATABASE_URL")
 }
 
 // ============================================
