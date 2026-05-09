@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Check, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,7 @@ export default function LoginPage() {
       login({ email: data.email, password: data.password }),
     onSuccess: (data) => {
       setTokens(data.access_token, data.refresh_token, data.user);
-      router.push('/dashboard');
+      window.setTimeout(() => router.push('/dashboard'), 350);
     },
     onError: (error: Error) => {
       const message =
@@ -61,6 +61,8 @@ export default function LoginPage() {
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4"
         noValidate
+        aria-label={t('signIn')}
+        aria-busy={loginMutation.isPending}
       >
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-sm font-medium">
@@ -78,11 +80,20 @@ export default function LoginPage() {
               placeholder={t('emailPh')}
               className="pl-10 h-11"
               aria-invalid={!!form.formState.errors.email}
+              aria-required="true"
+              aria-describedby={
+                form.formState.errors.email ? 'email-error' : undefined
+              }
               {...form.register('email')}
             />
           </div>
           {form.formState.errors.email && (
-            <p className="text-xs" style={{ color: 'var(--kc-error)' }}>
+            <p
+              id="email-error"
+              role="alert"
+              className="text-xs"
+              style={{ color: 'var(--kc-error)' }}
+            >
               {form.formState.errors.email.message}
             </p>
           )}
@@ -104,6 +115,10 @@ export default function LoginPage() {
               placeholder={t('passwordPh')}
               className="pl-10 pr-10 h-11"
               aria-invalid={!!form.formState.errors.password}
+              aria-required="true"
+              aria-describedby={
+                form.formState.errors.password ? 'password-error' : undefined
+              }
               {...form.register('password')}
             />
             <button
@@ -120,7 +135,12 @@ export default function LoginPage() {
             </button>
           </div>
           {form.formState.errors.password && (
-            <p className="text-xs" style={{ color: 'var(--kc-error)' }}>
+            <p
+              id="password-error"
+              role="alert"
+              className="text-xs"
+              style={{ color: 'var(--kc-error)' }}
+            >
               {form.formState.errors.password.message}
             </p>
           )}
@@ -157,7 +177,9 @@ export default function LoginPage() {
 
         {form.formState.errors.root && (
           <div
-            className="rounded-lg border p-3"
+            key={form.formState.submitCount}
+            role="alert"
+            className="kc-shake rounded-lg border p-3"
             style={{
               background: 'var(--kc-error-bg)',
               borderColor: 'color-mix(in oklch, var(--kc-error), transparent 70%)',
@@ -172,9 +194,14 @@ export default function LoginPage() {
         <Button
           type="submit"
           className="w-full h-11"
-          disabled={loginMutation.isPending}
+          disabled={loginMutation.isPending || loginMutation.isSuccess}
         >
-          {loginMutation.isPending ? (
+          {loginMutation.isSuccess ? (
+            <>
+              <Check className="mr-2 h-4 w-4 kc-success-pop" />
+              {t('welcomeBack')}
+            </>
+          ) : loginMutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {t('signingIn')}

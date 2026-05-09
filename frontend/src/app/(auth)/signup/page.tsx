@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { Mail, Lock, Eye, EyeOff, User, Loader2 } from 'lucide-react';
+import { Check, Mail, Lock, Eye, EyeOff, User, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +50,7 @@ export default function SignupPage() {
       }),
     onSuccess: (data) => {
       setTokens(data.access_token, data.refresh_token, data.user);
-      router.push('/dashboard');
+      window.setTimeout(() => router.push('/dashboard'), 350);
     },
     onError: (error: Error) => {
       if (error instanceof ApiError && error.status === 409) {
@@ -77,6 +77,8 @@ export default function SignupPage() {
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-5"
         noValidate
+        aria-label={t('createAccount')}
+        aria-busy={signupMutation.isPending}
       >
         {/* Email */}
         <div className="space-y-1.5">
@@ -95,11 +97,20 @@ export default function SignupPage() {
               placeholder={t('emailPh')}
               className="pl-10 h-11"
               aria-invalid={!!form.formState.errors.email}
+              aria-required="true"
+              aria-describedby={
+                form.formState.errors.email ? 'signup-email-error' : undefined
+              }
               {...form.register('email')}
             />
           </div>
           {form.formState.errors.email && (
-            <p className="text-xs" style={{ color: 'var(--kc-error)' }}>
+            <p
+              id="signup-email-error"
+              role="alert"
+              className="text-xs"
+              style={{ color: 'var(--kc-error)' }}
+            >
               {form.formState.errors.email.message}
             </p>
           )}
@@ -178,7 +189,12 @@ export default function SignupPage() {
             </button>
           </div>
           {form.formState.errors.confirmPassword && (
-            <p className="text-xs" style={{ color: 'var(--kc-error)' }}>
+            <p
+              id="confirm-password-error"
+              role="alert"
+              className="text-xs"
+              style={{ color: 'var(--kc-error)' }}
+            >
               {form.formState.errors.confirmPassword.message}
             </p>
           )}
@@ -263,7 +279,9 @@ export default function SignupPage() {
         {/* Root error */}
         {form.formState.errors.root && (
           <div
-            className="rounded-lg border p-3"
+            key={form.formState.submitCount}
+            role="alert"
+            className="kc-shake rounded-lg border p-3"
             style={{
               background: 'var(--kc-error-bg)',
               borderColor:
@@ -280,9 +298,14 @@ export default function SignupPage() {
         <Button
           type="submit"
           className="w-full h-11"
-          disabled={signupMutation.isPending}
+          disabled={signupMutation.isPending || signupMutation.isSuccess}
         >
-          {signupMutation.isPending ? (
+          {signupMutation.isSuccess ? (
+            <>
+              <Check className="mr-2 h-4 w-4 kc-success-pop" />
+              {t('welcomeBack')}
+            </>
+          ) : signupMutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {t('creating')}

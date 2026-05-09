@@ -207,4 +207,57 @@
     font-family: var(--kc-font-sans);
     -webkit-font-smoothing: antialiased;
   }
+
+  /* Visible focus ring on keyboard navigation only */
+  :focus-visible {
+    outline: 2px solid var(--kc-p-500);
+    outline-offset: 2px;
+    border-radius: var(--kc-r-1);
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+/* ============================================================
+   Auth-page animations and platform helpers
+   ============================================================ */
+
+@keyframes kc-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+@keyframes kc-fade-in-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes kc-success-pop {
+  0% { transform: scale(0.7); opacity: 0; }
+  60% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.kc-shake {
+  animation: kc-shake 0.32s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.kc-fade-in {
+  animation: kc-fade-in-up 0.25s ease-out both;
+}
+
+.kc-success-pop {
+  animation: kc-success-pop 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* iOS safe areas + Android nav-bar breathing room on small screens */
+@media (max-width: 1023px) {
+  .kc-safe-area {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
+  }
 }

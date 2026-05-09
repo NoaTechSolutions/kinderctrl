@@ -51,7 +51,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 flex items-center justify-center p-6 sm:p-10 lg:p-16">
+      <main className="flex-1 flex items-center justify-center p-6 sm:p-10 lg:p-16 kc-safe-area">
         <div className="w-full max-w-md">
           <div className="lg:hidden text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-500 text-white font-display text-2xl shadow-lg mb-2">
