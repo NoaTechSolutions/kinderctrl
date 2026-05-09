@@ -1,8 +1,14 @@
 import type { ReactNode } from 'react';
+import { LanguageDropdown } from '@/components/auth/language-dropdown';
+import { ThemeDropdown } from '@/components/auth/theme-dropdown';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-background">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-background relative">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <ThemeDropdown />
+        <LanguageDropdown />
+      </div>
       <aside
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
         style={{

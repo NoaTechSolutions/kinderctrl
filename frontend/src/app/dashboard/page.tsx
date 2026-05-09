@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
+import { LanguageDropdown } from '@/components/auth/language-dropdown';
+import { ThemeDropdown } from '@/components/auth/theme-dropdown';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -35,11 +37,17 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen p-6 sm:p-12 bg-background">
       <div className="max-w-3xl mx-auto">
-        <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
-          Bienvenido {user.email}
-        </h1>
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <h1 className="font-display text-4xl font-semibold tracking-tight">
+            Bienvenido {user.email}
+          </h1>
+          <div className="flex items-center gap-2 flex-none">
+            <ThemeDropdown />
+            <LanguageDropdown />
+          </div>
+        </div>
         <p className="text-muted-foreground mb-8">
-          Rol:{' '}
+          Role:{' '}
           <span
             className="font-semibold"
             style={{ color: 'var(--kc-p-700)' }}
