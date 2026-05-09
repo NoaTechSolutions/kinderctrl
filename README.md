@@ -28,6 +28,34 @@ SaaS platform for daycare/preschool management.
 
 Full documentation: `../KinderCtrl-Docs/`
 
+### Design and references
+
+Design files live outside this repo at `../KinderCtrl-Docs/design/auth/`:
+
+- `kc-login.jsx` — Login page (pixel-perfect reference)
+- `kc-signup.jsx` — Signup page
+- `kc-tokens.css` — Design tokens (colors, fonts, spacing)
+- `kc-icons.jsx` — Custom icons
+- `KinderCtrl.html` — Designer canvas (open in a browser to view)
+- `design-canvas.jsx` — Canvas helper
+
+Implementation prompts live at `../KinderCtrl-Docs/prompts/`.
+
+To view the design canvas in a browser:
+
+```powershell
+cd ..\KinderCtrl-Docs\design\auth
+start KinderCtrl.html
+```
+
+### Current phase status
+
+- [x] Project setup
+- [x] Auth module (JWT + sessions, multi-device logout)
+- [x] Centers module (CRUD + multi-tenancy + ownership guard)
+- [ ] Frontend scaffold (Next.js 15 + Tailwind + shadcn/ui)
+- [ ] Login + Signup pages
+
 ## Architecture
 
 - **Type:** Modular Monolith
@@ -45,15 +73,6 @@ npm install
 cp .env.example .env
 npm run start:dev
 ```
-
-## Current Status
-
-**Phase 1: Foundation** - In Progress
-
-- [x] Project setup
-- [ ] Auth module
-- [ ] Users CRUD
-- [ ] Centers CRUD
 
 ---
 
