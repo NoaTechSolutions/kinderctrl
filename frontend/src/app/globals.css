@@ -2,52 +2,168 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   KinderCtrl design tokens (from KinderCtrl-Docs/design/auth/kc-tokens.css)
+   - Brand hue 245 (blue-violet), oklch palette
+   - Light mode by default, .dark class overrides
+   ============================================================ */
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.871 0.006 286.286);
-  --radius: 0.625rem;
+  /* Brand hue knob — change one value to shift the whole palette */
+  --kc-hue: 245;
+  --kc-chroma: 0.18;
+
+  /* Brand ramp */
+  --kc-p-50:  oklch(97% 0.02 var(--kc-hue));
+  --kc-p-100: oklch(94% 0.04 var(--kc-hue));
+  --kc-p-200: oklch(88% 0.08 var(--kc-hue));
+  --kc-p-300: oklch(80% 0.12 var(--kc-hue));
+  --kc-p-400: oklch(72% 0.15 var(--kc-hue));
+  --kc-p-500: oklch(63% var(--kc-chroma) var(--kc-hue));
+  --kc-p-600: oklch(56% var(--kc-chroma) var(--kc-hue));
+  --kc-p-700: oklch(48% calc(var(--kc-chroma) - 0.02) var(--kc-hue));
+  --kc-p-800: oklch(40% calc(var(--kc-chroma) - 0.04) var(--kc-hue));
+  --kc-p-900: oklch(32% calc(var(--kc-chroma) - 0.06) var(--kc-hue));
+
+  /* Semantic */
+  --kc-success: #10b981;
+  --kc-success-bg: #ecfdf5;
+  --kc-warning: #f59e0b;
+  --kc-warning-bg: #fffbeb;
+  --kc-error: #ef4444;
+  --kc-error-bg: #fef2f2;
+  --kc-info: #06b6d4;
+  --kc-info-bg: #ecfeff;
+
+  /* Neutrals — light */
+  --kc-bg: #fafafa;
+  --kc-surface: #ffffff;
+  --kc-surface-2: #f4f4f5;
+  --kc-surface-3: #ebebed;
+  --kc-border: #e5e7eb;
+  --kc-border-strong: #d1d5db;
+  --kc-text: #0c0d10;
+  --kc-text-2: #4b5563;
+  --kc-text-3: #6b7280;
+  --kc-text-4: #9ca3af;
+
+  /* Glass */
+  --kc-glass: rgba(255, 255, 255, 0.72);
+  --kc-glass-border: rgba(255, 255, 255, 0.6);
+
+  /* Shadows */
+  --kc-shadow-sm: 0 1px 2px rgba(13, 18, 30, 0.06);
+  --kc-shadow: 0 1px 3px rgba(13, 18, 30, 0.06), 0 8px 24px -8px rgba(13, 18, 30, 0.10);
+  --kc-shadow-lg: 0 10px 30px -8px rgba(13, 18, 30, 0.18), 0 30px 60px -20px rgba(13, 18, 30, 0.18);
+  --kc-shadow-glow: 0 8px 30px -8px color-mix(in oklch, var(--kc-p-500), transparent 60%);
+
+  /* Radii */
+  --kc-r-1: 6px;
+  --kc-r-2: 10px;
+  --kc-r-3: 14px;
+  --kc-r-4: 20px;
+  --kc-r-5: 28px;
+
+  /* Typography (font CSS vars are injected by next/font in layout.tsx) */
+  --kc-font-sans: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --kc-font-display: var(--font-space-grotesk), 'Space Grotesk', 'Inter', sans-serif;
+  --kc-font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ─── shadcn variables wired to KC tokens ─── */
+  --background: var(--kc-bg);
+  --foreground: var(--kc-text);
+  --card: var(--kc-surface);
+  --card-foreground: var(--kc-text);
+  --popover: var(--kc-surface);
+  --popover-foreground: var(--kc-text);
+  --primary: var(--kc-p-600);
+  --primary-foreground: #ffffff;
+  --secondary: var(--kc-surface-2);
+  --secondary-foreground: var(--kc-text);
+  --muted: var(--kc-surface-2);
+  --muted-foreground: var(--kc-text-3);
+  --accent: var(--kc-surface-2);
+  --accent-foreground: var(--kc-text);
+  --destructive: var(--kc-error);
+  --destructive-foreground: #ffffff;
+  --border: var(--kc-border);
+  --input: var(--kc-border);
+  --ring: var(--kc-p-500);
+  --radius: var(--kc-r-2);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.141 0.005 285.823);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.141 0.005 285.823);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.274 0.006 286.033);
-  --input: oklch(0.274 0.006 286.033);
-  --ring: oklch(0.442 0.017 285.786);
+  /* Neutrals — dark */
+  --kc-bg: #0a0a0c;
+  --kc-surface: #131418;
+  --kc-surface-2: #1a1c22;
+  --kc-surface-3: #232631;
+  --kc-border: #262830;
+  --kc-border-strong: #353947;
+  --kc-text: #f4f5f7;
+  --kc-text-2: #c2c5cd;
+  --kc-text-3: #8e919b;
+  --kc-text-4: #5e616a;
+
+  /* Glass */
+  --kc-glass: rgba(20, 22, 28, 0.62);
+  --kc-glass-border: rgba(255, 255, 255, 0.08);
+
+  /* Shadows */
+  --kc-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  --kc-shadow-lg: 0 18px 40px -10px rgba(0, 0, 0, 0.6);
+
+  /* Semantic backgrounds (transparent on dark surfaces) */
+  --kc-success-bg: rgba(16, 185, 129, 0.12);
+  --kc-warning-bg: rgba(245, 158, 11, 0.12);
+  --kc-error-bg: rgba(239, 68, 68, 0.12);
+  --kc-info-bg: rgba(6, 182, 212, 0.12);
+
+  /* shadcn re-binds use the same KC vars, so they auto-flip */
+  --background: var(--kc-bg);
+  --foreground: var(--kc-text);
+  --card: var(--kc-surface);
+  --card-foreground: var(--kc-text);
+  --popover: var(--kc-surface);
+  --popover-foreground: var(--kc-text);
+  --primary: var(--kc-p-500);
+  --primary-foreground: var(--kc-text);
+  --secondary: var(--kc-surface-2);
+  --secondary-foreground: var(--kc-text);
+  --muted: var(--kc-surface-2);
+  --muted-foreground: var(--kc-text-3);
+  --accent: var(--kc-surface-2);
+  --accent-foreground: var(--kc-text);
+  --destructive: var(--kc-error);
+  --destructive-foreground: var(--kc-text);
+  --border: var(--kc-border);
+  --input: var(--kc-border);
+  --ring: var(--kc-p-400);
 }
 
+/* ============================================================
+   Tailwind v4 theme — exposes KC tokens as Tailwind utilities
+   ============================================================ */
 @theme inline {
+  /* Brand color ramp (use as bg-primary-500, text-primary-600, etc.) */
+  --color-primary-50:  var(--kc-p-50);
+  --color-primary-100: var(--kc-p-100);
+  --color-primary-200: var(--kc-p-200);
+  --color-primary-300: var(--kc-p-300);
+  --color-primary-400: var(--kc-p-400);
+  --color-primary-500: var(--kc-p-500);
+  --color-primary-600: var(--kc-p-600);
+  --color-primary-700: var(--kc-p-700);
+  --color-primary-800: var(--kc-p-800);
+  --color-primary-900: var(--kc-p-900);
+
+  /* Semantic colors */
+  --color-success: var(--kc-success);
+  --color-warning: var(--kc-warning);
+  --color-error: var(--kc-error);
+  --color-info: var(--kc-info);
+
+  /* shadcn-compatible aliases (used by Button, Input, Card, etc.) */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -67,10 +183,18 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Radii */
+  --radius-sm: var(--kc-r-1);
+  --radius: var(--kc-r-2);
+  --radius-md: var(--kc-r-3);
+  --radius-lg: var(--kc-r-4);
+  --radius-xl: var(--kc-r-5);
+
+  /* Typography family aliases */
+  --font-sans: var(--kc-font-sans);
+  --font-display: var(--kc-font-display);
+  --font-mono: var(--kc-font-mono);
 }
 
 @layer base {
@@ -78,7 +202,9 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+    background: var(--kc-bg);
+    color: var(--kc-text);
+    font-family: var(--kc-font-sans);
+    -webkit-font-smoothing: antialiased;
   }
 }
