@@ -9,17 +9,31 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { translations, type Locale, type TranslationKey } from './translations';
+import { translations, type Locale } from './translations';
 
 const STORAGE_KEY = 'kc-locale';
 
 interface I18nContextValue {
   locale: Locale;
-  t: (key: TranslationKey) => string;
+  t: (key: string) => string;
   setLocale: (locale: Locale) => void;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
+
+function lookupKey(table: unknown, key: string): string | undefined {
+  if (!table || typeof table !== 'object') return undefined;
+  const parts = key.split('.');
+  let current: unknown = table;
+  for (const part of parts) {
+    if (current && typeof current === 'object' && part in current) {
+      current = (current as Record<string, unknown>)[part];
+    } else {
+      return undefined;
+    }
+  }
+  return typeof current === 'string' ? current : undefined;
+}
 
 function detectLocale(): Locale {
   if (typeof window === 'undefined') return 'en';
@@ -61,9 +75,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback(
-    (key: TranslationKey) => {
-      const value = translations[locale]?.[key] ?? translations.en[key] ?? key;
-      return String(value);
+    (key: string) => {
+      return (
+        lookupKey(translations[locale], key) ??
+        lookupKey(translations.en, key) ??
+        key
+      );
     },
     [locale],
   );
