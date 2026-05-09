@@ -37,8 +37,8 @@ export const centerSchema = z.object({
     .min(1, 'Email is required')
     .email('Invalid email format'),
 
-  capacity: z.coerce
-    .number()
+  capacity: z
+    .number({ message: 'Capacity is required' })
     .int('Capacity must be a whole number')
     .min(1, 'Capacity must be at least 1')
     .max(1000, 'Capacity must be less than 1000'),
