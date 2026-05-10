@@ -120,6 +120,44 @@ export const translations = {
       statusSuspended: 'Suspended',
       statusClosed: 'Closed',
     },
+
+    setup: {
+      // Banner on center detail page
+      pendingTitle: 'Setup pending — finish onboarding',
+      pendingDescription:
+        'Set your operating hours below to activate this center and unlock all features.',
+
+      // Hours form
+      hoursFormTitle: 'Set operating hours',
+      hoursFormHelp:
+        'Pick the days you are open and set the time range. Saving the hours will mark this center as Active.',
+      hoursFormSubmit: 'Save hours and activate',
+      hoursFormSaving: 'Saving…',
+      hoursFormSaved: 'Saved',
+      hoursFormError: 'Could not save hours',
+
+      day_sunday: 'Sunday',
+      day_monday: 'Monday',
+      day_tuesday: 'Tuesday',
+      day_wednesday: 'Wednesday',
+      day_thursday: 'Thursday',
+      day_friday: 'Friday',
+      day_saturday: 'Saturday',
+      dayClosed: 'Closed',
+
+      errOneDayMin: 'Pick at least one open day.',
+      errOpenBeforeClose: '{day}: opening time must be before closing time.',
+
+      // Dashboard banner
+      dashboardNoCenterTitle: 'No center yet',
+      dashboardNoCenterDescription:
+        'Create your first center to start managing children, staff and billing.',
+      dashboardCreateCenter: 'Create center',
+      dashboardCompleteTitle: 'Complete your setup',
+      dashboardCompleteDescription:
+        'Set operating hours for {name} to unlock all features.',
+      dashboardContinue: 'Continue setup',
+    },
   },
   es: {
     // Locale meta
@@ -239,6 +277,45 @@ export const translations = {
       statusActive: 'Activo',
       statusSuspended: 'Suspendido',
       statusClosed: 'Cerrado',
+    },
+
+    setup: {
+      // Banner en detalle de centro
+      pendingTitle: 'Configuración pendiente — termina el alta',
+      pendingDescription:
+        'Configura los horarios de operación más abajo para activar este centro y desbloquear todas las funciones.',
+
+      // Formulario de horarios
+      hoursFormTitle: 'Configurar horarios de operación',
+      hoursFormHelp:
+        'Elige los días que abres y define el rango horario. Al guardar los horarios el centro pasa a Activo.',
+      hoursFormSubmit: 'Guardar horarios y activar',
+      hoursFormSaving: 'Guardando…',
+      hoursFormSaved: 'Guardado',
+      hoursFormError: 'No se pudieron guardar los horarios',
+
+      day_sunday: 'Domingo',
+      day_monday: 'Lunes',
+      day_tuesday: 'Martes',
+      day_wednesday: 'Miércoles',
+      day_thursday: 'Jueves',
+      day_friday: 'Viernes',
+      day_saturday: 'Sábado',
+      dayClosed: 'Cerrado',
+
+      errOneDayMin: 'Selecciona al menos un día abierto.',
+      errOpenBeforeClose:
+        '{day}: la hora de apertura debe ser anterior a la de cierre.',
+
+      // Banner del dashboard
+      dashboardNoCenterTitle: 'Aún no tienes centro',
+      dashboardNoCenterDescription:
+        'Crea tu primer centro para empezar a gestionar niños, personal y facturación.',
+      dashboardCreateCenter: 'Crear centro',
+      dashboardCompleteTitle: 'Completa la configuración',
+      dashboardCompleteDescription:
+        'Configura los horarios de {name} para desbloquear todas las funciones.',
+      dashboardContinue: 'Continuar configuración',
     },
   },
 } as const;

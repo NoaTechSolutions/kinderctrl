@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { MobileNav } from '@/components/layout/mobile-nav';
+import { SetupIncompleteBanner } from '@/components/dashboard/setup-incomplete-banner';
 import { useAuthStore } from '@/store/auth';
 
 export default function DashboardGroupLayout({
@@ -55,7 +56,10 @@ export default function DashboardGroupLayout({
           className="flex-1 overflow-y-auto"
           style={{ background: 'var(--kc-bg)' }}
         >
-          <div className="container mx-auto p-6 max-w-7xl">{children}</div>
+          <div className="container mx-auto p-6 max-w-7xl space-y-4">
+            <SetupIncompleteBanner />
+            {children}
+          </div>
         </main>
       </div>
     </div>

@@ -30,6 +30,8 @@ import { StatusBadge } from '@/components/centers/status-badge';
 import { CenterStats } from '@/components/centers/center-stats';
 import { DeleteCenterDialog } from '@/components/centers/delete-dialog';
 import { CenterHoursDisplay } from '@/components/centers/center-hours-display';
+import { SetupPendingBanner } from '@/components/centers/setup-pending-banner';
+import { HoursForm } from '@/components/centers/hours-form';
 
 export default function CenterDetailPage() {
   const { t } = useTranslation();
@@ -96,6 +98,7 @@ export default function CenterDetailPage() {
   if (!center) return null;
 
   const isClosed = center.status === 'CLOSED';
+  const isSetupPending = center.status === 'SETUP_PENDING';
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -184,6 +187,9 @@ export default function CenterDetailPage() {
         </div>
       )}
 
+      {/* Setup pending banner */}
+      {isSetupPending && <SetupPendingBanner />}
+
       {/* Stats */}
       <CenterStats capacity={center.capacity} />
 
@@ -226,6 +232,9 @@ export default function CenterDetailPage() {
 
         <CenterHoursDisplay hours={center.centerHours} />
       </div>
+
+      {/* Hours form (only while setup pending) */}
+      {isSetupPending && <HoursForm centerId={center.id} />}
     </div>
   );
 }

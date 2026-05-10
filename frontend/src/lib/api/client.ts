@@ -107,6 +107,15 @@ export async function apiRequest<T = unknown>(
   }
 
   if (!response.ok) {
+    if (response.status === 403 && typeof window !== 'undefined') {
+      const redirectTo =
+        typeof parsed === 'object' && parsed !== null && 'redirectTo' in parsed
+          ? String((parsed as { redirectTo: unknown }).redirectTo)
+          : null;
+      if (redirectTo && window.location.pathname !== redirectTo) {
+        window.location.href = redirectTo;
+      }
+    }
     const msg =
       typeof parsed === 'object' && parsed !== null && 'message' in parsed
         ? String((parsed as { message: unknown }).message)
