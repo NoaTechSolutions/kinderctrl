@@ -75,7 +75,7 @@ export class CentersController {
   @Delete(':id')
   @SkipSetupCheck()
   @UseGuards(CenterOwnershipGuard)
-  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.centersService.remove(id);
