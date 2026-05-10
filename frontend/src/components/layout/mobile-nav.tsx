@@ -43,10 +43,12 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
   const user = useAuthStore((s) => s.user);
   const { data: centers } = useCenters();
 
-  const isSingleCenterDirector =
-    user?.role === 'DIRECTOR' && centers?.length === 1;
+  // See sidebar.tsx for rationale: directors get singular + direct
+  // detail link whenever they have >=1 center.
+  const directorWithCenter =
+    user?.role === 'DIRECTOR' && (centers?.length ?? 0) >= 1;
 
-  const centerItem: NavItem = isSingleCenterDirector
+  const centerItem: NavItem = directorWithCenter
     ? {
         title: t('centers.titleSingular'),
         href: `/centers/${centers![0].id}`,

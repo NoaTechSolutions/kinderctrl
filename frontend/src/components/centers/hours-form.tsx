@@ -121,7 +121,7 @@ export function HoursFormDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
-          <Clock className="mr-2 h-4 w-4" />
+          <Clock className="h-4 w-4" />
           {t('setup.hoursTriggerButton')}
         </Button>
       </DialogTrigger>

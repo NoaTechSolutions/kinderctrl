@@ -40,10 +40,14 @@ export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const { data: centers } = useCenters();
 
-  const isSingleCenterDirector =
-    user?.role === 'DIRECTOR' && centers?.length === 1;
+  // Directors land directly on their primary center (centers[0] by
+  // createdAt desc from backend). Multi-center cases use the dashboard
+  // banner or URL bar to reach other centers; SUPER_ADMIN and others
+  // keep the plural list view.
+  const directorWithCenter =
+    user?.role === 'DIRECTOR' && (centers?.length ?? 0) >= 1;
 
-  const centerItem: NavItem = isSingleCenterDirector
+  const centerItem: NavItem = directorWithCenter
     ? {
         title: t('centers.titleSingular'),
         href: `/centers/${centers![0].id}`,

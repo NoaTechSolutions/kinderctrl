@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import {
   ArrowLeft,
   Building2,
@@ -23,32 +23,20 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCenter, useDeleteCenter } from '@/lib/hooks/use-centers';
+import { useCenter } from '@/lib/hooks/use-centers';
 import { ApiError } from '@/lib/api/client';
 import { useTranslation } from '@/lib/i18n';
 import { StatusBadge } from '@/components/centers/status-badge';
 import { CenterStats } from '@/components/centers/center-stats';
-import { DeleteCenterDialog } from '@/components/centers/delete-dialog';
 import { CenterHoursDisplay } from '@/components/centers/center-hours-display';
 import { SetupPendingBanner } from '@/components/centers/setup-pending-banner';
 
 export default function CenterDetailPage() {
   const { t } = useTranslation();
-  const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params?.id;
 
   const { data: center, isLoading, error } = useCenter(id);
-  const deleteMutation = useDeleteCenter();
-
-  const handleDelete = () => {
-    if (!id) return;
-    deleteMutation.mutate(id, {
-      onSuccess: () => {
-        router.push('/centers');
-      },
-    });
-  };
 
   if (isLoading) {
     return (
@@ -156,35 +144,8 @@ export default function CenterDetailPage() {
               {t('centers.edit')}
             </Link>
           </Button>
-          {!isClosed && (
-            <DeleteCenterDialog
-              centerName={center.name}
-              isDeleting={deleteMutation.isPending}
-              onConfirm={handleDelete}
-            />
-          )}
         </div>
       </div>
-
-      {/* Delete error if any */}
-      {deleteMutation.error && (
-        <div
-          role="alert"
-          className="rounded-lg border p-3"
-          style={{
-            background: 'var(--kc-error-bg)',
-            borderColor:
-              'color-mix(in oklch, var(--kc-error), transparent 70%)',
-          }}
-        >
-          <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
-            {deleteMutation.error instanceof ApiError &&
-            deleteMutation.error.status === 409
-              ? deleteMutation.error.message
-              : t('centers.deleteError')}
-          </p>
-        </div>
-      )}
 
       {/* Setup pending banner */}
       {isSetupPending && <SetupPendingBanner />}
