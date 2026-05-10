@@ -8,6 +8,7 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { SkipSetupCheck } from '../centers/decorators/skip-setup-check.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -38,6 +39,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @SkipSetupCheck()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@CurrentUser() user: { sessionId: string }): Promise<void> {
@@ -45,6 +47,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @SkipSetupCheck()
   @Get('me')
   async me(@CurrentUser() user: { id: string; email: string; role: string; centerId: string | null }) {
     return {

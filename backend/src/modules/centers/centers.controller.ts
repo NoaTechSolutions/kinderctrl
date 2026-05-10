@@ -21,6 +21,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CenterOwnershipGuard } from './guards/center-ownership.guard';
+import { SkipSetupCheck } from './decorators/skip-setup-check.decorator';
 
 interface AuthUser {
   id: string;
@@ -36,6 +37,7 @@ export class CentersController {
   constructor(private readonly centersService: CentersService) {}
 
   @Post()
+  @SkipSetupCheck()
   @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
   async create(
     @Body() createCenterDto: CreateCenterDto,
@@ -45,11 +47,13 @@ export class CentersController {
   }
 
   @Get()
+  @SkipSetupCheck()
   async findAll(@CurrentUser() user: AuthUser) {
     return this.centersService.findAll(user.id, user.role);
   }
 
   @Get(':id')
+  @SkipSetupCheck()
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
@@ -58,6 +62,7 @@ export class CentersController {
   }
 
   @Patch(':id')
+  @SkipSetupCheck()
   @UseGuards(CenterOwnershipGuard)
   @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
   async update(
@@ -68,6 +73,7 @@ export class CentersController {
   }
 
   @Delete(':id')
+  @SkipSetupCheck()
   @UseGuards(CenterOwnershipGuard)
   @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -76,6 +82,7 @@ export class CentersController {
   }
 
   @Post(':id/hours')
+  @SkipSetupCheck()
   @UseGuards(CenterOwnershipGuard)
   @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
   async setCenterHours(
