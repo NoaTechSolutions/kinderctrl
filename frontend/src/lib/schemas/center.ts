@@ -37,6 +37,12 @@ export const centerSchema = z.object({
     .min(1, 'Email is required')
     .email('Invalid email format'),
 
+  website: z
+    .string()
+    .url('Website must be a valid URL (e.g., https://example.com)')
+    .optional()
+    .or(z.literal('')),
+
   capacity: z
     .number({ message: 'Capacity is required' })
     .int('Capacity must be a whole number')

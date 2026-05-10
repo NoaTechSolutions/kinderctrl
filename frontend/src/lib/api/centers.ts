@@ -21,6 +21,9 @@ function cleanCreatePayload(data: CenterFormData) {
   if (out.licenseNumber === '' || out.licenseNumber == null) {
     delete out.licenseNumber;
   }
+  if (out.website === '' || out.website == null) {
+    delete out.website;
+  }
   if (!out.timezone) {
     delete out.timezone;
   }
@@ -38,6 +41,9 @@ export function updateCenter(id: string, data: CenterUpdateData) {
   const payload: Record<string, unknown> = { ...data };
   if (payload.licenseNumber === '') {
     payload.licenseNumber = null;
+  }
+  if (payload.website === '') {
+    payload.website = null;
   }
   return apiRequest<Center>(`/centers/${id}`, {
     method: 'PATCH',

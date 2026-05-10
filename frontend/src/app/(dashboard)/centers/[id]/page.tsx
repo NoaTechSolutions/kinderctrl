@@ -31,7 +31,6 @@ import { CenterStats } from '@/components/centers/center-stats';
 import { DeleteCenterDialog } from '@/components/centers/delete-dialog';
 import { CenterHoursDisplay } from '@/components/centers/center-hours-display';
 import { SetupPendingBanner } from '@/components/centers/setup-pending-banner';
-import { HoursForm } from '@/components/centers/hours-form';
 
 export default function CenterDetailPage() {
   const { t } = useTranslation();
@@ -212,6 +211,19 @@ export default function CenterDetailPage() {
               <InfoRow icon={Mail} label={t('centers.email')}>
                 <span className="break-all">{center.email}</span>
               </InfoRow>
+              {center.website && (
+                <InfoRow icon={Globe} label={t('centers.website')}>
+                  <a
+                    href={center.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all hover:underline"
+                    style={{ color: 'var(--kc-p-600)' }}
+                  >
+                    {center.website}
+                  </a>
+                </InfoRow>
+              )}
               <InfoRow icon={Users} label={t('centers.capacity')}>
                 {center.capacity} children
               </InfoRow>
@@ -230,11 +242,12 @@ export default function CenterDetailPage() {
           </CardContent>
         </Card>
 
-        <CenterHoursDisplay hours={center.centerHours} />
+        <CenterHoursDisplay
+          hours={center.centerHours}
+          centerId={isSetupPending ? center.id : undefined}
+          centerName={isSetupPending ? center.name : undefined}
+        />
       </div>
-
-      {/* Hours form (only while setup pending) */}
-      {isSetupPending && <HoursForm centerId={center.id} />}
     </div>
   );
 }

@@ -1,12 +1,13 @@
 'use client';
 
-import { Calendar } from 'lucide-react';
+import { Calendar, Clock } from 'lucide-react';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { HoursFormDialog } from '@/components/centers/hours-form';
 import type { CenterHours } from '@/lib/types/center';
 
 const DAY_NAMES = [
@@ -21,10 +22,23 @@ const DAY_NAMES = [
 
 interface CenterHoursDisplayProps {
   hours: CenterHours[] | undefined;
+  /**
+   * Optional: when set together with centerName, an empty hours card will
+   * include a "Set Hours" trigger that opens HoursFormDialog. Used for the
+   * onboarding flow where DIRECTOR needs to set hours to activate a center.
+   */
+  centerId?: string;
+  centerName?: string;
 }
 
-export function CenterHoursDisplay({ hours }: CenterHoursDisplayProps) {
+export function CenterHoursDisplay({
+  hours,
+  centerId,
+  centerName,
+}: CenterHoursDisplayProps) {
   const sorted = (hours ?? []).slice().sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+  const showSetHoursTrigger =
+    sorted.length === 0 && !!centerId && !!centerName;
 
   return (
     <Card>
@@ -36,9 +50,22 @@ export function CenterHoursDisplay({ hours }: CenterHoursDisplayProps) {
       </CardHeader>
       <CardContent>
         {sorted.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--kc-text-3)' }}>
-            No hours configured yet.
-          </p>
+          <div className="flex flex-col items-center text-center py-4 gap-3">
+            <Clock
+              className="h-10 w-10"
+              style={{ color: 'var(--kc-text-3)' }}
+              aria-hidden
+            />
+            <p className="text-sm" style={{ color: 'var(--kc-text-3)' }}>
+              No hours configured yet.
+            </p>
+            {showSetHoursTrigger && (
+              <HoursFormDialog
+                centerId={centerId!}
+                centerName={centerName!}
+              />
+            )}
+          </div>
         ) : (
           <ul className="space-y-1.5">
             {sorted.map((h) => (

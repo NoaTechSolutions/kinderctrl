@@ -40,6 +40,7 @@ const DEFAULT_VALUES: CenterFormData = {
   zipCode: '',
   phone: '',
   email: '',
+  website: '',
   capacity: 30,
   timezone: 'America/Los_Angeles',
   licenseNumber: '',
@@ -55,6 +56,7 @@ function toFormDefaults(center?: Center): CenterFormData {
     zipCode: center.zipCode,
     phone: center.phone,
     email: center.email,
+    website: center.website ?? '',
     capacity: center.capacity,
     timezone: (VALID_TIMEZONES as readonly string[]).includes(center.timezone)
       ? (center.timezone as CenterFormData['timezone'])
@@ -280,6 +282,21 @@ export function CenterForm({
             placeholder={t('centers.emailPlaceholder')}
             disabled={isSubmitting}
             {...form.register('email')}
+          />
+        </Field>
+
+        <Field
+          id="website"
+          label={t('centers.website')}
+          error={form.formState.errors.website?.message}
+          full
+        >
+          <Input
+            id="website"
+            type="url"
+            placeholder={t('centers.websitePlaceholder')}
+            disabled={isSubmitting}
+            {...form.register('website')}
           />
         </Field>
       </Section>

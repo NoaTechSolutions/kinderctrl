@@ -93,6 +93,8 @@ export const translations = {
       phonePlaceholder: '+14155551234',
       email: 'Email',
       emailPlaceholder: 'contact@center.com',
+      website: 'Website (optional)',
+      websitePlaceholder: 'https://www.example.com',
       capacity: 'Capacity',
       capacityPlaceholder: 'Maximum children',
       timezone: 'Timezone',
@@ -129,6 +131,7 @@ export const translations = {
 
       // Hours form
       hoursFormTitle: 'Set operating hours',
+      hoursTriggerButton: 'Set Hours',
       hoursFormHelp:
         'Pick the days you are open and set the time range. Saving the hours will mark this center as Active.',
       hoursFormSubmit: 'Save hours and activate',
@@ -251,6 +254,8 @@ export const translations = {
       phonePlaceholder: '+14155551234',
       email: 'Email',
       emailPlaceholder: 'contacto@centro.com',
+      website: 'Sitio web (opcional)',
+      websitePlaceholder: 'https://www.ejemplo.com',
       capacity: 'Capacidad',
       capacityPlaceholder: 'Máximo de niños',
       timezone: 'Zona horaria',
@@ -287,6 +292,7 @@ export const translations = {
 
       // Formulario de horarios
       hoursFormTitle: 'Configurar horarios de operación',
+      hoursTriggerButton: 'Configurar horarios',
       hoursFormHelp:
         'Elige los días que abres y define el rango horario. Al guardar los horarios el centro pasa a Activo.',
       hoursFormSubmit: 'Guardar horarios y activar',

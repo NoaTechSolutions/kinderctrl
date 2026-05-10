@@ -14,6 +14,7 @@ export interface Center {
   zipCode: string;
   phone: string;
   email: string;
+  website: string | null;
   capacity: number;
   licenseNumber: string | null;
   timezone: string;

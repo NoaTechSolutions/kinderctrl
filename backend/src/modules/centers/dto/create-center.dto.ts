@@ -7,6 +7,7 @@ import {
   IsIn,
   Length,
   Matches,
+  IsUrl,
 } from 'class-validator';
 import { VALID_TIMEZONES } from '../types/center.types';
 
@@ -38,6 +39,10 @@ export class CreateCenterDto {
 
   @IsEmail()
   email: string;
+
+  @IsOptional()
+  @IsUrl({ require_protocol: true }, { message: 'Website must be a valid URL (e.g., https://example.com)' })
+  website?: string;
 
   @IsOptional()
   @IsIn(VALID_TIMEZONES, { message: 'Invalid timezone' })

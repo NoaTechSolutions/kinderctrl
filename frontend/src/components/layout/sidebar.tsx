@@ -16,6 +16,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { useAuthStore } from '@/store/auth';
+import { useCenters } from '@/lib/hooks/use-centers';
+import { useTranslation } from '@/lib/i18n';
 
 interface NavItem {
   title: string;
@@ -23,17 +26,6 @@ interface NavItem {
   icon: LucideIcon;
   active: boolean;
 }
-
-const NAV_ITEMS: NavItem[] = [
-  { title: 'Dashboard', href: '/dashboard', icon: Home, active: true },
-  { title: 'Centers', href: '/centers', icon: Building2, active: true },
-  { title: 'Children', href: '/children', icon: Baby, active: false },
-  { title: 'Staff', href: '/staff', icon: Users, active: false },
-  { title: 'Parents', href: '/parents', icon: UserCog, active: false },
-  { title: 'Attendance', href: '/attendance', icon: Calendar, active: false },
-  { title: 'Reports', href: '/reports', icon: BarChart3, active: false },
-  { title: 'Billing', href: '/billing', icon: CreditCard, active: false },
-];
 
 const FOOTER_ITEM: NavItem = {
   title: 'Settings',
@@ -44,6 +36,37 @@ const FOOTER_ITEM: NavItem = {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const { data: centers } = useCenters();
+
+  const isSingleCenterDirector =
+    user?.role === 'DIRECTOR' && centers?.length === 1;
+
+  const centerItem: NavItem = isSingleCenterDirector
+    ? {
+        title: t('centers.titleSingular'),
+        href: `/centers/${centers![0].id}`,
+        icon: Building2,
+        active: true,
+      }
+    : {
+        title: t('centers.title'),
+        href: '/centers',
+        icon: Building2,
+        active: true,
+      };
+
+  const NAV_ITEMS: NavItem[] = [
+    { title: 'Dashboard', href: '/dashboard', icon: Home, active: true },
+    centerItem,
+    { title: 'Children', href: '/children', icon: Baby, active: false },
+    { title: 'Staff', href: '/staff', icon: Users, active: false },
+    { title: 'Parents', href: '/parents', icon: UserCog, active: false },
+    { title: 'Attendance', href: '/attendance', icon: Calendar, active: false },
+    { title: 'Reports', href: '/reports', icon: BarChart3, active: false },
+    { title: 'Billing', href: '/billing', icon: CreditCard, active: false },
+  ];
 
   return (
     <div
@@ -88,7 +111,9 @@ export function Sidebar() {
 
 function SidebarItem({ item, pathname }: { item: NavItem; pathname: string }) {
   const Icon = item.icon;
-  const isActive = pathname.startsWith(item.href);
+  const isActive = item.href.startsWith('/centers')
+    ? pathname.startsWith('/centers')
+    : pathname.startsWith(item.href);
 
   if (!item.active) {
     return (

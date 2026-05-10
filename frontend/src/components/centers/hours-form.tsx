@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { Clock, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -16,8 +18,9 @@ import { useSetCenterHours } from '@/lib/hooks/use-centers';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
 
-interface HoursFormProps {
+interface HoursFormDialogProps {
   centerId: string;
+  centerName: string;
 }
 
 interface DayHours {
@@ -27,7 +30,15 @@ interface DayHours {
   closeTime: string;
 }
 
-const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+const DAY_KEYS = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const;
 
 const buildDefaults = (): DayHours[] =>
   DAY_KEYS.map((_, i) => ({
@@ -37,8 +48,12 @@ const buildDefaults = (): DayHours[] =>
     closeTime: '18:00',
   }));
 
-export function HoursForm({ centerId }: HoursFormProps) {
+export function HoursFormDialog({
+  centerId,
+  centerName,
+}: HoursFormDialogProps) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   const [days, setDays] = useState<DayHours[]>(buildDefaults);
   const [validationError, setValidationError] = useState<string | null>(null);
   const mutation = useSetCenterHours();
@@ -48,6 +63,17 @@ export function HoursForm({ centerId }: HoursFormProps) {
       prev.map((d, i) => (i === idx ? { ...d, ...patch } : d)),
     );
     setValidationError(null);
+  };
+
+  const resetForm = () => {
+    setDays(buildDefaults());
+    setValidationError(null);
+    mutation.reset();
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) resetForm();
+    setOpen(next);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -71,28 +97,40 @@ export function HoursForm({ centerId }: HoursFormProps) {
       }
     }
 
-    mutation.mutate({
-      id: centerId,
-      hours: openDays.map((d) => ({
-        dayOfWeek: d.dayOfWeek,
-        openTime: d.openTime,
-        closeTime: d.closeTime,
-      })),
-    });
+    mutation.mutate(
+      {
+        id: centerId,
+        hours: openDays.map((d) => ({
+          dayOfWeek: d.dayOfWeek,
+          openTime: d.openTime,
+          closeTime: d.closeTime,
+        })),
+      },
+      {
+        onSuccess: () => {
+          window.setTimeout(() => setOpen(false), 600);
+        },
+      },
+    );
   };
 
   const isPending = mutation.isPending;
   const isSuccess = mutation.isSuccess;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Clock className="h-4 w-4" aria-hidden />
-          {t('setup.hoursFormTitle')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button>
+          <Clock className="mr-2 h-4 w-4" />
+          {t('setup.hoursTriggerButton')}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t('setup.hoursFormTitle')}</DialogTitle>
+          <DialogDescription>{centerName}</DialogDescription>
+        </DialogHeader>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
             {t('setup.hoursFormHelp')}
@@ -104,7 +142,8 @@ export function HoursForm({ centerId }: HoursFormProps) {
                 key={d.dayOfWeek}
                 className="flex flex-wrap items-center gap-3 rounded-md border p-3"
                 style={{
-                  borderColor: 'color-mix(in oklch, var(--kc-border), transparent 30%)',
+                  borderColor:
+                    'color-mix(in oklch, var(--kc-border), transparent 30%)',
                   background: d.isOpen
                     ? 'transparent'
                     : 'color-mix(in oklch, var(--kc-bg-2), transparent 50%)',
@@ -169,7 +208,8 @@ export function HoursForm({ centerId }: HoursFormProps) {
               className="rounded-md border p-3"
               style={{
                 background: 'var(--kc-error-bg)',
-                borderColor: 'color-mix(in oklch, var(--kc-error), transparent 70%)',
+                borderColor:
+                  'color-mix(in oklch, var(--kc-error), transparent 70%)',
               }}
             >
               <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
@@ -184,7 +224,8 @@ export function HoursForm({ centerId }: HoursFormProps) {
               className="rounded-md border p-3"
               style={{
                 background: 'var(--kc-error-bg)',
-                borderColor: 'color-mix(in oklch, var(--kc-error), transparent 70%)',
+                borderColor:
+                  'color-mix(in oklch, var(--kc-error), transparent 70%)',
               }}
             >
               <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
@@ -195,27 +236,33 @@ export function HoursForm({ centerId }: HoursFormProps) {
             </div>
           )}
 
-          <Button
-            type="submit"
-            className="w-full sm:w-auto"
-            disabled={isPending || isSuccess}
-          >
-            {isSuccess ? (
-              <>
-                <Check className="mr-2 h-4 w-4" />
-                {t('setup.hoursFormSaved')}
-              </>
-            ) : isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t('setup.hoursFormSaving')}
-              </>
-            ) : (
-              t('setup.hoursFormSubmit')
-            )}
-          </Button>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={isPending}
+            >
+              {t('centers.cancel')}
+            </Button>
+            <Button type="submit" disabled={isPending || isSuccess}>
+              {isSuccess ? (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  {t('setup.hoursFormSaved')}
+                </>
+              ) : isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('setup.hoursFormSaving')}
+                </>
+              ) : (
+                t('setup.hoursFormSubmit')
+              )}
+            </Button>
+          </div>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
