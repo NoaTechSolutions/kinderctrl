@@ -257,7 +257,6 @@
   .kc-safe-area {
     padding-top: max(1rem, env(safe-area-inset-top));
     padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
-    padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
-    padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
+    /* Lateral padding handled by Tailwind p-6/sm:p-10/lg:p-16 — don't override */
   }
 }
