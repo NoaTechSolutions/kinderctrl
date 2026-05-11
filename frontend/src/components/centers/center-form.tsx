@@ -110,8 +110,15 @@ export function CenterForm({
   const { rootMessage, fieldMessages } = extractFieldErrors(serverError);
 
   const handleCancel = () => {
-    if (onCancel) onCancel();
-    else router.push('/centers');
+    if (onCancel) {
+      onCancel();
+      return;
+    }
+    if (mode === 'edit' && initialData?.id) {
+      router.push(`/centers/${initialData.id}`);
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   return (

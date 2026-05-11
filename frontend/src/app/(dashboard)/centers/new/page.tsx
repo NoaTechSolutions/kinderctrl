@@ -27,9 +27,9 @@ export default function NewCenterPage() {
     <div className="space-y-6 max-w-3xl">
       <div className="space-y-2">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
-          <Link href="/centers">
+          <Link href="/dashboard">
             <ArrowLeft className="mr-1 h-4 w-4" />
-            {t('centers.title')}
+            Dashboard
           </Link>
         </Button>
         <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight">

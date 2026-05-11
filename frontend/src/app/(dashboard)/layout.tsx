@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { MobileNav } from '@/components/layout/mobile-nav';
 import { SetupIncompleteBanner } from '@/components/dashboard/setup-incomplete-banner';
 import { useAuthStore } from '@/store/auth';
+import { useCenters } from '@/lib/hooks/use-centers';
 
 export default function DashboardGroupLayout({
   children,
@@ -14,10 +15,15 @@ export default function DashboardGroupLayout({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const accessToken = useAuthStore((s) => s.accessToken);
   const refreshToken = useAuthStore((s) => s.refreshToken);
+  const user = useAuthStore((s) => s.user);
   const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const isAuthenticated = !!accessToken;
+  const { data: centers, isFetched: centersFetched } = useCenters();
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -25,6 +31,27 @@ export default function DashboardGroupLayout({
       router.replace('/login');
     }
   }, [hasHydrated, accessToken, refreshToken, router]);
+
+  // First-time DIRECTOR redirect: land on /dashboard with zero centers
+  // -> push them straight to /centers/new (BUG-001). One-time per fresh
+  // account; subsequent loads pass because useCenters() returns N>=1.
+  useEffect(() => {
+    if (!hasHydrated || !isAuthenticated) return;
+    if (pathname !== '/dashboard') return;
+    if (user?.role !== 'DIRECTOR') return;
+    if (!centersFetched) return;
+    if (centers && centers.length === 0) {
+      router.replace('/centers/new');
+    }
+  }, [
+    hasHydrated,
+    isAuthenticated,
+    pathname,
+    user,
+    centers,
+    centersFetched,
+    router,
+  ]);
 
   if (!hasHydrated) {
     return (
