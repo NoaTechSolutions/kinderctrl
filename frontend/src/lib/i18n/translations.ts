@@ -137,6 +137,7 @@ export const translations = {
       // Hours form
       hoursFormTitle: 'Set operating hours',
       hoursTriggerButton: 'Set Hours',
+      editHoursTrigger: 'Edit Hours',
       hoursFormHelp:
         'Pick the days you are open and set the time range. Saving the hours will mark this center as Active.',
       hoursFormSubmit: 'Save hours and activate',
@@ -303,6 +304,7 @@ export const translations = {
       // Formulario de horarios
       hoursFormTitle: 'Configurar horarios de operación',
       hoursTriggerButton: 'Configurar horarios',
+      editHoursTrigger: 'Editar horarios',
       hoursFormHelp:
         'Elige los días que abres y define el rango horario. Al guardar los horarios el centro pasa a Activo.',
       hoursFormSubmit: 'Guardar horarios y activar',

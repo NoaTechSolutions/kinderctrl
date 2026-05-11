@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { HoursFormDialog } from '@/components/centers/hours-form';
-import type { CenterHours } from '@/lib/types/center';
+import type { CenterHours, CenterStatus } from '@/lib/types/center';
 
 const DAY_NAMES = [
   'Sunday',
@@ -23,33 +23,49 @@ const DAY_NAMES = [
 interface CenterHoursDisplayProps {
   hours: CenterHours[] | undefined;
   /**
-   * Optional: when set together with centerName, an empty hours card will
-   * include a "Set Hours" trigger that opens HoursFormDialog. Used for the
-   * onboarding flow where DIRECTOR needs to set hours to activate a center.
+   * When centerId + centerName are provided AND the center is not CLOSED,
+   * the card surfaces a trigger to set/edit operating hours:
+   *  - empty state -> primary "Set Hours" button in the empty placeholder
+   *  - has hours    -> ghost "Edit Hours" button in the card header
+   * Passing them is safe at any time; the component picks the right
+   * variant based on whether hours exist.
    */
   centerId?: string;
   centerName?: string;
+  centerStatus?: CenterStatus;
 }
 
 export function CenterHoursDisplay({
   hours,
   centerId,
   centerName,
+  centerStatus,
 }: CenterHoursDisplayProps) {
   const sorted = (hours ?? []).slice().sort((a, b) => a.dayOfWeek - b.dayOfWeek);
-  const showSetHoursTrigger =
-    sorted.length === 0 && !!centerId && !!centerName;
+  const hasHours = sorted.length > 0;
+  const canManageHours =
+    !!centerId && !!centerName && centerStatus !== 'CLOSED';
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Calendar className="h-4 w-4" aria-hidden />
-          Operating hours
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Calendar className="h-4 w-4" aria-hidden />
+            Operating hours
+          </CardTitle>
+          {canManageHours && hasHours && (
+            <HoursFormDialog
+              centerId={centerId!}
+              centerName={centerName!}
+              initialHours={hours}
+              triggerStyle="edit"
+            />
+          )}
+        </div>
       </CardHeader>
       <CardContent>
-        {sorted.length === 0 ? (
+        {!hasHours ? (
           <div className="flex flex-col items-center text-center py-4 gap-3">
             <Clock
               className="h-10 w-10"
@@ -59,7 +75,7 @@ export function CenterHoursDisplay({
             <p className="text-sm" style={{ color: 'var(--kc-text-3)' }}>
               No hours configured yet.
             </p>
-            {showSetHoursTrigger && (
+            {canManageHours && (
               <HoursFormDialog
                 centerId={centerId!}
                 centerName={centerName!}

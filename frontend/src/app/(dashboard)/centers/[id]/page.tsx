@@ -205,8 +205,9 @@ export default function CenterDetailPage() {
 
         <CenterHoursDisplay
           hours={center.centerHours}
-          centerId={isSetupPending ? center.id : undefined}
-          centerName={isSetupPending ? center.name : undefined}
+          centerId={center.id}
+          centerName={center.name}
+          centerStatus={center.status}
         />
       </div>
     </div>

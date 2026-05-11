@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Loader2, Check } from 'lucide-react';
+import { Clock, Edit, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,10 +17,25 @@ import { Input } from '@/components/ui/input';
 import { useSetCenterHours } from '@/lib/hooks/use-centers';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
+import type { CenterHours } from '@/lib/types/center';
 
 interface HoursFormDialogProps {
   centerId: string;
   centerName: string;
+  /**
+   * If provided, the form pre-populates with these days. Closed days
+   * (those absent from the array) are rendered as unchecked. Used by
+   * the Edit Hours flow on the detail page when the center already has
+   * hours configured.
+   */
+  initialHours?: CenterHours[];
+  /**
+   * 'primary' (default) = full-width primary button with Clock icon,
+   * used in empty-state CTA for SETUP_PENDING centers.
+   * 'edit' = ghost / small button with Edit icon, used inline in the
+   * Operating Hours card header for ACTIVE centers.
+   */
+  triggerStyle?: 'primary' | 'edit';
 }
 
 interface DayHours {
@@ -48,13 +63,38 @@ const buildDefaults = (): DayHours[] =>
     closeTime: '18:00',
   }));
 
+const buildFromInitial = (initial?: CenterHours[]): DayHours[] => {
+  if (!initial || initial.length === 0) return buildDefaults();
+  const days: DayHours[] = DAY_KEYS.map((_, i) => ({
+    dayOfWeek: i,
+    isOpen: false,
+    openTime: '07:00',
+    closeTime: '18:00',
+  }));
+  for (const h of initial) {
+    if (h.dayOfWeek >= 0 && h.dayOfWeek < 7) {
+      days[h.dayOfWeek] = {
+        dayOfWeek: h.dayOfWeek,
+        isOpen: h.isOpen,
+        openTime: h.openTime,
+        closeTime: h.closeTime,
+      };
+    }
+  }
+  return days;
+};
+
 export function HoursFormDialog({
   centerId,
   centerName,
+  initialHours,
+  triggerStyle = 'primary',
 }: HoursFormDialogProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [days, setDays] = useState<DayHours[]>(buildDefaults);
+  const [days, setDays] = useState<DayHours[]>(() =>
+    buildFromInitial(initialHours),
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
   const mutation = useSetCenterHours();
 
@@ -65,14 +105,14 @@ export function HoursFormDialog({
     setValidationError(null);
   };
 
-  const resetForm = () => {
-    setDays(buildDefaults());
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      // Re-sync with current initialHours every time the dialog opens
+      // (caller may have refetched hours since last interaction).
+      setDays(buildFromInitial(initialHours));
+    }
     setValidationError(null);
     mutation.reset();
-  };
-
-  const handleOpenChange = (next: boolean) => {
-    if (!next) resetForm();
     setOpen(next);
   };
 
@@ -120,10 +160,17 @@ export function HoursFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>
-          <Clock className="h-4 w-4" />
-          {t('setup.hoursTriggerButton')}
-        </Button>
+        {triggerStyle === 'edit' ? (
+          <Button variant="ghost" size="sm">
+            <Edit className="h-3.5 w-3.5" />
+            {t('setup.editHoursTrigger')}
+          </Button>
+        ) : (
+          <Button>
+            <Clock className="h-4 w-4" />
+            {t('setup.hoursTriggerButton')}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
