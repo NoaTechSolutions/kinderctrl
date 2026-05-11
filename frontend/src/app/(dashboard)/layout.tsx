@@ -59,12 +59,39 @@ export default function DashboardGroupLayout({
   // -> push them straight to /centers/new (BUG-001). One-time per fresh
   // account; subsequent loads pass because useCenters() returns N>=1.
   useEffect(() => {
+    // QA debug aid (BUG-001 follow-up). Remove once QA closes the ticket.
+    // eslint-disable-next-line no-console
+    console.log('[BUG-001 debug] first-time check', {
+      hasHydrated,
+      isAuthenticated,
+      pathname,
+      role: user?.role,
+      centersFetched,
+      centersLength: centers?.length,
+      centers: centers?.map((c) => ({
+        id: c.id,
+        name: c.name,
+        status: c.status,
+      })),
+    });
+
     if (!isDirectorOnDashboard) return;
     if (!centersFetched) return;
     if (Array.isArray(centers) && centers.length === 0) {
+      // eslint-disable-next-line no-console
+      console.warn('[BUG-001 debug] redirecting to /centers/new');
       router.replace('/centers/new');
     }
-  }, [isDirectorOnDashboard, centersFetched, centers, router]);
+  }, [
+    hasHydrated,
+    isAuthenticated,
+    pathname,
+    user,
+    isDirectorOnDashboard,
+    centersFetched,
+    centers,
+    router,
+  ]);
 
   if (!hasHydrated) {
     return (
