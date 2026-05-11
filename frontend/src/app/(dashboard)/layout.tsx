@@ -32,26 +32,39 @@ export default function DashboardGroupLayout({
     }
   }, [hasHydrated, accessToken, refreshToken, router]);
 
+  // First-time DIRECTOR is on /dashboard and we have not finished
+  // confirming whether they have any centers yet. While this is true
+  // we render a loading screen instead of the dashboard chrome so the
+  // user does not see a flash of the wrong page before the redirect.
+  // Otherwise, even if the useEffect below fires correctly, the user
+  // sees /dashboard for the ~50-300ms window the query takes.
+  const isDirectorOnDashboard =
+    hasHydrated &&
+    isAuthenticated &&
+    pathname === '/dashboard' &&
+    user?.role === 'DIRECTOR';
+
+  // Two cases where we must NOT render the dashboard chrome:
+  //  (1) Centers query has not finished yet — we do not know if a redirect
+  //      is pending, so showing /dashboard could flash before redirect.
+  //  (2) Query finished and centers is empty — useEffect below will fire
+  //      router.replace next paint; if we render chrome on this paint, the
+  //      user sees one frame of /dashboard before the redirect.
+  const isCheckingFirstTime =
+    isDirectorOnDashboard &&
+    (!centersFetched ||
+      (Array.isArray(centers) && centers.length === 0));
+
   // First-time DIRECTOR redirect: land on /dashboard with zero centers
   // -> push them straight to /centers/new (BUG-001). One-time per fresh
   // account; subsequent loads pass because useCenters() returns N>=1.
   useEffect(() => {
-    if (!hasHydrated || !isAuthenticated) return;
-    if (pathname !== '/dashboard') return;
-    if (user?.role !== 'DIRECTOR') return;
+    if (!isDirectorOnDashboard) return;
     if (!centersFetched) return;
-    if (centers && centers.length === 0) {
+    if (Array.isArray(centers) && centers.length === 0) {
       router.replace('/centers/new');
     }
-  }, [
-    hasHydrated,
-    isAuthenticated,
-    pathname,
-    user,
-    centers,
-    centersFetched,
-    router,
-  ]);
+  }, [isDirectorOnDashboard, centersFetched, centers, router]);
 
   if (!hasHydrated) {
     return (
@@ -66,6 +79,17 @@ export default function DashboardGroupLayout({
 
   if (!accessToken && !refreshToken) {
     return null;
+  }
+
+  if (isCheckingFirstTime) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ color: 'var(--kc-text-3)' }}
+      >
+        Loading…
+      </div>
+    );
   }
 
   return (
