@@ -30,6 +30,13 @@ interface CenterFormProps {
   serverError?: Error | null;
   onSubmit: (data: CenterFormData) => void;
   onCancel?: () => void;
+  /**
+   * When true, the Cancel button is not rendered at all. Used during the
+   * first-time DIRECTOR onboarding flow where there is no safe destination
+   * to cancel to — leaving Cancel visible creates a confusing redirect
+   * loop (dashboard -> /centers/new) that looks like the button is broken.
+   */
+  hideCancel?: boolean;
 }
 
 const DEFAULT_VALUES: CenterFormData = {
@@ -92,6 +99,7 @@ export function CenterForm({
   serverError,
   onSubmit,
   onCancel,
+  hideCancel = false,
 }: CenterFormProps) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -342,14 +350,16 @@ export function CenterForm({
 
       {/* Actions */}
       <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2 border-t" style={{ borderColor: 'var(--kc-border)' }}>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleCancel}
-          disabled={isSubmitting}
-        >
-          {t('centers.cancel')}
-        </Button>
+        {!hideCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
+            {t('centers.cancel')}
+          </Button>
+        )}
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isSubmitting

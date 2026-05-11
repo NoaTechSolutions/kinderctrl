@@ -124,6 +124,11 @@ export const translations = {
     },
 
     setup: {
+      // First-time onboarding welcome (on /centers/new when DIRECTOR has 0 centers)
+      welcomeTitle: '🎉 Welcome to KinderCtrl!',
+      welcomeDescription:
+        'Set up your first center to access the rest of the app.',
+
       // Banner on center detail page
       pendingTitle: 'Setup pending — finish onboarding',
       pendingDescription:
@@ -285,6 +290,11 @@ export const translations = {
     },
 
     setup: {
+      // Bienvenida primer-uso (en /centers/new cuando DIRECTOR tiene 0 centros)
+      welcomeTitle: '🎉 ¡Bienvenido a KinderCtrl!',
+      welcomeDescription:
+        'Configura tu primer centro para acceder al resto de la aplicación.',
+
       // Banner en detalle de centro
       pendingTitle: 'Configuración pendiente — termina el alta',
       pendingDescription:
