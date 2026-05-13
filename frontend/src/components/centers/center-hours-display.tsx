@@ -8,6 +8,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { HoursFormDialog } from '@/components/centers/hours-form';
+import { useTimeFormat } from '@/lib/preferences/time-format';
+import { formatTimeRange } from '@/lib/utils/time';
 import type { CenterHours, CenterStatus } from '@/lib/types/center';
 
 const DAY_NAMES = [
@@ -41,6 +43,7 @@ export function CenterHoursDisplay({
   centerName,
   centerStatus,
 }: CenterHoursDisplayProps) {
+  const { timeFormat } = useTimeFormat();
   const sorted = (hours ?? []).slice().sort((a, b) => a.dayOfWeek - b.dayOfWeek);
   const hasHours = sorted.length > 0;
   const canManageHours =
@@ -50,17 +53,19 @@ export function CenterHoursDisplay({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Calendar className="h-4 w-4" aria-hidden />
-            Operating hours
+          <CardTitle className="flex items-center gap-2 text-base min-w-0">
+            <Calendar className="h-4 w-4 flex-none" aria-hidden />
+            <span className="truncate">Operating hours</span>
           </CardTitle>
           {canManageHours && hasHours && (
-            <HoursFormDialog
-              centerId={centerId!}
-              centerName={centerName!}
-              initialHours={hours}
-              triggerStyle="edit"
-            />
+            <div className="flex-none">
+              <HoursFormDialog
+                centerId={centerId!}
+                centerName={centerName!}
+                initialHours={hours}
+                triggerStyle="icon"
+              />
+            </div>
           )}
         </div>
       </CardHeader>
@@ -93,7 +98,9 @@ export function CenterHoursDisplay({
                   {DAY_NAMES[h.dayOfWeek] ?? `Day ${h.dayOfWeek}`}
                 </span>
                 <span className="font-mono tabular-nums">
-                  {h.isOpen ? `${h.openTime} – ${h.closeTime}` : 'Closed'}
+                  {h.isOpen
+                    ? formatTimeRange(h.openTime, h.closeTime, timeFormat)
+                    : 'Closed'}
                 </span>
               </li>
             ))}

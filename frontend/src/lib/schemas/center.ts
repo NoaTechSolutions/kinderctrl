@@ -30,7 +30,10 @@ export const centerSchema = z.object({
 
   phone: z
     .string()
-    .regex(/^\+?1?\d{10,14}$/, 'Invalid US phone (e.g., +14155551234)'),
+    .regex(
+      /^\(\d{3}\) \d{3}-\d{4}$/,
+      'Invalid US phone (e.g., (510) 787-9876)',
+    ),
 
   email: z
     .string()

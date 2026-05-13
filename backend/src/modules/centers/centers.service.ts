@@ -170,11 +170,14 @@ export class CentersService {
   }
 
   private validateStatusTransition(current: CenterStatus, next: CenterStatus) {
+    // CLOSED -> ACTIVE / SETUP_PENDING allows reactivating temporarily
+    // closed centers (seasonal, renovation, ownership changes). Authority
+    // is gated upstream by @Roles(DIRECTOR, SUPER_ADMIN) + ownership guard.
     const validTransitions: Record<CenterStatus, CenterStatus[]> = {
       SETUP_PENDING: [CenterStatus.ACTIVE, CenterStatus.CLOSED],
       ACTIVE: [CenterStatus.SUSPENDED, CenterStatus.CLOSED],
       SUSPENDED: [CenterStatus.ACTIVE, CenterStatus.CLOSED],
-      CLOSED: [],
+      CLOSED: [CenterStatus.ACTIVE, CenterStatus.SETUP_PENDING],
     };
 
     if (!validTransitions[current].includes(next)) {

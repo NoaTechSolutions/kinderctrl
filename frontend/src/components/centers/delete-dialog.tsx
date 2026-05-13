@@ -19,7 +19,19 @@ interface DeleteCenterDialogProps {
   centerName: string;
   isDeleting: boolean;
   onConfirm: () => void;
+  /**
+   * Optional custom trigger. Only used in uncontrolled mode (when `open`
+   * is not provided). Ignored when the dialog is controlled externally.
+   */
   trigger?: React.ReactNode;
+  /**
+   * When provided, the dialog runs in controlled mode and the parent
+   * owns the open state. Use this when triggering from a DropdownMenu
+   * item (or any other surface where embedding an AlertDialogTrigger
+   * directly is awkward).
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function DeleteCenterDialog({
@@ -27,35 +39,34 @@ export function DeleteCenterDialog({
   isDeleting,
   onConfirm,
   trigger,
+  open,
+  onOpenChange,
 }: DeleteCenterDialogProps) {
   const { t } = useTranslation();
+  const isControlled = open !== undefined;
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        {trigger ?? (
-          <Button variant="outline" disabled={isDeleting}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            {t('centers.delete')}
-          </Button>
-        )}
-      </AlertDialogTrigger>
+    <AlertDialog
+      open={isControlled ? open : undefined}
+      onOpenChange={isControlled ? onOpenChange : undefined}
+    >
+      {!isControlled && (
+        <AlertDialogTrigger asChild>
+          {trigger ?? (
+            <Button variant="outline" disabled={isDeleting}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t('centers.delete')}
+            </Button>
+          )}
+        </AlertDialogTrigger>
+      )}
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t('centers.confirmDelete')}</AlertDialogTitle>
-          <AlertDialogDescription className="space-y-2">
-            <span className="block">
-              {t('centers.deleteWarning')}
-            </span>
-            <span
-              className="block font-mono text-xs mt-2 px-2 py-1 rounded inline-block"
-              style={{
-                background: 'var(--kc-surface-2)',
-                color: 'var(--kc-text-2)',
-              }}
-            >
-              {centerName}
-            </span>
+          <AlertDialogTitle>
+            {t('centers.confirmDelete').replace('{name}', centerName)}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t('centers.deleteWarning')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

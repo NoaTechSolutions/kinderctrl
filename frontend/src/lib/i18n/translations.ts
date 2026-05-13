@@ -90,27 +90,45 @@ export const translations = {
       zipCode: 'ZIP code',
       zipCodePlaceholder: '94102',
       phone: 'Phone',
-      phonePlaceholder: '+14155551234',
+      phonePlaceholder: '(415) 555-1234',
       email: 'Email',
       emailPlaceholder: 'contact@center.com',
       website: 'Website (optional)',
       websitePlaceholder: 'https://www.example.com',
-      capacity: 'Capacity',
+      capacity: 'Maximum capacity',
       capacityPlaceholder: 'Maximum children',
       timezone: 'Timezone',
+      timezoneAutoDetected: 'Auto-detected from ZIP',
       licenseNumber: 'License number (optional)',
-      licenseNumberPlaceholder: 'CA-12345',
+      licenseNumberPlaceholder: '073409566',
+      fieldRequired: 'required',
 
       save: 'Save center',
       saving: 'Saving…',
       cancel: 'Cancel',
-      confirmDelete: 'Close this center?',
+      noChangesHint: 'No changes to save',
+      confirmDelete: 'Close {name}?',
       deleteWarning:
-        'The center will be marked as CLOSED. Children with active enrollment must be withdrawn first.',
+        'This center will be marked as CLOSED. Children with active enrollment must be withdrawn first.',
+
+      adminActions: 'Admin actions',
+      changeStatus: 'Change status',
+      currentStatus: 'Current',
+      confirmStatusChange: 'Change status?',
+      confirmStatusChangeDescription:
+        'Status will go from "{from}" to "{to}". This may affect access for staff and parents.',
+      confirmStatusChangeBtn: 'Change status',
+      statusChangedToast: 'Status updated',
+      statusChangeError: 'Could not change status',
+      deletedToast: 'Center closed',
 
       createSuccess: 'Center created',
       updateSuccess: 'Center updated',
       deleteSuccess: 'Center closed',
+      createdToast: 'Center created successfully',
+      updatedToast: 'Changes saved successfully',
+      unsavedChangesPrompt:
+        'You have unsaved changes. Are you sure you want to leave?',
       createError: 'Could not create center',
       updateError: 'Could not update center',
       deleteError: 'Could not close center',
@@ -133,6 +151,7 @@ export const translations = {
       pendingTitle: 'Setup pending — finish onboarding',
       pendingDescription:
         'Set your operating hours below to activate this center and unlock all features.',
+      pendingCta: 'Set hours now',
 
       // Hours form
       hoursFormTitle: 'Set operating hours',
@@ -143,6 +162,12 @@ export const translations = {
       hoursFormSubmit: 'Save hours and activate',
       hoursFormSaving: 'Saving…',
       hoursFormSaved: 'Saved',
+      hoursSavedToast: 'Operating hours saved successfully',
+      hoursDiscardTitle: 'Discard changes?',
+      hoursDiscardDescription:
+        'You have unsaved changes. Are you sure you want to leave?',
+      hoursDiscardConfirm: 'Discard changes',
+      hoursDiscardCancel: 'Keep editing',
       hoursFormError: 'Could not save hours',
 
       day_sunday: 'Sunday',
@@ -257,27 +282,45 @@ export const translations = {
       zipCode: 'Código postal',
       zipCodePlaceholder: '94102',
       phone: 'Teléfono',
-      phonePlaceholder: '+14155551234',
+      phonePlaceholder: '(415) 555-1234',
       email: 'Email',
       emailPlaceholder: 'contacto@centro.com',
       website: 'Sitio web (opcional)',
       websitePlaceholder: 'https://www.ejemplo.com',
-      capacity: 'Capacidad',
+      capacity: 'Capacidad máxima',
       capacityPlaceholder: 'Máximo de niños',
       timezone: 'Zona horaria',
+      timezoneAutoDetected: 'Detectado por código postal',
       licenseNumber: 'Número de licencia (opcional)',
-      licenseNumberPlaceholder: 'CA-12345',
+      licenseNumberPlaceholder: '073409566',
+      fieldRequired: 'obligatorio',
 
       save: 'Guardar centro',
       saving: 'Guardando…',
       cancel: 'Cancelar',
-      confirmDelete: '¿Cerrar este centro?',
+      noChangesHint: 'No hay cambios para guardar',
+      confirmDelete: '¿Cerrar {name}?',
       deleteWarning:
-        'El centro quedará marcado como CERRADO. Los niños activos deben ser dados de baja primero.',
+        'Este centro quedará marcado como CERRADO. Los niños activos deben ser dados de baja primero.',
+
+      adminActions: 'Acciones de admin',
+      changeStatus: 'Cambiar estado',
+      currentStatus: 'Actual',
+      confirmStatusChange: '¿Cambiar estado?',
+      confirmStatusChangeDescription:
+        'El estado pasará de "{from}" a "{to}". Esto puede afectar el acceso del personal y las familias.',
+      confirmStatusChangeBtn: 'Cambiar estado',
+      statusChangedToast: 'Estado actualizado',
+      statusChangeError: 'No se pudo cambiar el estado',
+      deletedToast: 'Centro cerrado',
 
       createSuccess: 'Centro creado',
       updateSuccess: 'Centro actualizado',
       deleteSuccess: 'Centro cerrado',
+      createdToast: 'Centro creado correctamente',
+      updatedToast: 'Cambios guardados correctamente',
+      unsavedChangesPrompt:
+        'Tenés cambios sin guardar. ¿Seguro que querés salir?',
       createError: 'No se pudo crear el centro',
       updateError: 'No se pudo actualizar el centro',
       deleteError: 'No se pudo cerrar el centro',
@@ -300,6 +343,7 @@ export const translations = {
       pendingTitle: 'Configuración pendiente — termina el alta',
       pendingDescription:
         'Configura los horarios de operación más abajo para activar este centro y desbloquear todas las funciones.',
+      pendingCta: 'Configurar horarios',
 
       // Formulario de horarios
       hoursFormTitle: 'Configurar horarios de operación',
@@ -310,6 +354,12 @@ export const translations = {
       hoursFormSubmit: 'Guardar horarios y activar',
       hoursFormSaving: 'Guardando…',
       hoursFormSaved: 'Guardado',
+      hoursSavedToast: 'Horarios guardados correctamente',
+      hoursDiscardTitle: '¿Descartar cambios?',
+      hoursDiscardDescription:
+        'Tenés cambios sin guardar. ¿Seguro que querés salir?',
+      hoursDiscardConfirm: 'Descartar cambios',
+      hoursDiscardCancel: 'Seguir editando',
       hoursFormError: 'No se pudieron guardar los horarios',
 
       day_sunday: 'Domingo',

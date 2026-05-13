@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
+import { Building2, Loader2, MapPin, Phone as PhoneIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,9 @@ import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
 import { centerSchema, type CenterFormData } from '@/lib/schemas/center';
 import { VALID_TIMEZONES, type Center } from '@/lib/types/center';
+import { formatPhoneUS } from '@/lib/utils/phone';
+import { lookupTimezoneByZip } from '@/lib/utils/zip-timezone';
+import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
 
 export type CenterFormMode = 'create' | 'edit';
 
@@ -53,6 +56,18 @@ const DEFAULT_VALUES: CenterFormData = {
   licenseNumber: '',
 };
 
+// Single source of truth for required-field markers: a field is required
+// iff its Zod schema rejects `undefined`. Handles `.optional()`, `.default()`,
+// and `.or(z.literal(''))` correctly without manual sync.
+const REQUIRED_FIELDS: ReadonlySet<keyof CenterFormData> = new Set(
+  (Object.keys(centerSchema.shape) as Array<keyof CenterFormData>).filter(
+    (key) =>
+      !(
+        centerSchema.shape[key] as { safeParse: (v: unknown) => { success: boolean } }
+      ).safeParse(undefined).success,
+  ),
+);
+
 function toFormDefaults(center?: Center): CenterFormData {
   if (!center) return DEFAULT_VALUES;
   return {
@@ -61,7 +76,9 @@ function toFormDefaults(center?: Center): CenterFormData {
     city: center.city,
     state: center.state,
     zipCode: center.zipCode,
-    phone: center.phone,
+    // Pre-format stored digits (or legacy E.164 strings) into the display
+    // pattern the form now expects.
+    phone: formatPhoneUS(center.phone),
     email: center.email,
     website: center.website ?? '',
     capacity: center.capacity,
@@ -109,15 +126,55 @@ export function CenterForm({
     defaultValues: toFormDefaults(initialData),
   });
 
+  // Has the user manually picked a timezone? In edit mode we treat the
+  // initial value as "user choice" so we don't surprise them by replacing
+  // an explicit timezone with a ZIP-derived guess.
+  const manualTimezonePick = useRef<boolean>(!!initialData);
+  const [autoTimezone, setAutoTimezone] = useState<string | null>(null);
+
   useEffect(() => {
     if (initialData) {
       form.reset(toFormDefaults(initialData));
+      manualTimezonePick.current = true;
+      setAutoTimezone(null);
     }
   }, [initialData, form]);
 
+  // Watch ZIP changes and suggest a timezone if the user hasn't picked one.
+  const watchedZip = form.watch('zipCode');
+  useEffect(() => {
+    if (manualTimezonePick.current) return;
+    if (!watchedZip || watchedZip.length < 5) {
+      setAutoTimezone(null);
+      return;
+    }
+    const tz = lookupTimezoneByZip(watchedZip);
+    if (tz && tz !== form.getValues('timezone')) {
+      form.setValue('timezone', tz, { shouldValidate: false });
+      setAutoTimezone(tz);
+    } else if (!tz) {
+      setAutoTimezone(null);
+    }
+  }, [watchedZip, form]);
+
   const { rootMessage, fieldMessages } = extractFieldErrors(serverError);
+  const requiredLabel = t('centers.fieldRequired');
+  const unsavedMessage = t('centers.unsavedChangesPrompt');
+
+  // Guard against accidental leaves while the form has unsaved edits.
+  // Suspended during submit so programmatic navigation after save isn't
+  // intercepted on its way out.
+  useUnsavedChangesPrompt(
+    form.formState.isDirty && !isSubmitting,
+    unsavedMessage,
+  );
 
   const handleCancel = () => {
+    // The global hook only intercepts <a> clicks and tab close; the
+    // Cancel button is a <button> so we confirm here explicitly.
+    if (form.formState.isDirty && !window.confirm(unsavedMessage)) {
+      return;
+    }
     if (onCancel) {
       onCancel();
       return;
@@ -129,6 +186,8 @@ export function CenterForm({
     }
   };
 
+  const isRequired = (key: keyof CenterFormData) => REQUIRED_FIELDS.has(key);
+
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
@@ -137,11 +196,13 @@ export function CenterForm({
       aria-busy={isSubmitting}
     >
       {/* Section: Identity */}
-      <Section title={t('centers.titleSingular')}>
+      <Section icon={Building2} title={t('centers.titleSingular')}>
         <Field
           id="name"
           label={t('centers.name')}
           error={form.formState.errors.name?.message}
+          required={isRequired('name')}
+          requiredLabel={requiredLabel}
           full
         >
           <Input
@@ -156,6 +217,8 @@ export function CenterForm({
           id="licenseNumber"
           label={t('centers.licenseNumber')}
           error={form.formState.errors.licenseNumber?.message}
+          required={isRequired('licenseNumber')}
+          requiredLabel={requiredLabel}
         >
           <Input
             id="licenseNumber"
@@ -169,6 +232,8 @@ export function CenterForm({
           id="capacity"
           label={t('centers.capacity')}
           error={form.formState.errors.capacity?.message}
+          required={isRequired('capacity')}
+          requiredLabel={requiredLabel}
         >
           <Input
             id="capacity"
@@ -183,11 +248,13 @@ export function CenterForm({
       </Section>
 
       {/* Section: Address */}
-      <Section title="Address">
+      <Section icon={MapPin} title="Address">
         <Field
           id="street"
           label={t('centers.street')}
           error={form.formState.errors.street?.message}
+          required={isRequired('street')}
+          requiredLabel={requiredLabel}
           full
         >
           <Input
@@ -202,6 +269,8 @@ export function CenterForm({
           id="city"
           label={t('centers.city')}
           error={form.formState.errors.city?.message}
+          required={isRequired('city')}
+          requiredLabel={requiredLabel}
         >
           <Input
             id="city"
@@ -215,6 +284,8 @@ export function CenterForm({
           id="state"
           label={t('centers.state')}
           error={form.formState.errors.state?.message}
+          required={isRequired('state')}
+          requiredLabel={requiredLabel}
         >
           <Input
             id="state"
@@ -231,6 +302,8 @@ export function CenterForm({
           id="zipCode"
           label={t('centers.zipCode')}
           error={form.formState.errors.zipCode?.message}
+          required={isRequired('zipCode')}
+          requiredLabel={requiredLabel}
         >
           <Input
             id="zipCode"
@@ -244,6 +317,13 @@ export function CenterForm({
           id="timezone"
           label={t('centers.timezone')}
           error={form.formState.errors.timezone?.message}
+          required={isRequired('timezone')}
+          requiredLabel={requiredLabel}
+          hint={
+            autoTimezone && autoTimezone === form.getValues('timezone')
+              ? t('centers.timezoneAutoDetected')
+              : undefined
+          }
         >
           <Controller
             control={form.control}
@@ -251,7 +331,11 @@ export function CenterForm({
             render={({ field }) => (
               <Select
                 value={field.value ?? 'America/Los_Angeles'}
-                onValueChange={field.onChange}
+                onValueChange={(v) => {
+                  manualTimezonePick.current = true;
+                  setAutoTimezone(null);
+                  field.onChange(v);
+                }}
                 disabled={isSubmitting}
               >
                 <SelectTrigger id="timezone" className="w-full">
@@ -271,18 +355,35 @@ export function CenterForm({
       </Section>
 
       {/* Section: Contact */}
-      <Section title="Contact">
+      <Section icon={PhoneIcon} title="Contact">
         <Field
           id="phone"
           label={t('centers.phone')}
           error={form.formState.errors.phone?.message}
+          required={isRequired('phone')}
+          requiredLabel={requiredLabel}
         >
-          <Input
-            id="phone"
-            type="tel"
-            placeholder={t('centers.phonePlaceholder')}
-            disabled={isSubmitting}
-            {...form.register('phone')}
+          <Controller
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <Input
+                id="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={14}
+                placeholder={t('centers.phonePlaceholder')}
+                disabled={isSubmitting}
+                value={field.value ?? ''}
+                onChange={(e) =>
+                  field.onChange(formatPhoneUS(e.target.value))
+                }
+                onBlur={field.onBlur}
+                ref={field.ref}
+                name={field.name}
+              />
+            )}
           />
         </Field>
 
@@ -290,6 +391,8 @@ export function CenterForm({
           id="email"
           label={t('centers.email')}
           error={form.formState.errors.email?.message}
+          required={isRequired('email')}
+          requiredLabel={requiredLabel}
         >
           <Input
             id="email"
@@ -304,6 +407,8 @@ export function CenterForm({
           id="website"
           label={t('centers.website')}
           error={form.formState.errors.website?.message}
+          required={isRequired('website')}
+          requiredLabel={requiredLabel}
           full
         >
           <Input
@@ -360,7 +465,15 @@ export function CenterForm({
             {t('centers.cancel')}
           </Button>
         )}
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={isSubmitting || !form.formState.isDirty}
+          title={
+            !form.formState.isDirty && !isSubmitting
+              ? t('centers.noChangesHint')
+              : undefined
+          }
+        >
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isSubmitting
             ? t('centers.saving')
@@ -374,9 +487,11 @@ export function CenterForm({
 }
 
 function Section({
+  icon: Icon,
   title,
   children,
 }: {
+  icon: typeof Building2;
   title: string;
   children: React.ReactNode;
 }) {
@@ -385,16 +500,24 @@ function Section({
       className="rounded-lg border p-5"
       style={{
         background: 'var(--kc-surface)',
-        borderColor: 'var(--kc-border)',
+        borderColor:
+          'color-mix(in oklch, var(--kc-border), transparent 30%)',
       }}
     >
-      <legend
-        className="px-2 text-xs font-semibold uppercase tracking-wider"
-        style={{ color: 'var(--kc-text-3)' }}
-      >
-        {title}
+      <legend className="px-2 flex items-center gap-2">
+        <Icon
+          className="h-4 w-4"
+          style={{ color: 'var(--kc-p-600)' }}
+          aria-hidden
+        />
+        <span
+          className="text-sm font-semibold"
+          style={{ color: 'var(--kc-text-1)' }}
+        >
+          {title}
+        </span>
       </legend>
-      <div className="grid gap-4 sm:grid-cols-2 mt-2">{children}</div>
+      <div className="grid gap-4 sm:grid-cols-2 mt-3">{children}</div>
     </fieldset>
   );
 }
@@ -404,23 +527,51 @@ function Field({
   label,
   error,
   full,
+  required,
+  requiredLabel,
+  hint,
   children,
 }: {
   id: string;
   label: string;
   error?: string;
   full?: boolean;
+  required?: boolean;
+  requiredLabel?: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
+  const hintId = hint ? `${id}-hint` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
   return (
     <div className={full ? 'sm:col-span-2 space-y-1.5' : 'space-y-1.5'}>
-      <Label htmlFor={id} className="text-sm font-medium">
+      <Label
+        htmlFor={id}
+        className="text-sm font-medium inline-flex items-center gap-1"
+      >
         {label}
+        {required && (
+          <span
+            aria-label={requiredLabel}
+            style={{ color: 'var(--kc-error)' }}
+          >
+            *
+          </span>
+        )}
       </Label>
       {children}
+      {hint && !error && (
+        <p
+          id={hintId}
+          className="text-xs"
+          style={{ color: 'var(--kc-text-3)' }}
+        >
+          {hint}
+        </p>
+      )}
       {error && (
         <p
-          id={`${id}-error`}
+          id={errorId}
           role="alert"
           className="text-xs"
           style={{ color: 'var(--kc-error)' }}

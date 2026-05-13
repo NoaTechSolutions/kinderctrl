@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Building2, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { useCenters, useCreateCenter } from '@/lib/hooks/use-centers';
@@ -10,6 +11,7 @@ import { useAuthStore } from '@/store/auth';
 import { useTranslation } from '@/lib/i18n';
 import { CenterForm } from '@/components/centers/center-form';
 import type { CenterFormData } from '@/lib/schemas/center';
+import { parsePhoneDigits } from '@/lib/utils/phone';
 
 export default function NewCenterPage() {
   const { t } = useTranslation();
@@ -26,9 +28,18 @@ export default function NewCenterPage() {
     user?.role === 'DIRECTOR' && centers?.length === 0;
 
   const handleSubmit = (data: CenterFormData) => {
-    mutation.mutate(data, {
+    // Strip phone display formatting before hitting the backend.
+    const payload = { ...data, phone: parsePhoneDigits(data.phone) };
+    mutation.mutate(payload, {
       onSuccess: (created) => {
-        router.push(`/centers/${created.id}`);
+        toast.success(t('centers.createdToast'));
+        // SUPER_ADMIN manages multiple centers -> back to list.
+        // DIRECTOR (and any other role) continues onboarding -> detail.
+        if (user?.role === 'SUPER_ADMIN') {
+          router.push('/centers');
+        } else {
+          router.push(`/centers/${created.id}`);
+        }
       },
     });
   };

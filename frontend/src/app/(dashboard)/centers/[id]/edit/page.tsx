@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,6 +12,7 @@ import { ApiError } from '@/lib/api/client';
 import { useTranslation } from '@/lib/i18n';
 import { CenterForm } from '@/components/centers/center-form';
 import type { CenterFormData } from '@/lib/schemas/center';
+import { parsePhoneDigits } from '@/lib/utils/phone';
 
 export default function EditCenterPage() {
   const { t } = useTranslation();
@@ -23,10 +25,13 @@ export default function EditCenterPage() {
 
   const handleSubmit = (data: CenterFormData) => {
     if (!id) return;
+    // Strip phone display formatting before hitting the backend.
+    const payload = { ...data, phone: parsePhoneDigits(data.phone) };
     mutation.mutate(
-      { id, data },
+      { id, data: payload },
       {
         onSuccess: (updated) => {
+          toast.success(t('centers.updatedToast'));
           router.push(`/centers/${updated.id}`);
         },
       },

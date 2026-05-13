@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n';
 import { StatusBadge } from './status-badge';
+import { formatPhoneUS } from '@/lib/utils/phone';
 import type { Center } from '@/lib/types/center';
 
 interface CenterCardProps {
@@ -52,7 +53,7 @@ export function CenterCard({ center }: CenterCardProps) {
         <Row icon={MapPin}>
           {center.street}, {center.city}, {center.state} {center.zipCode}
         </Row>
-        <Row icon={Phone}>{center.phone}</Row>
+        <Row icon={Phone}>{formatPhoneUS(center.phone)}</Row>
         <Row icon={Mail} truncate title={center.email}>
           {center.email}
         </Row>
