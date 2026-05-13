@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Plus, Search } from 'lucide-react';
 import { useCenters } from '@/lib/hooks/use-centers';
 import { useTranslation } from '@/lib/i18n';
+import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,8 +16,24 @@ import { EmptyState } from '@/components/centers/empty-state';
 
 export default function CentersPage() {
   const { t } = useTranslation();
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const { data: centers, isLoading, error } = useCenters();
   const [query, setQuery] = useState('');
+
+  // STAFF/PARENT don't belong on the centers index — both deep-link to
+  // their assigned center. Backend already filters by role; this matches
+  // the surface to the data.
+  useEffect(() => {
+    if (!hasHydrated || !user) return;
+    if (
+      (user.role === 'STAFF' || user.role === 'PARENT') &&
+      user.centerId
+    ) {
+      router.replace(`/centers/${user.centerId}`);
+    }
+  }, [hasHydrated, user, router]);
 
   const filtered = useMemo(() => {
     if (!centers) return [];
@@ -28,6 +46,19 @@ export default function CentersPage() {
         c.state.toLowerCase().includes(q),
     );
   }, [centers, query]);
+
+  // Suppress the admin list flash while replace() runs.
+  if (
+    hasHydrated &&
+    user &&
+    (user.role === 'STAFF' || user.role === 'PARENT') &&
+    user.centerId
+  ) {
+    return null;
+  }
+
+  const canCreateCenter =
+    user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTOR';
 
   return (
     <div className="space-y-6">
@@ -44,12 +75,14 @@ export default function CentersPage() {
           </p>
         </div>
 
-        <Button asChild className="self-start">
-          <Link href="/centers/new">
-            <Plus className="mr-2 h-4 w-4" />
-            {t('centers.create')}
-          </Link>
-        </Button>
+        {canCreateCenter && (
+          <Button asChild className="self-start">
+            <Link href="/centers/new">
+              <Plus className="mr-2 h-4 w-4" />
+              {t('centers.create')}
+            </Link>
+          </Button>
+        )}
       </div>
 
       {error && (

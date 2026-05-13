@@ -43,28 +43,32 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
   const user = useAuthStore((s) => s.user);
   const { data: centers } = useCenters();
 
-  // See sidebar.tsx for rationale: directors get singular + direct
-  // detail link whenever they have >=1 center.
-  const directorWithCenter =
-    user?.role === 'DIRECTOR' && (centers?.length ?? 0) >= 1;
-
-  const centerItem: NavItem = directorWithCenter
-    ? {
-        title: t('centers.titleSingular'),
-        href: `/centers/${centers![0].id}`,
-        icon: Building2,
-        active: true,
-      }
-    : {
-        title: t('centers.title'),
-        href: '/centers',
-        icon: Building2,
-        active: true,
-      };
+  // See sidebar.tsx for rationale — mirror its role-aware Centers entry.
+  const centerItem: NavItem | null =
+    (user?.role === 'STAFF' || user?.role === 'PARENT') && user.centerId
+      ? {
+          title: t('centers.titleSingular'),
+          href: `/centers/${user.centerId}`,
+          icon: Building2,
+          active: true,
+        }
+      : user?.role === 'DIRECTOR' && (centers?.length ?? 0) >= 1
+        ? {
+            title: t('centers.titleSingular'),
+            href: `/centers/${centers![0].id}`,
+            icon: Building2,
+            active: true,
+          }
+        : {
+            title: t('centers.title'),
+            href: '/centers',
+            icon: Building2,
+            active: true,
+          };
 
   const NAV_ITEMS: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: Home, active: true },
-    centerItem,
+    ...(centerItem ? [centerItem] : []),
     { title: 'Children', href: '/children', icon: Baby, active: false },
     { title: 'Staff', href: '/staff', icon: Users, active: false },
     { title: 'Parents', href: '/parents', icon: UserCog, active: false },

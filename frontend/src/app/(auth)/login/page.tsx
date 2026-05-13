@@ -34,7 +34,16 @@ export default function LoginPage() {
       login({ email: data.email, password: data.password }),
     onSuccess: (data) => {
       setTokens(data.access_token, data.refresh_token, data.user);
-      window.setTimeout(() => router.push('/dashboard'), 350);
+      // STAFF and PARENT deep-link straight to their assigned center.
+      // Everyone else lands on /dashboard. DIRECTOR's first-login redirect
+      // to /centers/new (commit 930bf27) still kicks in from the dashboard.
+      const isAssignedRole =
+        data.user.role === 'STAFF' || data.user.role === 'PARENT';
+      const redirectPath =
+        isAssignedRole && data.user.centerId
+          ? `/centers/${data.user.centerId}`
+          : '/dashboard';
+      window.setTimeout(() => router.push(redirectPath), 350);
     },
     onError: (error: Error) => {
       const message =

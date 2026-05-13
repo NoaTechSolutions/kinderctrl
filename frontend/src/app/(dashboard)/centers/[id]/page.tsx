@@ -30,13 +30,26 @@ import { StatusBadge } from '@/components/centers/status-badge';
 import { CenterStats } from '@/components/centers/center-stats';
 import { CenterHoursDisplay } from '@/components/centers/center-hours-display';
 import { SetupPendingBanner } from '@/components/centers/setup-pending-banner';
+import { AdminActionsMenu } from '@/components/centers/admin-actions-menu';
+import { formatPhoneUS } from '@/lib/utils/phone';
+import { useAuthStore } from '@/store/auth';
 
 export default function CenterDetailPage() {
   const { t } = useTranslation();
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const user = useAuthStore((s) => s.user);
 
   const { data: center, isLoading, error } = useCenter(id);
+
+  const canManage =
+    user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTOR';
+  // STAFF and PARENT share the limited read-only surface; backend's
+  // findOne returns 404 if they probe a center that isn't theirs.
+  const isAssignedUser =
+    user?.role === 'STAFF' || user?.role === 'PARENT';
+  // License is operational/regulatory info — PARENT doesn't need it.
+  const canSeeLicense = user?.role !== 'PARENT';
 
   if (isLoading) {
     return (
@@ -58,9 +71,9 @@ export default function CenterDetailPage() {
     return (
       <div className="space-y-4 max-w-4xl">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
-          <Link href="/centers">
+          <Link href={isAssignedUser ? '/dashboard' : '/centers'}>
             <ArrowLeft className="mr-1 h-4 w-4" />
-            {t('centers.title')}
+            {isAssignedUser ? 'Dashboard' : t('centers.title')}
           </Link>
         </Button>
         <div
@@ -90,9 +103,9 @@ export default function CenterDetailPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <Button asChild variant="ghost" size="sm" className="-ml-2">
-        <Link href="/centers">
+        <Link href={isAssignedUser ? '/dashboard' : '/centers'}>
           <ArrowLeft className="mr-1 h-4 w-4" />
-          {t('centers.title')}
+          {isAssignedUser ? 'Dashboard' : t('centers.title')}
         </Link>
       </Button>
 
@@ -118,7 +131,7 @@ export default function CenterDetailPage() {
             </h1>
             <div className="mt-2 flex items-center gap-2">
               <StatusBadge status={center.status} />
-              {center.licenseNumber && (
+              {canSeeLicense && center.licenseNumber && (
                 <span
                   className="font-mono text-xs"
                   style={{ color: 'var(--kc-text-3)' }}
@@ -131,27 +144,38 @@ export default function CenterDetailPage() {
         </div>
 
         <div className="flex gap-2 flex-none">
-          <Button asChild variant="outline" disabled={isClosed}>
-            <Link
-              href={isClosed ? '#' : `/centers/${center.id}/edit`}
-              aria-disabled={isClosed}
-              tabIndex={isClosed ? -1 : 0}
-              onClick={(e) => {
-                if (isClosed) e.preventDefault();
-              }}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              {t('centers.edit')}
-            </Link>
-          </Button>
+          {canManage && (
+            <Button asChild variant="outline" disabled={isClosed}>
+              <Link
+                href={isClosed ? '#' : `/centers/${center.id}/edit`}
+                aria-disabled={isClosed}
+                tabIndex={isClosed ? -1 : 0}
+                onClick={(e) => {
+                  if (isClosed) e.preventDefault();
+                }}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                {t('centers.edit')}
+              </Link>
+            </Button>
+          )}
+          {user?.role === 'SUPER_ADMIN' && (
+            <AdminActionsMenu center={center} />
+          )}
         </div>
       </div>
 
-      {/* Setup pending banner */}
-      {isSetupPending && <SetupPendingBanner />}
+      {/* Setup pending banner — CTA only for those who can manage. */}
+      {isSetupPending && (
+        <SetupPendingBanner
+          centerId={canManage ? center.id : undefined}
+          centerName={canManage ? center.name : undefined}
+          initialHours={center.centerHours}
+        />
+      )}
 
       {/* Stats */}
-      <CenterStats capacity={center.capacity} />
+      {canManage && <CenterStats capacity={center.capacity} />}
 
       {/* Info + Hours */}
       <div className="grid gap-4 lg:grid-cols-3">
@@ -167,7 +191,7 @@ export default function CenterDetailPage() {
                 {center.city}, {center.state} {center.zipCode}
               </InfoRow>
               <InfoRow icon={Phone} label={t('centers.phone')}>
-                <span className="font-mono">{center.phone}</span>
+                <span className="font-mono">{formatPhoneUS(center.phone)}</span>
               </InfoRow>
               <InfoRow icon={Mail} label={t('centers.email')}>
                 <span className="break-all">{center.email}</span>
@@ -185,28 +209,34 @@ export default function CenterDetailPage() {
                   </a>
                 </InfoRow>
               )}
-              <InfoRow icon={Users} label={t('centers.capacity')}>
-                {center.capacity} children
-              </InfoRow>
-              <InfoRow icon={Globe} label={t('centers.timezone')}>
-                <span className="font-mono text-xs">{center.timezone}</span>
-              </InfoRow>
-              {center.licenseNumber && (
+              {canManage && (
+                <InfoRow icon={Users} label={t('centers.capacity')}>
+                  {center.capacity} children
+                </InfoRow>
+              )}
+              {canManage && (
+                <InfoRow icon={Globe} label={t('centers.timezone')}>
+                  <span className="font-mono text-xs">{center.timezone}</span>
+                </InfoRow>
+              )}
+              {canSeeLicense && center.licenseNumber && (
                 <InfoRow icon={FileText} label={t('centers.licenseNumber')}>
                   {center.licenseNumber}
                 </InfoRow>
               )}
-              <InfoRow icon={CalendarDays} label="Created">
-                {new Date(center.createdAt).toLocaleDateString()}
-              </InfoRow>
+              {canManage && (
+                <InfoRow icon={CalendarDays} label="Created">
+                  {new Date(center.createdAt).toLocaleDateString()}
+                </InfoRow>
+              )}
             </dl>
           </CardContent>
         </Card>
 
         <CenterHoursDisplay
           hours={center.centerHours}
-          centerId={center.id}
-          centerName={center.name}
+          centerId={canManage ? center.id : undefined}
+          centerName={canManage ? center.name : undefined}
           centerStatus={center.status}
         />
       </div>
