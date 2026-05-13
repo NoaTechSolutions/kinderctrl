@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Clock, Edit, Loader2, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,6 +12,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -18,6 +29,8 @@ import { useSetCenterHours } from '@/lib/hooks/use-centers';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
 import type { CenterHours } from '@/lib/types/center';
+import { useTimeFormat } from '@/lib/preferences/time-format';
+import { formatTime } from '@/lib/utils/time';
 
 interface HoursFormDialogProps {
   centerId: string;
@@ -34,8 +47,10 @@ interface HoursFormDialogProps {
    * used in empty-state CTA for SETUP_PENDING centers.
    * 'edit' = ghost / small button with Edit icon, used inline in the
    * Operating Hours card header for ACTIVE centers.
+   * 'icon' = icon-only ghost button (sr-only label), prevents header
+   * cramping when the card title is long.
    */
-  triggerStyle?: 'primary' | 'edit';
+  triggerStyle?: 'primary' | 'edit' | 'icon';
 }
 
 interface DayHours {
@@ -95,8 +110,19 @@ export function HoursFormDialog({
   const [days, setDays] = useState<DayHours[]>(() =>
     buildFromInitial(initialHours),
   );
+  // Snapshot taken when the dialog opens — reference for dirty detection.
+  const [snapshot, setSnapshot] = useState<DayHours[]>(() =>
+    buildFromInitial(initialHours),
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const mutation = useSetCenterHours();
+  const { timeFormat } = useTimeFormat();
+
+  const isDirty = useMemo(
+    () => JSON.stringify(days) !== JSON.stringify(snapshot),
+    [days, snapshot],
+  );
 
   const updateDay = (idx: number, patch: Partial<DayHours>) => {
     setDays((prev) =>
@@ -105,15 +131,33 @@ export function HoursFormDialog({
     setValidationError(null);
   };
 
+  const closeImmediately = () => {
+    setValidationError(null);
+    mutation.reset();
+    setConfirmDiscardOpen(false);
+    setOpen(false);
+  };
+
   const handleOpenChange = (next: boolean) => {
     if (next) {
       // Re-sync with current initialHours every time the dialog opens
-      // (caller may have refetched hours since last interaction).
-      setDays(buildFromInitial(initialHours));
+      // (caller may have refetched hours since last interaction). The
+      // same snapshot becomes the dirty-detection baseline.
+      const fresh = buildFromInitial(initialHours);
+      setDays(fresh);
+      setSnapshot(fresh);
+      setValidationError(null);
+      mutation.reset();
+      setOpen(true);
+      return;
     }
-    setValidationError(null);
-    mutation.reset();
-    setOpen(next);
+    // Skip the confirmation dialog if there are no changes, or if we just
+    // saved successfully (the auto-close from onSuccess is a normal flow).
+    if (isDirty && !mutation.isSuccess) {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+    closeImmediately();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -148,6 +192,8 @@ export function HoursFormDialog({
       },
       {
         onSuccess: () => {
+          toast.success(t('setup.hoursSavedToast'));
+          // Bypass the dirty-check by closing the dialog directly.
           window.setTimeout(() => setOpen(false), 600);
         },
       },
@@ -158,158 +204,204 @@ export function HoursFormDialog({
   const isSuccess = mutation.isSuccess;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {triggerStyle === 'edit' ? (
-          <Button variant="ghost" size="sm">
-            <Edit className="h-3.5 w-3.5" />
-            {t('setup.editHoursTrigger')}
-          </Button>
-        ) : (
-          <Button>
-            <Clock className="h-4 w-4" />
-            {t('setup.hoursTriggerButton')}
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t('setup.hoursFormTitle')}</DialogTitle>
-          <DialogDescription>{centerName}</DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger asChild>
+          {triggerStyle === 'icon' ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t('setup.editHoursTrigger')}
+              title={t('setup.editHoursTrigger')}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          ) : triggerStyle === 'edit' ? (
+            <Button variant="ghost" size="sm">
+              <Edit className="h-3.5 w-3.5" />
+              {t('setup.editHoursTrigger')}
+            </Button>
+          ) : (
+            <Button>
+              <Clock className="h-4 w-4" />
+              {t('setup.hoursTriggerButton')}
+            </Button>
+          )}
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('setup.hoursFormTitle')}</DialogTitle>
+            <DialogDescription>{centerName}</DialogDescription>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
-            {t('setup.hoursFormHelp')}
-          </p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
+              {t('setup.hoursFormHelp')}
+            </p>
 
-          <div className="space-y-2">
-            {days.map((d, idx) => (
+            <div className="space-y-2">
+              {days.map((d, idx) => (
+                <div
+                  key={d.dayOfWeek}
+                  className="flex flex-wrap items-center gap-3 rounded-md border p-3"
+                  style={{
+                    borderColor:
+                      'color-mix(in oklch, var(--kc-border), transparent 30%)',
+                    background: d.isOpen
+                      ? 'transparent'
+                      : 'color-mix(in oklch, var(--kc-bg-2), transparent 50%)',
+                  }}
+                >
+                  <div className="flex items-center gap-2 min-w-[140px]">
+                    <Checkbox
+                      id={`day-${d.dayOfWeek}`}
+                      checked={d.isOpen}
+                      onCheckedChange={(v) =>
+                        updateDay(idx, { isOpen: v === true })
+                      }
+                      disabled={isPending || isSuccess}
+                    />
+                    <Label
+                      htmlFor={`day-${d.dayOfWeek}`}
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      {t(`setup.day_${DAY_KEYS[d.dayOfWeek]}`)}
+                    </Label>
+                  </div>
+
+                  {d.isOpen ? (
+                    <div className="flex items-center gap-2 flex-1 flex-wrap">
+                      <Input
+                        type="time"
+                        value={d.openTime}
+                        onChange={(e) =>
+                          updateDay(idx, { openTime: e.target.value })
+                        }
+                        className="h-9 w-28 font-mono tabular-nums"
+                        aria-label={`${DAY_KEYS[d.dayOfWeek]} open time`}
+                        disabled={isPending || isSuccess}
+                      />
+                      <span style={{ color: 'var(--kc-text-3)' }}>–</span>
+                      <Input
+                        type="time"
+                        value={d.closeTime}
+                        onChange={(e) =>
+                          updateDay(idx, { closeTime: e.target.value })
+                        }
+                        className="h-9 w-28 font-mono tabular-nums"
+                        aria-label={`${DAY_KEYS[d.dayOfWeek]} close time`}
+                        disabled={isPending || isSuccess}
+                      />
+                      {timeFormat === '12h' && (
+                        <span
+                          className="text-xs font-mono tabular-nums"
+                          style={{ color: 'var(--kc-text-3)' }}
+                          aria-hidden
+                        >
+                          ({formatTime(d.openTime, '12h')} –{' '}
+                          {formatTime(d.closeTime, '12h')})
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span
+                      className="text-sm"
+                      style={{ color: 'var(--kc-text-3)' }}
+                    >
+                      {t('setup.dayClosed')}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {validationError && (
               <div
-                key={d.dayOfWeek}
-                className="flex flex-wrap items-center gap-3 rounded-md border p-3"
+                role="alert"
+                className="rounded-md border p-3"
                 style={{
+                  background: 'var(--kc-error-bg)',
                   borderColor:
-                    'color-mix(in oklch, var(--kc-border), transparent 30%)',
-                  background: d.isOpen
-                    ? 'transparent'
-                    : 'color-mix(in oklch, var(--kc-bg-2), transparent 50%)',
+                    'color-mix(in oklch, var(--kc-error), transparent 70%)',
                 }}
               >
-                <div className="flex items-center gap-2 min-w-[140px]">
-                  <Checkbox
-                    id={`day-${d.dayOfWeek}`}
-                    checked={d.isOpen}
-                    onCheckedChange={(v) =>
-                      updateDay(idx, { isOpen: v === true })
-                    }
-                    disabled={isPending || isSuccess}
-                  />
-                  <Label
-                    htmlFor={`day-${d.dayOfWeek}`}
-                    className="text-sm font-medium cursor-pointer"
-                  >
-                    {t(`setup.day_${DAY_KEYS[d.dayOfWeek]}`)}
-                  </Label>
-                </div>
-
-                {d.isOpen ? (
-                  <div className="flex items-center gap-2 flex-1 flex-wrap">
-                    <Input
-                      type="time"
-                      value={d.openTime}
-                      onChange={(e) =>
-                        updateDay(idx, { openTime: e.target.value })
-                      }
-                      className="h-9 w-28 font-mono tabular-nums"
-                      aria-label={`${DAY_KEYS[d.dayOfWeek]} open time`}
-                      disabled={isPending || isSuccess}
-                    />
-                    <span style={{ color: 'var(--kc-text-3)' }}>–</span>
-                    <Input
-                      type="time"
-                      value={d.closeTime}
-                      onChange={(e) =>
-                        updateDay(idx, { closeTime: e.target.value })
-                      }
-                      className="h-9 w-28 font-mono tabular-nums"
-                      aria-label={`${DAY_KEYS[d.dayOfWeek]} close time`}
-                      disabled={isPending || isSuccess}
-                    />
-                  </div>
-                ) : (
-                  <span
-                    className="text-sm"
-                    style={{ color: 'var(--kc-text-3)' }}
-                  >
-                    {t('setup.dayClosed')}
-                  </span>
-                )}
+                <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
+                  {validationError}
+                </p>
               </div>
-            ))}
-          </div>
+            )}
 
-          {validationError && (
-            <div
-              role="alert"
-              className="rounded-md border p-3"
-              style={{
-                background: 'var(--kc-error-bg)',
-                borderColor:
-                  'color-mix(in oklch, var(--kc-error), transparent 70%)',
-              }}
-            >
-              <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
-                {validationError}
-              </p>
+            {mutation.error && !validationError && (
+              <div
+                role="alert"
+                className="rounded-md border p-3"
+                style={{
+                  background: 'var(--kc-error-bg)',
+                  borderColor:
+                    'color-mix(in oklch, var(--kc-error), transparent 70%)',
+                }}
+              >
+                <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
+                  {mutation.error instanceof ApiError
+                    ? mutation.error.message
+                    : t('setup.hoursFormError')}
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOpenChange(false)}
+                disabled={isPending}
+              >
+                {t('centers.cancel')}
+              </Button>
+              <Button type="submit" disabled={isPending || isSuccess}>
+                {isSuccess ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    {t('setup.hoursFormSaved')}
+                  </>
+                ) : isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t('setup.hoursFormSaving')}
+                  </>
+                ) : (
+                  t('setup.hoursFormSubmit')
+                )}
+              </Button>
             </div>
-          )}
+          </form>
+        </DialogContent>
+      </Dialog>
 
-          {mutation.error && !validationError && (
-            <div
-              role="alert"
-              className="rounded-md border p-3"
-              style={{
-                background: 'var(--kc-error-bg)',
-                borderColor:
-                  'color-mix(in oklch, var(--kc-error), transparent 70%)',
-              }}
+      <AlertDialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('setup.hoursDiscardTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('setup.hoursDiscardDescription')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t('setup.hoursDiscardCancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={closeImmediately}
             >
-              <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
-                {mutation.error instanceof ApiError
-                  ? mutation.error.message
-                  : t('setup.hoursFormError')}
-              </p>
-            </div>
-          )}
-
-          <div className="flex gap-2 justify-end pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-              disabled={isPending}
-            >
-              {t('centers.cancel')}
-            </Button>
-            <Button type="submit" disabled={isPending || isSuccess}>
-              {isSuccess ? (
-                <>
-                  <Check className="mr-2 h-4 w-4" />
-                  {t('setup.hoursFormSaved')}
-                </>
-              ) : isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('setup.hoursFormSaving')}
-                </>
-              ) : (
-                t('setup.hoursFormSubmit')
-              )}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+              {t('setup.hoursDiscardConfirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
