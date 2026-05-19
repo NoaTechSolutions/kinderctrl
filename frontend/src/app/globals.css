@@ -252,6 +252,26 @@
   animation: kc-success-pop 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 
+/* Radix Collapsible content — animates from/to the natural height
+   provided by --radix-collapsible-content-height. */
+@keyframes kc-collapsible-down {
+  from { height: 0; }
+  to   { height: var(--radix-collapsible-content-height); }
+}
+
+@keyframes kc-collapsible-up {
+  from { height: var(--radix-collapsible-content-height); }
+  to   { height: 0; }
+}
+
+.kc-collapsible-content[data-state="open"] {
+  animation: kc-collapsible-down 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kc-collapsible-content[data-state="closed"] {
+  animation: kc-collapsible-up 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* iOS safe areas + Android nav-bar breathing room on small screens */
 @media (max-width: 1023px) {
   .kc-safe-area {

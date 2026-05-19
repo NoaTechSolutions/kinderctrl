@@ -2,12 +2,31 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type UserRole = 'DIRECTOR' | 'STAFF' | 'PARENT' | 'SUPER_ADMIN';
+export type StaffRole = 'TEACHER' | 'ASSISTANT' | 'ADMIN';
 
 export interface AuthUser {
   id: string;
   email: string;
   role: UserRole;
   centerId: string | null;
+  // Populated when the user has a linked center. Null for DIRECTORs who
+  // haven't completed setup, or SUPER_ADMINs without a primary center.
+  center: { id: string; name: string } | null;
+  // Populated when role === 'STAFF'. staff.role is the job title used by
+  // the topbar — distinct from auth-level `role` (see UserRole vs StaffRole
+  // in the data model).
+  staff: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    role: StaffRole;
+  } | null;
+  // Populated when role === 'PARENT'.
+  parent: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  } | null;
 }
 
 interface AuthState {

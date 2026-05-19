@@ -12,16 +12,21 @@ import type {
   CenterFormData,
   CenterUpdateData,
 } from '@/lib/schemas/center';
+import type { CentersQuery } from '@/lib/types/center';
 
 export const centersQueryKeys = {
   all: ['centers'] as const,
+  list: (query: CentersQuery) => ['centers', query] as const,
   detail: (id: string) => ['center', id] as const,
 };
 
-export function useCenters() {
+// Query is part of the cache key so different page/status combos don't
+// stomp each other. Mutations invalidate `centers` (prefix) to refresh
+// every cached list at once.
+export function useCenters(query: CentersQuery = {}) {
   return useQuery({
-    queryKey: centersQueryKeys.all,
-    queryFn: getCenters,
+    queryKey: centersQueryKeys.list(query),
+    queryFn: () => getCenters(query),
   });
 }
 

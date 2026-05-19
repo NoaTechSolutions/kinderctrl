@@ -25,7 +25,7 @@ export default function NewCenterPage() {
   // the Cancel button + the ArrowLeft back-link, and surface a welcome
   // banner explaining the gate. Sign out is still available in the topbar.
   const isFirstTimeOnboarding =
-    user?.role === 'DIRECTOR' && centers?.length === 0;
+    user?.role === 'DIRECTOR' && centers?.pagination.total === 0;
 
   const handleSubmit = (data: CenterFormData) => {
     // Strip phone display formatting before hitting the backend.
@@ -57,9 +57,9 @@ export default function NewCenterPage() {
           </div>
         ) : (
           <Button asChild variant="ghost" size="sm" className="-ml-2">
-            <Link href="/dashboard">
+            <Link href="/centers">
               <ArrowLeft className="mr-1 h-4 w-4" />
-              Dashboard
+              {t('centers.title')}
             </Link>
           </Button>
         )}

@@ -13,7 +13,9 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n';
+import { useAuthStore } from '@/store/auth';
 import { StatusBadge } from './status-badge';
+import { AdminActionsMenu } from './admin-actions-menu';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import type { Center } from '@/lib/types/center';
 
@@ -24,10 +26,12 @@ interface CenterTableProps {
 export function CenterTable({ centers }: CenterTableProps) {
   const { t } = useTranslation();
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   return (
     <div
-      className="rounded-lg border overflow-x-auto"
+      className="rounded-lg border overflow-x-auto [&_th:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:first-child]:pl-4 [&_td:last-child]:pr-4"
       style={{
         background: 'var(--kc-surface)',
         borderColor: 'var(--kc-border)',
@@ -38,10 +42,7 @@ export function CenterTable({ centers }: CenterTableProps) {
           <TableRow>
             <TableHead>{t('centers.name')}</TableHead>
             <TableHead>Location</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead className="text-right">
-              {t('centers.capacity')}
-            </TableHead>
+            <TableHead className="hidden lg:table-cell">Contact</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="w-[110px] text-right">Actions</TableHead>
           </TableRow>
@@ -80,7 +81,7 @@ export function CenterTable({ centers }: CenterTableProps) {
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden lg:table-cell">
                   <div className="text-sm">
                     <div className="font-mono">{formatPhoneUS(center.phone)}</div>
                     <div
@@ -92,9 +93,6 @@ export function CenterTable({ centers }: CenterTableProps) {
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {center.capacity}
-                </TableCell>
                 <TableCell>
                   <StatusBadge status={center.status} />
                 </TableCell>
@@ -104,26 +102,32 @@ export function CenterTable({ centers }: CenterTableProps) {
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => e.stopPropagation()}
                   >
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t('centers.view')}
-                    >
-                      <Link href={detailHref}>
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t('centers.edit')}
-                    >
-                      <Link href={`/centers/${center.id}/edit`}>
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    {isSuperAdmin ? (
+                      <AdminActionsMenu center={center} showView showEdit />
+                    ) : (
+                      <>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label={t('centers.view')}
+                        >
+                          <Link href={detailHref}>
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label={t('centers.edit')}
+                        >
+                          <Link href={`/centers/${center.id}/edit`}>
+                            <Edit className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

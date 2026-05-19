@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { getDashboardGreeting, getDisplayRole } from '@/lib/user-display';
 
 const STATS = [
   { title: 'Total Centers' },
@@ -24,25 +25,13 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div>
         <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight">
-          Welcome back, {user.email}
+          {getDashboardGreeting(user)}
         </h1>
         <p
           className="mt-2 text-sm"
           style={{ color: 'var(--kc-text-3)' }}
         >
-          Role:{' '}
-          <span
-            className="font-semibold"
-            style={{ color: 'var(--kc-p-700)' }}
-          >
-            {user.role}
-          </span>
-          {user.centerId && (
-            <>
-              {' · '}Center:{' '}
-              <span className="font-mono text-xs">{user.centerId}</span>
-            </>
-          )}
+          {getDisplayRole(user)}
         </p>
       </div>
 

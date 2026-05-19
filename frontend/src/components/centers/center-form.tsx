@@ -182,7 +182,7 @@ export function CenterForm({
     if (mode === 'edit' && initialData?.id) {
       router.push(`/centers/${initialData.id}`);
     } else {
-      router.push('/dashboard');
+      router.push('/centers');
     }
   };
 

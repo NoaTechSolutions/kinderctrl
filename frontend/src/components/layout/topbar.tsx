@@ -19,6 +19,8 @@ import { LanguageDropdown } from '@/components/auth/language-dropdown';
 import { TimeFormatDropdown } from '@/components/auth/time-format-dropdown';
 import { useAuthStore } from '@/store/auth';
 import { logout as logoutApi } from '@/lib/api/auth';
+import { useTranslation } from '@/lib/i18n';
+import { getDisplayRole } from '@/lib/user-display';
 
 interface TopbarProps {
   onMenuClick?: () => void;
@@ -26,6 +28,7 @@ interface TopbarProps {
 
 export function Topbar({ onMenuClick }: TopbarProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const clearTokens = useAuthStore((s) => s.clearTokens);
 
@@ -46,7 +49,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
   return (
     <div
-      className="flex h-16 items-center justify-between border-b px-6"
+      className="flex h-16 items-center justify-between border-b px-3 md:px-6"
       style={{
         background: 'var(--kc-surface)',
         borderColor: 'var(--kc-border)',
@@ -65,9 +68,15 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       <div className="flex-1 lg:flex-none" />
 
       <div className="flex items-center gap-2">
+        {/* Theme stays in the topbar at every breakpoint — light/dark is a
+            quick toggle a user needs at hand. Language + time-format are
+            preferences that will move to Settings when that module ships;
+            for now they're hidden on mobile (Settings is the long-term home). */}
         <ThemeDropdown />
-        <LanguageDropdown />
-        <TimeFormatDropdown />
+        <div className="hidden md:flex items-center gap-2">
+          <LanguageDropdown />
+          <TimeFormatDropdown />
+        </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -89,12 +98,35 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col gap-0.5">
-                <p className="text-sm font-medium truncate">{user?.email}</p>
+                {user?.center?.name ? (
+                  <p
+                    className="text-sm font-medium truncate"
+                    title={user.center.name}
+                  >
+                    {user.center.name}
+                  </p>
+                ) : (
+                  <p
+                    className="text-sm"
+                    style={{ color: 'var(--kc-text-3)' }}
+                  >
+                    {user?.role === 'SUPER_ADMIN'
+                      ? 'No Center'
+                      : t('centers.statusSetupPending')}
+                  </p>
+                )}
                 <p
                   className="text-xs"
                   style={{ color: 'var(--kc-text-3)' }}
                 >
-                  {user?.role}
+                  {user ? getDisplayRole(user) : ''}
+                </p>
+                <p
+                  className="text-xs truncate"
+                  style={{ color: 'var(--kc-text-3)' }}
+                  title={user?.email}
+                >
+                  {user?.email}
                 </p>
               </div>
             </DropdownMenuLabel>

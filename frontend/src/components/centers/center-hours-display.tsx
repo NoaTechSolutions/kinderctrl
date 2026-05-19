@@ -88,22 +88,40 @@ export function CenterHoursDisplay({
             )}
           </div>
         ) : (
-          <ul className="space-y-1.5">
-            {sorted.map((h) => (
-              <li
-                key={h.id}
-                className="flex items-center justify-between text-sm"
-              >
-                <span style={{ color: 'var(--kc-text-2)' }}>
-                  {DAY_NAMES[h.dayOfWeek] ?? `Day ${h.dayOfWeek}`}
-                </span>
-                <span className="font-mono tabular-nums">
-                  {h.isOpen
-                    ? formatTimeRange(h.openTime, h.closeTime, timeFormat)
-                    : 'Closed'}
-                </span>
-              </li>
-            ))}
+          // Always render all seven days so closed/missing days surface
+          // as "Closed" instead of silently disappearing — centers created
+          // via the form only insert open days, so a Mon-Fri center had
+          // no Sat/Sun rows at all (UX-014).
+          <ul className="space-y-1.5 max-w-md mx-auto">
+            {(() => {
+              const byDay = new Map(sorted.map((h) => [h.dayOfWeek, h]));
+              return [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => {
+                const h = byDay.get(dayOfWeek);
+                const isOpen = !!h?.isOpen;
+                return (
+                  <li
+                    key={dayOfWeek}
+                    className="grid grid-cols-[7rem_1fr] items-center gap-8 text-sm"
+                  >
+                    <span
+                      className="font-medium"
+                      style={{ color: 'var(--kc-text-2)' }}
+                    >
+                      {DAY_NAMES[dayOfWeek]}
+                    </span>
+                    {isOpen && h ? (
+                      <span className="font-mono tabular-nums">
+                        {formatTimeRange(h.openTime, h.closeTime, timeFormat)}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--kc-text-3)' }}>
+                        Closed
+                      </span>
+                    )}
+                  </li>
+                );
+              });
+            })()}
           </ul>
         )}
       </CardContent>

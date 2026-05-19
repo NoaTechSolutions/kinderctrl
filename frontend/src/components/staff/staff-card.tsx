@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
+  Briefcase,
   Building2,
+  CalendarDays,
   ChevronDown,
-  FileText,
   Mail,
-  MapPin,
   Phone,
+  User as UserIcon,
 } from 'lucide-react';
 import {
   Card,
@@ -23,28 +24,34 @@ import {
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { StatusBadge } from './status-badge';
 import { formatPhoneUS } from '@/lib/utils/phone';
-import type { Center } from '@/lib/types/center';
+import type { Staff } from '@/lib/types/staff';
+import type { UserRole } from '@/store/auth';
+import { StaffStatusBadge } from './staff-status-badge';
 
-interface CenterCardProps {
-  center: Center;
+interface StaffCardProps {
+  staff: Staff;
+  // SUPER_ADMIN sees a Center row to disambiguate cross-center listings.
+  // Other roles only ever see their own center's staff.
+  userRole?: UserRole;
 }
 
-/**
- * Mobile-first collapsible center card.
- *
- * Closed: building icon, truncated name, status badge, chevron — whole
- * header is the trigger so the entire card surface is tappable.
- *
- * Open: name un-truncated, chevron flipped, full address / phone / email
- * / license rows, plus a primary "View" button that navigates to the
- * detail page. Edit is intentionally NOT exposed here — admins follow
- * View -> detail -> Edit (which already gates by canManage + isClosed).
- */
-export function CenterCard({ center }: CenterCardProps) {
+const ROLE_LABEL_KEY: Record<Staff['role'], string> = {
+  TEACHER: 'staff.roleTeacher',
+  ASSISTANT: 'staff.roleAssistant',
+  ADMIN: 'staff.roleAdmin',
+};
+
+const EMPLOYMENT_LABEL_KEY: Record<string, string> = {
+  full_time: 'staff.employmentFullTime',
+  part_time: 'staff.employmentPartTime',
+};
+
+export function StaffCard({ staff, userRole }: StaffCardProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const fullName = `${staff.firstName} ${staff.lastName}`;
+  const showCenter = userRole === 'SUPER_ADMIN' && !!staff.centerName;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -53,15 +60,14 @@ export function CenterCard({ center }: CenterCardProps) {
           className="block w-full cursor-pointer bg-transparent text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           style={
             {
-              // Match the project's primary focus ring token.
               '--tw-ring-color':
                 'color-mix(in oklch, var(--kc-p-500), transparent 60%)',
             } as React.CSSProperties
           }
           aria-label={
             open
-              ? `${t('centers.view')} ${center.name}`
-              : `${center.name} ${t('centers.view')}`
+              ? `${t('staff.view')} ${fullName}`
+              : `${fullName} ${t('staff.view')}`
           }
         >
           <CardHeader className="grid-cols-1">
@@ -74,7 +80,7 @@ export function CenterCard({ center }: CenterCardProps) {
                   color: 'var(--kc-p-600)',
                 }}
               >
-                <Building2 className="h-5 w-5" />
+                <UserIcon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <h3
@@ -82,12 +88,18 @@ export function CenterCard({ center }: CenterCardProps) {
                     'text-base font-semibold leading-tight',
                     open ? '' : 'truncate',
                   )}
-                  title={open ? undefined : center.name}
+                  title={open ? undefined : fullName}
                 >
-                  {center.name}
+                  {fullName}
                 </h3>
-                <div className="mt-1.5">
-                  <StatusBadge status={center.status} />
+                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: 'var(--kc-text-3)' }}
+                  >
+                    {t(ROLE_LABEL_KEY[staff.role])}
+                  </span>
+                  <StaffStatusBadge status={staff.status} />
                 </div>
               </div>
               <ChevronDown
@@ -104,27 +116,41 @@ export function CenterCard({ center }: CenterCardProps) {
 
         <CollapsibleContent>
           <CardContent className="space-y-2.5">
-            <Row icon={MapPin}>
-              {center.street}, {center.city}, {center.state} {center.zipCode}
+            <Row icon={Mail} truncate title={staff.email}>
+              {staff.email}
             </Row>
-            <Row icon={Phone}>{formatPhoneUS(center.phone)}</Row>
-            <Row icon={Mail} truncate title={center.email}>
-              {center.email}
-            </Row>
-            {center.licenseNumber && (
-              <Row icon={FileText}>
-                {t('centers.licenseNumber')}: {center.licenseNumber}
+            {showCenter && (
+              <Row icon={Building2} truncate title={staff.centerName}>
+                {staff.centerName}
               </Row>
             )}
+            {staff.phone && (
+              <Row icon={Phone}>{formatPhoneUS(staff.phone)}</Row>
+            )}
+            <Row icon={Briefcase}>
+              {EMPLOYMENT_LABEL_KEY[staff.employmentType]
+                ? t(EMPLOYMENT_LABEL_KEY[staff.employmentType])
+                : staff.employmentType}
+              {staff.hourlyRate != null && (
+                <span style={{ color: 'var(--kc-text-3)' }}>
+                  {' · $'}
+                  {staff.hourlyRate.toFixed(2)}/hr
+                </span>
+              )}
+            </Row>
+            <Row icon={CalendarDays}>
+              {t('staff.hireDate')}:{' '}
+              {new Date(staff.hireDate).toLocaleDateString()}
+            </Row>
 
             <div className="mt-3 flex gap-2">
               <Button asChild className="flex-1">
-                <Link href={`/centers/${center.id}`}>{t('centers.view')}</Link>
+                <Link href={`/staff/${staff.id}`}>{t('staff.view')}</Link>
               </Button>
-              {center.status !== 'CLOSED' && (
+              {staff.status !== 'TERMINATED' && (
                 <Button asChild variant="outline" className="flex-1">
-                  <Link href={`/centers/${center.id}/edit`}>
-                    {t('centers.edit')}
+                  <Link href={`/staff/${staff.id}/edit`}>
+                    {t('staff.edit')}
                   </Link>
                 </Button>
               )}
@@ -142,7 +168,7 @@ function Row({
   truncate,
   title,
 }: {
-  icon: typeof Building2;
+  icon: typeof Mail;
   children: React.ReactNode;
   truncate?: boolean;
   title?: string;

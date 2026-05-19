@@ -1,12 +1,25 @@
 import { apiRequest } from './client';
-import type { Center, CenterHours } from '@/lib/types/center';
+import type {
+  Center,
+  CenterHours,
+  CentersQuery,
+  PaginatedCenters,
+} from '@/lib/types/center';
 import type {
   CenterFormData,
   CenterUpdateData,
 } from '@/lib/schemas/center';
 
-export function getCenters() {
-  return apiRequest<Center[]>('/centers', { method: 'GET' });
+export function getCenters(query: CentersQuery = {}) {
+  const params = new URLSearchParams();
+  if (query.page != null) params.set('page', String(query.page));
+  if (query.limit != null) params.set('limit', String(query.limit));
+  if (query.status) params.set('status', query.status);
+  const qs = params.toString();
+  return apiRequest<PaginatedCenters>(
+    qs ? `/centers?${qs}` : '/centers',
+    { method: 'GET' },
+  );
 }
 
 export function getCenter(id: string) {

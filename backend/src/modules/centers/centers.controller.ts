@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -16,6 +17,7 @@ import { CentersService } from './centers.service';
 import { CreateCenterDto } from './dto/create-center.dto';
 import { UpdateCenterDto } from './dto/update-center.dto';
 import { SetCenterHoursDto } from './dto/center-hours.dto';
+import { FindAllCentersDto } from './dto/find-all-centers.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -48,8 +50,11 @@ export class CentersController {
 
   @Get()
   @SkipSetupCheck()
-  async findAll(@CurrentUser() user: AuthUser) {
-    return this.centersService.findAll(user.id, user.role);
+  async findAll(
+    @CurrentUser() user: AuthUser,
+    @Query() query: FindAllCentersDto,
+  ) {
+    return this.centersService.findAll(user.id, user.role, query);
   }
 
   @Get(':id')

@@ -52,8 +52,7 @@ export default function DashboardGroupLayout({
   //      user sees one frame of /dashboard before the redirect.
   const isCheckingFirstTime =
     isDirectorOnDashboard &&
-    (!centersFetched ||
-      (Array.isArray(centers) && centers.length === 0));
+    (!centersFetched || centers?.pagination.total === 0);
 
   // First-time DIRECTOR redirect: land on /dashboard with zero centers
   // -> push them straight to /centers/new (BUG-001). One-time per fresh
@@ -61,7 +60,7 @@ export default function DashboardGroupLayout({
   useEffect(() => {
     if (!isDirectorOnDashboard) return;
     if (!centersFetched) return;
-    if (Array.isArray(centers) && centers.length === 0) {
+    if (centers?.pagination.total === 0) {
       router.replace('/centers/new');
     }
   }, [isDirectorOnDashboard, centersFetched, centers, router]);

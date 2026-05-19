@@ -35,6 +35,27 @@ export interface CenterHours {
   isOpen: boolean;
 }
 
+// Mirror of backend FindAllCentersDto / pagination response. Keep the
+// totalPages floor at 1 in sync with centers.service.ts so the UI's
+// "Page X of Y" never shows "of 0" for empty results.
+export interface CentersQuery {
+  page?: number;
+  limit?: number;
+  status?: CenterStatus;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedCenters {
+  data: Center[];
+  pagination: PaginationMeta;
+}
+
 export const VALID_TIMEZONES = [
   'America/New_York',
   'America/Chicago',
