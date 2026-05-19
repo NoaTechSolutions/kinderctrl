@@ -18,6 +18,15 @@ import { ApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { loginSchema, type LoginFormData } from '@/lib/schemas/auth';
 
+// MM:SS countdown for the rate-limit button. Seconds-only ("(900s)") felt
+// like an error code; minutes:seconds reads like a wait time.
+const formatCountdown = (seconds: number): string => {
+  const safe = Math.max(0, Math.floor(seconds));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 export default function LoginPage() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -77,9 +86,12 @@ export default function LoginPage() {
           case 'RATE_LIMITED': {
             const seconds = error.retryAfter ?? 60;
             setRateLimitSecondsLeft(seconds);
+            // Mirror errAccountLocked: surface a coarse minute count in the
+            // static copy, leave the live MM:SS countdown on the button.
+            const minutes = Math.max(1, Math.ceil(seconds / 60));
             message = t('errRateLimited').replace(
-              '{seconds}',
-              String(seconds),
+              '{minutes}',
+              String(minutes),
             );
             break;
           }
@@ -276,7 +288,7 @@ export default function LoginPage() {
               {t('signingIn')}
             </>
           ) : isRateLimited ? (
-            `${t('signIn')} (${rateLimitSecondsLeft}s)`
+            `${t('signIn')} (${formatCountdown(rateLimitSecondsLeft)})`
           ) : (
             t('signIn')
           )}

@@ -57,7 +57,7 @@ export const translations = {
     errAccountLocked:
       'Account temporarily locked due to too many failed attempts. Try again in about {minutes} minute(s).',
     errRateLimited:
-      'Too many attempts. Please wait {seconds} seconds and try again.',
+      'Too many attempts. Try again in about {minutes} minute(s).',
     errRateLimitedShort: 'Please wait before trying again.',
     errEmailExists: 'This email is already registered.',
     errGeneric: 'Something went wrong. Please try again.',
@@ -409,7 +409,7 @@ export const translations = {
     errAccountLocked:
       'Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intentá de nuevo en {minutes} minuto(s).',
     errRateLimited:
-      'Demasiados intentos. Esperá {seconds} segundos e intentá de nuevo.',
+      'Demasiados intentos. Intentá de nuevo en {minutes} minuto(s).',
     errRateLimitedShort: 'Esperá antes de intentar de nuevo.',
     errEmailExists: 'Este email ya está registrado.',
     errGeneric: 'Algo salió mal. Intentá de nuevo.',

@@ -164,6 +164,11 @@ export class AuthService {
   }
 
   private async sendAccountLockedEmail(email: string): Promise<void> {
+    // Trace breadcrumb so an audit can confirm the lockout-email codepath
+    // actually fired. Before BUG-029 the IP-only throttler would 429 a
+    // shared-IP user before this method ever ran — without this log there
+    // was no way to tell "email rejected" from "email never attempted".
+    this.logger.log('Sending account-locked email (lockout triggered)');
     const unlocksAt = new Date(Date.now() + LOCKOUT_DURATION_MS);
     // Format as wall-clock time — keeping it short and unambiguous. Locale
     // is server-default; refining to per-user locale would need the user

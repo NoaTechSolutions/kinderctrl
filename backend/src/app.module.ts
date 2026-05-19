@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -12,6 +12,7 @@ import { StaffModule } from './modules/staff/staff.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { EmailModule } from './modules/email/email.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { EmailAwareThrottlerGuard } from './modules/auth/guards/email-aware-throttler.guard';
 import { ThrottlerExceptionFilter } from './modules/auth/filters/throttler-exception.filter';
 
 @Module({
@@ -35,12 +36,14 @@ import { ThrottlerExceptionFilter } from './modules/auth/filters/throttler-excep
   controllers: [AppController],
   providers: [
     AppService,
-    // Guard order matters: ThrottlerGuard runs first so we 429 abusers
-    // before doing the JWT lookup, which means brute-force attempts on
-    // /auth/login don't even reach the bcrypt compare.
+    // Guard order matters: throttler runs first so we 429 abusers before
+    // doing the JWT lookup, which means brute-force attempts on /auth/login
+    // don't even reach the bcrypt compare. EmailAwareThrottlerGuard composes
+    // the tracker key as (ip + email) when the body carries one, so a single
+    // bad actor on shared IPs (NAT, localhost) doesn't block other accounts.
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: EmailAwareThrottlerGuard,
     },
     {
       provide: APP_GUARD,
