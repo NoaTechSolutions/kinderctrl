@@ -6,20 +6,27 @@ import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCenters } from '@/lib/hooks/use-centers';
 import { useTranslation } from '@/lib/i18n';
+import { useAuthStore } from '@/store/auth';
 
 export function SetupIncompleteBanner() {
   const { t } = useTranslation();
   const pathname = usePathname();
+  const user = useAuthStore((s) => s.user);
   const { data: centers, isLoading } = useCenters();
 
   if (pathname?.startsWith('/centers')) return null;
+  // Banner is an onboarding affordance for owners of the workspace.
+  // PARENT/STAFF can't create or activate centers, so showing them either
+  // "No center yet · Create center" or "Complete setup" is misleading —
+  // they need to contact their administrator, not click here.
+  if (user?.role !== 'DIRECTOR' && user?.role !== 'SUPER_ADMIN') return null;
   if (isLoading) return null;
   if (!centers) return null;
 
-  const hasActive = centers.some((c) => c.status !== 'SETUP_PENDING');
+  const hasActive = centers.data.some((c) => c.status !== 'SETUP_PENDING');
   if (hasActive) return null;
 
-  if (centers.length === 0) {
+  if (centers.pagination.total === 0) {
     return (
       <div
         role="status"
@@ -52,7 +59,7 @@ export function SetupIncompleteBanner() {
     );
   }
 
-  const firstPending = centers.find((c) => c.status === 'SETUP_PENDING');
+  const firstPending = centers.data.find((c) => c.status === 'SETUP_PENDING');
   if (!firstPending) return null;
 
   return (

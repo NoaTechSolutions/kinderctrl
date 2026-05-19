@@ -48,6 +48,11 @@ export default function CenterDetailPage() {
   // findOne returns 404 if they probe a center that isn't theirs.
   const isAssignedUser =
     user?.role === 'STAFF' || user?.role === 'PARENT';
+  // Back button destination: only SUPER_ADMIN goes back to the cross-
+  // center list because they're the only role that genuinely browses
+  // multiple centers. DIRECTOR (even with multiple centers), STAFF and
+  // PARENT all return to /dashboard — their natural "home".
+  const backToList = user?.role === 'SUPER_ADMIN';
   // License is operational/regulatory info — PARENT doesn't need it.
   const canSeeLicense = user?.role !== 'PARENT';
 
@@ -71,9 +76,9 @@ export default function CenterDetailPage() {
     return (
       <div className="space-y-4 max-w-4xl">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
-          <Link href={isAssignedUser ? '/dashboard' : '/centers'}>
+          <Link href={backToList ? '/centers' : '/dashboard'}>
             <ArrowLeft className="mr-1 h-4 w-4" />
-            {isAssignedUser ? 'Dashboard' : t('centers.title')}
+            {backToList ? t('centers.title') : 'Dashboard'}
           </Link>
         </Button>
         <div
@@ -103,9 +108,9 @@ export default function CenterDetailPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <Button asChild variant="ghost" size="sm" className="-ml-2">
-        <Link href={isAssignedUser ? '/dashboard' : '/centers'}>
+        <Link href={backToList ? '/centers' : '/dashboard'}>
           <ArrowLeft className="mr-1 h-4 w-4" />
-          {isAssignedUser ? 'Dashboard' : t('centers.title')}
+          {backToList ? t('centers.title') : 'Dashboard'}
         </Link>
       </Button>
 
@@ -124,7 +129,7 @@ export default function CenterDetailPage() {
           </div>
           <div className="min-w-0">
             <h1
-              className="font-display text-3xl sm:text-4xl font-semibold tracking-tight truncate"
+              className="font-display text-3xl sm:text-4xl font-semibold tracking-tight line-clamp-1 md:line-clamp-2"
               title={center.name}
             >
               {center.name}
