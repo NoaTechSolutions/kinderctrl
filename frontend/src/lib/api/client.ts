@@ -3,15 +3,39 @@ import { useAuthStore } from '@/store/auth';
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002';
 
+// Stable identifiers the backend returns in error bodies. Keep in sync with
+// backend/src/modules/auth/constants/auth-error-code.enum.ts.
+export type ApiErrorCode =
+  | 'INVALID_CREDENTIALS'
+  | 'ACCOUNT_NOT_ACTIVE'
+  | 'ACCOUNT_LOCKED'
+  | 'RATE_LIMITED'
+  | 'EMAIL_EXISTS';
+// (ACCOUNT_LOCKED already in the union — PR2 reused it. Kept here as the
+// canonical mirror of backend AuthErrorCode.)
+
 export class ApiError extends Error {
   status: number;
   body: unknown;
+  errorCode?: ApiErrorCode;
+  // Seconds until the client may retry — populated for RATE_LIMITED /
+  // ACCOUNT_LOCKED responses. The UI uses it to drive a countdown.
+  retryAfter?: number;
 
   constructor(status: number, body: unknown, message?: string) {
     super(message ?? `HTTP ${status}`);
     this.name = 'ApiError';
     this.status = status;
     this.body = body;
+    if (typeof body === 'object' && body !== null) {
+      const b = body as { errorCode?: unknown; retryAfter?: unknown };
+      if (typeof b.errorCode === 'string') {
+        this.errorCode = b.errorCode as ApiErrorCode;
+      }
+      if (typeof b.retryAfter === 'number') {
+        this.retryAfter = b.retryAfter;
+      }
+    }
   }
 }
 

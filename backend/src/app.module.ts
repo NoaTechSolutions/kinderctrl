@@ -1,30 +1,54 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CentersModule } from './modules/centers/centers.module';
 import { ChildrenModule } from './modules/children/children.module';
+import { StaffModule } from './modules/staff/staff.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { EmailModule } from './modules/email/email.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { ThrottlerExceptionFilter } from './modules/auth/filters/throttler-exception.filter';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    // Default policy: 60 req/min per IP, applied to every endpoint as the
+    // safety net. Auth endpoints override with stricter @Throttle decorators.
+    // In-memory storage is fine for a single-instance deployment; swap to
+    // @nestjs/throttler-storage-redis when going horizontal.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     PrismaModule,
     AuthModule,
     CentersModule,
     ChildrenModule,
+    StaffModule,
+    AdminModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    // Guard order matters: ThrottlerGuard runs first so we 429 abusers
+    // before doing the JWT lookup, which means brute-force attempts on
+    // /auth/login don't even reach the bcrypt compare.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: ThrottlerExceptionFilter,
     },
   ],
 })

@@ -48,3 +48,19 @@ export function logout() {
     method: 'POST',
   });
 }
+
+export function forgotPassword(email: string) {
+  return apiRequest<void>('/auth/forgot-password', {
+    method: 'POST',
+    body: { email },
+    skipAuth: true,
+  });
+}
+
+export function resetPassword(token: string, newPassword: string) {
+  return apiRequest<void>('/auth/reset-password', {
+    method: 'POST',
+    body: { token, newPassword },
+    skipAuth: true,
+  });
+}

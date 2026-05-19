@@ -10,6 +10,7 @@ import {
   CreditCard,
   Home,
   Settings,
+  ShieldAlert,
   UserCog,
   Users,
   type LucideIcon,
@@ -52,10 +53,12 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
           icon: Building2,
           active: true,
         }
-      : user?.role === 'DIRECTOR' && (centers?.length ?? 0) >= 1
+      : user?.role === 'DIRECTOR' &&
+          (centers?.pagination.total ?? 0) >= 1 &&
+          centers!.data.length > 0
         ? {
             title: t('centers.titleSingular'),
-            href: `/centers/${centers![0].id}`,
+            href: `/centers/${centers!.data[0].id}`,
             icon: Building2,
             active: true,
           }
@@ -66,15 +69,38 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
             active: true,
           };
 
+  // Mirror sidebar's role-aware Staff entry: DIRECTOR / SUPER_ADMIN only.
+  const staffItem: NavItem | null =
+    user?.role === 'DIRECTOR' || user?.role === 'SUPER_ADMIN'
+      ? {
+          title: t('staff.title'),
+          href: '/staff',
+          icon: Users,
+          active: true,
+        }
+      : null;
+
+  // Mirror sidebar's SUPER_ADMIN-only admin entry.
+  const adminItem: NavItem | null =
+    user?.role === 'SUPER_ADMIN'
+      ? {
+          title: t('admin.lockedAccountsNav'),
+          href: '/admin/locked-accounts',
+          icon: ShieldAlert,
+          active: true,
+        }
+      : null;
+
   const NAV_ITEMS: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: Home, active: true },
     ...(centerItem ? [centerItem] : []),
     { title: 'Children', href: '/children', icon: Baby, active: false },
-    { title: 'Staff', href: '/staff', icon: Users, active: false },
+    ...(staffItem ? [staffItem] : []),
     { title: 'Parents', href: '/parents', icon: UserCog, active: false },
     { title: 'Attendance', href: '/attendance', icon: Calendar, active: false },
     { title: 'Reports', href: '/reports', icon: BarChart3, active: false },
     { title: 'Billing', href: '/billing', icon: CreditCard, active: false },
+    ...(adminItem ? [adminItem] : []),
     { title: 'Settings', href: '/settings', icon: Settings, active: false },
   ];
 

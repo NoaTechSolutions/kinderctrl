@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm, Controller } from 'react-hook-form';
@@ -23,6 +23,19 @@ export default function LoginPage() {
   const router = useRouter();
   const setTokens = useAuthStore((s) => s.setTokens);
   const [showPassword, setShowPassword] = useState(false);
+  // Drives the disable + "wait N seconds" UI when the server returns
+  // RATE_LIMITED with a Retry-After hint. Ticks down to 0 on its own;
+  // the button re-enables and the error clears when it lands.
+  const [rateLimitSecondsLeft, setRateLimitSecondsLeft] = useState(0);
+
+  useEffect(() => {
+    if (rateLimitSecondsLeft <= 0) return;
+    const id = window.setTimeout(
+      () => setRateLimitSecondsLeft((s) => s - 1),
+      1000,
+    );
+    return () => window.clearTimeout(id);
+  }, [rateLimitSecondsLeft]);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -34,30 +47,73 @@ export default function LoginPage() {
       login({ email: data.email, password: data.password }),
     onSuccess: (data) => {
       setTokens(data.access_token, data.refresh_token, data.user);
-      // STAFF and PARENT deep-link straight to their assigned center.
-      // Everyone else lands on /dashboard. DIRECTOR's first-login redirect
-      // to /centers/new (commit 930bf27) still kicks in from the dashboard.
-      const isAssignedRole =
-        data.user.role === 'STAFF' || data.user.role === 'PARENT';
-      const redirectPath =
-        isAssignedRole && data.user.centerId
-          ? `/centers/${data.user.centerId}`
-          : '/dashboard';
+      // BUG-013 (2026-05-16): DIRECTOR sin centro jumps straight to the
+      // create form instead of bouncing through /centers' empty list. The
+      // (dashboard) layout would eventually redirect them, but skipping
+      // the intermediate flash is cleaner UX.
+      // BUG-012/PENDIENTE 1 (2026-05-15): users with a populated `center`
+      // land on /dashboard regardless of role — this reverses the BUG-009
+      // STAFF/PARENT deep-link to /centers/{id}.
+      const redirectPath = data.user.center
+        ? '/dashboard'
+        : data.user.role === 'DIRECTOR'
+          ? '/centers/new'
+          : '/centers';
       window.setTimeout(() => router.push(redirectPath), 350);
     },
     onError: (error: Error) => {
-      const message =
-        error instanceof ApiError && error.status === 401
-          ? t('err')
-          : error.message;
+      // Branch on errorCode first (typed, stable), then fall back to status,
+      // then to the raw message. Anything we can't classify goes through
+      // errGeneric instead of leaking server prose to the user.
+      let message = t('errGeneric');
+      if (error instanceof ApiError) {
+        switch (error.errorCode) {
+          case 'INVALID_CREDENTIALS':
+            message = t('err');
+            break;
+          case 'ACCOUNT_NOT_ACTIVE':
+            message = t('errAccountNotActive');
+            break;
+          case 'RATE_LIMITED': {
+            const seconds = error.retryAfter ?? 60;
+            setRateLimitSecondsLeft(seconds);
+            message = t('errRateLimited').replace(
+              '{seconds}',
+              String(seconds),
+            );
+            break;
+          }
+          case 'ACCOUNT_LOCKED': {
+            // Same UX as RATE_LIMITED — the user can't do anything except
+            // wait, and the countdown lets them see why. Differentiated
+            // only by copy ("locked" vs "too many attempts").
+            const seconds = error.retryAfter ?? 900;
+            setRateLimitSecondsLeft(seconds);
+            const minutes = Math.ceil(seconds / 60);
+            message = t('errAccountLocked').replace(
+              '{minutes}',
+              String(minutes),
+            );
+            break;
+          }
+          default:
+            // Untyped 401 (legacy or unexpected) → generic credentials msg.
+            if (error.status === 401) message = t('err');
+            else if (error.status === 429) message = t('errRateLimitedShort');
+            else message = error.message || t('errGeneric');
+        }
+      }
       form.setError('root', { message });
     },
   });
 
   const onSubmit = (data: LoginFormData) => {
+    if (rateLimitSecondsLeft > 0) return;
     form.clearErrors('root');
     loginMutation.mutate(data);
   };
+
+  const isRateLimited = rateLimitSecondsLeft > 0;
 
   return (
     <div className="w-full">
@@ -176,7 +232,7 @@ export default function LoginPage() {
             </Label>
           </div>
           <Link
-            href="#"
+            href="/forgot-password"
             className="text-sm font-medium hover:underline"
             style={{ color: 'var(--kc-p-600)' }}
           >
@@ -203,7 +259,11 @@ export default function LoginPage() {
         <Button
           type="submit"
           className="w-full h-11"
-          disabled={loginMutation.isPending || loginMutation.isSuccess}
+          disabled={
+            loginMutation.isPending ||
+            loginMutation.isSuccess ||
+            isRateLimited
+          }
         >
           {loginMutation.isSuccess ? (
             <>
@@ -215,6 +275,8 @@ export default function LoginPage() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {t('signingIn')}
             </>
+          ) : isRateLimited ? (
+            `${t('signIn')} (${rateLimitSecondsLeft}s)`
           ) : (
             t('signIn')
           )}

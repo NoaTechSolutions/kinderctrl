@@ -22,6 +22,16 @@ model User {
   role     UserRole
   status   UserStatus @default(PENDING_ACTIVATION)
 
+  // Auth security — populated by the login flow.
+  // failedLoginAttempts increments on each bad-password attempt and resets to 0
+  // either on a successful login or when lockedUntil is set (the lockout itself
+  // becomes the source of truth for "blocked"). lockedUntil is a forward-only
+  // timestamp: while > now() the account refuses login with ACCOUNT_LOCKED.
+  // lastLoginAt is recorded only on successful login for audit/anomaly review.
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+  lastLoginAt         DateTime? @map("last_login_at")
+
   // Relations
   centerId String? @map("center_id") @db.Uuid
   center   Center? @relation("CenterUsers", fields: [centerId], references: [id])
@@ -33,8 +43,9 @@ model User {
   parent   Parent? @relation(fields: [parentId], references: [id])
 
   // Reverse relations
-  ownedCenters Center[]  @relation("CenterOwner")
-  sessions     Session[]
+  ownedCenters        Center[]             @relation("CenterOwner")
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
 
   // Timestamps
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -68,6 +79,43 @@ model Session {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("sessions")
+}
+
+// Append-only ledger of admin actions (manual unlocks today; later: status
+// changes, role grants, etc.). Not FK-linked to User so a record survives
+// the target's deletion. Indexes cover the three lookup patterns: "who did
+// what" (actor), "what happened to whom" (target), and chronological scan.
+// One-time password reset tokens. Plaintext token lives in the URL only —
+// stored here for lookup. `usedAt` makes the token single-use even before
+// expiry: claiming it sets the timestamp, subsequent claims fail. `expiresAt`
+// kills stale tokens. Cascade delete with user so a deleted account can't
+// be hijacked through a leaked token.
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model AdminAuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String   @map("actor_id") @db.Uuid
+  action       String
+  targetUserId String?  @map("target_user_id") @db.Uuid
+  payload      Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@index([targetUserId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }
 
 // ============================================
@@ -212,6 +260,9 @@ model Staff {
   hireDate       DateTime @map("hire_date")
   hourlyRate     Decimal? @map("hourly_rate") @db.Decimal(10, 2)
   employmentType String   @map("employment_type") // full_time, part_time
+
+  phone String?
+  notes String?
 
   status StaffStatus @default(INVITED)
 

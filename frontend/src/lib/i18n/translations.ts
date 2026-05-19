@@ -29,6 +29,38 @@ export const translations = {
     privacy: 'Privacy Policy',
     err: 'Invalid email or password.',
     errHint: 'Check your details or reset your password.',
+    // Forgot / reset password flow (en).
+    forgotTitle: 'Forgot your password?',
+    forgotSubtitle:
+      "Enter your account email and we'll send you a link to reset it.",
+    forgotSubmit: 'Send reset link',
+    forgotSending: 'Sending…',
+    forgotBackToLogin: 'Back to sign in',
+    forgotSentTitle: 'Check your email',
+    forgotSentBody:
+      "If an account exists for that email, we've sent a password reset link. It expires in 1 hour.",
+    resetTitle: 'Choose a new password',
+    resetSubtitle:
+      'Your new password must be at least 8 characters and include uppercase, lowercase, and a number or symbol.',
+    resetNewPassword: 'New password',
+    resetSubmit: 'Reset password',
+    resetSubmitting: 'Resetting…',
+    resetTokenInvalid:
+      'This reset link is invalid or has expired. Please request a new one.',
+    resetDoneTitle: 'Password reset',
+    resetDoneBody:
+      'Your password has been updated. Redirecting you to sign in…',
+    resetGoToLogin: 'Sign in now',
+
+    errAccountNotActive:
+      'Your account is not active. Please contact your administrator.',
+    errAccountLocked:
+      'Account temporarily locked due to too many failed attempts. Try again in about {minutes} minute(s).',
+    errRateLimited:
+      'Too many attempts. Please wait {seconds} seconds and try again.',
+    errRateLimitedShort: 'Please wait before trying again.',
+    errEmailExists: 'This email is already registered.',
+    errGeneric: 'Something went wrong. Please try again.',
     noAccount: "Don't have an account?",
     requestDemo: 'Request a demo →',
 
@@ -78,6 +110,9 @@ export const translations = {
       list: 'All centers',
       noCenters: 'No centers yet',
       createFirst: 'Create your first center to get started',
+      noCenterAssigned: 'No center assigned',
+      contactAdmin:
+        "You don't have a center assigned yet. Please contact your daycare administrator.",
 
       name: 'Center name',
       namePlaceholder: 'e.g., Sunny Days Daycare',
@@ -135,10 +170,98 @@ export const translations = {
       loadError: 'Could not load centers',
       notFound: 'Center not found',
 
-      statusSetupPending: 'Setup pending',
+      statusAll: 'All',
+      statusSetupPending: 'Setup',
+      statusActive: 'Active',
+      statusSuspended: 'Susp.',
+      statusClosed: 'Closed',
+    },
+
+    // Staff (nested namespace, accessed via t('staff.title') etc.)
+    staff: {
+      title: 'Staff',
+      titleSingular: 'Staff member',
+      create: 'Add staff member',
+      edit: 'Edit staff member',
+      delete: 'Remove staff member',
+      view: 'View details',
+      list: 'All staff',
+      noStaff: 'No staff members yet',
+      createFirst: 'Add your first staff member to get started',
+
+      firstName: 'First name',
+      firstNamePlaceholder: 'e.g., Maria',
+      lastName: 'Last name',
+      lastNamePlaceholder: 'e.g., Gonzalez',
+      email: 'Email',
+      emailPlaceholder: 'maria@daycare.com',
+      phone: 'Phone',
+      phonePlaceholder: '(415) 555-1234',
+      role: 'Role',
+      center: 'Center',
+      hireDate: 'Hire date',
+      employmentType: 'Employment type',
+      hourlyRate: 'Hourly rate',
+      hourlyRatePlaceholder: '25.00',
+      notes: 'Notes',
+      notesPlaceholder: 'Additional information…',
+      status: 'Status',
+      fieldRequired: 'Required field',
+
+      roleTeacher: 'Teacher',
+      roleAssistant: 'Assistant',
+      // "Center Admin" disambiguates from the auth-level SUPER_ADMIN role.
+      roleAdmin: 'Center Admin',
+
+      employmentFullTime: 'Full-time',
+      employmentPartTime: 'Part-time',
+
+      statusInvited: 'Invited',
       statusActive: 'Active',
       statusSuspended: 'Suspended',
-      statusClosed: 'Closed',
+      statusTerminated: 'Terminated',
+
+      cancel: 'Cancel',
+      save: 'Save changes',
+      saving: 'Saving…',
+      noChangesHint: 'No changes to save',
+      unsavedChangesPrompt:
+        'You have unsaved changes. Are you sure you want to leave?',
+
+      createdToast: 'Staff member added',
+      updatedToast: 'Staff member updated',
+      deletedToast: 'Staff member removed',
+      loadError: 'Could not load staff',
+      notFound: 'Staff member not found',
+      createError: 'Could not add staff member',
+      updateError: 'Could not update staff member',
+      deleteError: 'Could not remove staff member',
+
+      confirmRemoveTitle: 'Remove staff member?',
+      confirmRemoveDescription:
+        'This will mark {name} as terminated and disable their account. This action cannot be undone via the UI.',
+      confirmRemoveBtn: 'Yes, remove',
+    },
+
+    // Admin tools (SUPER_ADMIN only). Accessed via t('admin.*').
+    admin: {
+      title: 'Admin',
+      lockedAccountsNav: 'Locked accounts',
+      lockedAccountsTitle: 'Locked accounts',
+      lockedAccountsDescription:
+        'Users currently locked out by repeated failed login attempts. Unlock to restore access immediately.',
+      noLockedAccounts: 'No locked accounts. Nice and quiet.',
+      colEmail: 'Email',
+      colRole: 'Role',
+      colCenter: 'Center',
+      colRemaining: 'Lock remaining',
+      colLastLogin: 'Last login',
+      colActions: 'Actions',
+      unlock: 'Unlock',
+      confirmUnlock:
+        'Unlock {email}? This will reset their failed-login counter and grant immediate access. The action is recorded in the audit log.',
+      unlockedToast: 'Account unlocked',
+      unlockError: 'Could not unlock account',
     },
 
     setup: {
@@ -258,6 +381,38 @@ export const translations = {
     hasAccount: '¿Ya tienes cuenta?',
     signInLink: 'Inicia sesión',
     emailExists: 'El email ya existe.',
+    // Forgot / reset password flow (es).
+    forgotTitle: '¿Olvidaste tu contraseña?',
+    forgotSubtitle:
+      'Ingresá el email de tu cuenta y te mandamos un link para resetearla.',
+    forgotSubmit: 'Mandar link de reset',
+    forgotSending: 'Enviando…',
+    forgotBackToLogin: 'Volver al login',
+    forgotSentTitle: 'Revisá tu email',
+    forgotSentBody:
+      'Si existe una cuenta para ese email, te mandamos un link para resetear la contraseña. El link vence en 1 hora.',
+    resetTitle: 'Elegí una nueva contraseña',
+    resetSubtitle:
+      'Tu nueva contraseña tiene que tener al menos 8 caracteres e incluir mayúscula, minúscula y un número o símbolo.',
+    resetNewPassword: 'Nueva contraseña',
+    resetSubmit: 'Resetear contraseña',
+    resetSubmitting: 'Reseteando…',
+    resetTokenInvalid:
+      'Este link de reset es inválido o expiró. Pedí uno nuevo.',
+    resetDoneTitle: 'Contraseña actualizada',
+    resetDoneBody:
+      'Tu contraseña se actualizó. Te llevamos al login…',
+    resetGoToLogin: 'Iniciar sesión',
+
+    errAccountNotActive:
+      'Tu cuenta no está activa. Contactá al administrador.',
+    errAccountLocked:
+      'Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intentá de nuevo en {minutes} minuto(s).',
+    errRateLimited:
+      'Demasiados intentos. Esperá {seconds} segundos e intentá de nuevo.',
+    errRateLimitedShort: 'Esperá antes de intentar de nuevo.',
+    errEmailExists: 'Este email ya está registrado.',
+    errGeneric: 'Algo salió mal. Intentá de nuevo.',
 
     // Centers (nested namespace)
     centers: {
@@ -270,6 +425,9 @@ export const translations = {
       list: 'Todos los centros',
       noCenters: 'Todavía no hay centros',
       createFirst: 'Crea tu primer centro para comenzar',
+      noCenterAssigned: 'Sin centro asignado',
+      contactAdmin:
+        'Todavía no tenés un centro asignado. Contactá al administrador de tu guardería.',
 
       name: 'Nombre del centro',
       namePlaceholder: 'ej., Guardería Días Soleados',
@@ -327,10 +485,95 @@ export const translations = {
       loadError: 'No se pudieron cargar los centros',
       notFound: 'Centro no encontrado',
 
-      statusSetupPending: 'Configuración pendiente',
+      statusAll: 'Todos',
+      statusSetupPending: 'Config.',
+      statusActive: 'Activo',
+      statusSuspended: 'Susp.',
+      statusClosed: 'Cerrado',
+    },
+
+    admin: {
+      title: 'Admin',
+      lockedAccountsNav: 'Cuentas bloqueadas',
+      lockedAccountsTitle: 'Cuentas bloqueadas',
+      lockedAccountsDescription:
+        'Usuarios bloqueados por demasiados intentos fallidos. Desbloqueá para restaurar el acceso al instante.',
+      noLockedAccounts: 'No hay cuentas bloqueadas. Todo tranquilo.',
+      colEmail: 'Email',
+      colRole: 'Rol',
+      colCenter: 'Centro',
+      colRemaining: 'Tiempo restante',
+      colLastLogin: 'Último login',
+      colActions: 'Acciones',
+      unlock: 'Desbloquear',
+      confirmUnlock:
+        '¿Desbloquear {email}? Se va a resetear el contador de intentos fallidos y la cuenta podrá entrar al instante. La acción queda registrada en el audit log.',
+      unlockedToast: 'Cuenta desbloqueada',
+      unlockError: 'No se pudo desbloquear la cuenta',
+    },
+
+    staff: {
+      title: 'Personal',
+      titleSingular: 'Empleado',
+      create: 'Agregar empleado',
+      edit: 'Editar empleado',
+      delete: 'Eliminar empleado',
+      view: 'Ver detalles',
+      list: 'Todo el personal',
+      noStaff: 'Aún no hay empleados',
+      createFirst: 'Agregá tu primer empleado para empezar',
+
+      center: 'Centro',
+      firstName: 'Nombre',
+      firstNamePlaceholder: 'ej., María',
+      lastName: 'Apellido',
+      lastNamePlaceholder: 'ej., González',
+      email: 'Email',
+      emailPlaceholder: 'maria@guarderia.com',
+      phone: 'Teléfono',
+      phonePlaceholder: '(415) 555-1234',
+      role: 'Cargo',
+      hireDate: 'Fecha de ingreso',
+      employmentType: 'Tipo de contrato',
+      hourlyRate: 'Tarifa por hora',
+      hourlyRatePlaceholder: '25.00',
+      notes: 'Notas',
+      notesPlaceholder: 'Información adicional…',
+      status: 'Estado',
+      fieldRequired: 'Campo obligatorio',
+
+      roleTeacher: 'Profesor/a',
+      roleAssistant: 'Asistente',
+      roleAdmin: 'Admin del centro',
+
+      employmentFullTime: 'Tiempo completo',
+      employmentPartTime: 'Tiempo parcial',
+
+      statusInvited: 'Invitado',
       statusActive: 'Activo',
       statusSuspended: 'Suspendido',
-      statusClosed: 'Cerrado',
+      statusTerminated: 'Terminado',
+
+      cancel: 'Cancelar',
+      save: 'Guardar cambios',
+      saving: 'Guardando…',
+      noChangesHint: 'No hay cambios para guardar',
+      unsavedChangesPrompt:
+        'Tenés cambios sin guardar. ¿Seguro que querés salir?',
+
+      createdToast: 'Empleado agregado',
+      updatedToast: 'Empleado actualizado',
+      deletedToast: 'Empleado eliminado',
+      loadError: 'No se pudo cargar el personal',
+      notFound: 'Empleado no encontrado',
+      createError: 'No se pudo agregar el empleado',
+      updateError: 'No se pudo actualizar el empleado',
+      deleteError: 'No se pudo eliminar el empleado',
+
+      confirmRemoveTitle: '¿Eliminar empleado?',
+      confirmRemoveDescription:
+        'Esto va a marcar a {name} como terminado y deshabilitar su cuenta. Esta acción no se puede deshacer desde la UI.',
+      confirmRemoveBtn: 'Sí, eliminar',
     },
 
     setup: {

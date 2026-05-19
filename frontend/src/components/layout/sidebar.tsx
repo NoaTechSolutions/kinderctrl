@@ -10,6 +10,7 @@ import {
   CreditCard,
   Home,
   Settings,
+  ShieldAlert,
   UserCog,
   Users,
   type LucideIcon,
@@ -54,10 +55,12 @@ export function Sidebar() {
           icon: Building2,
           active: true,
         }
-      : user?.role === 'DIRECTOR' && (centers?.length ?? 0) >= 1
+      : user?.role === 'DIRECTOR' &&
+          (centers?.pagination.total ?? 0) >= 1 &&
+          centers!.data.length > 0
         ? {
             title: t('centers.titleSingular'),
-            href: `/centers/${centers![0].id}`,
+            href: `/centers/${centers!.data[0].id}`,
             icon: Building2,
             active: true,
           }
@@ -68,15 +71,44 @@ export function Sidebar() {
             active: true,
           };
 
+  // Staff entry: only DIRECTOR / SUPER_ADMIN — they're the ones who manage
+  // employees. PARENT and STAFF do not see this link (BUG-021 guards the
+  // route anyway; this hides the affordance so STAFF doesn't click into a
+  // redirect). The backend still has a self-view branch for STAFF on
+  // GET /staff which is currently unreachable from the UI by design.
+  const staffItem: NavItem | null =
+    user?.role === 'DIRECTOR' || user?.role === 'SUPER_ADMIN'
+      ? {
+          title: t('staff.title'),
+          href: '/staff',
+          icon: Users,
+          active: true,
+        }
+      : null;
+
+  // SUPER_ADMIN-only entry to the locked-accounts admin tool (PR3). First
+  // of likely several admin tools sharing /admin/* — kept as a single
+  // item now to avoid premature submenu plumbing.
+  const adminItem: NavItem | null =
+    user?.role === 'SUPER_ADMIN'
+      ? {
+          title: t('admin.lockedAccountsNav'),
+          href: '/admin/locked-accounts',
+          icon: ShieldAlert,
+          active: true,
+        }
+      : null;
+
   const NAV_ITEMS: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: Home, active: true },
     ...(centerItem ? [centerItem] : []),
     { title: 'Children', href: '/children', icon: Baby, active: false },
-    { title: 'Staff', href: '/staff', icon: Users, active: false },
+    ...(staffItem ? [staffItem] : []),
     { title: 'Parents', href: '/parents', icon: UserCog, active: false },
     { title: 'Attendance', href: '/attendance', icon: Calendar, active: false },
     { title: 'Reports', href: '/reports', icon: BarChart3, active: false },
     { title: 'Billing', href: '/billing', icon: CreditCard, active: false },
+    ...(adminItem ? [adminItem] : []),
   ];
 
   return (
