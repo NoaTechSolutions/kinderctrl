@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -6,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
   Matches,
   Min,
@@ -37,6 +39,12 @@ export class CreateStaffDto {
   @IsDateString()
   hireDate: string;
 
+  // Optional. Director can leave blank at create; staff fills later from
+  // their profile. ISO date string (yyyy-mm-dd); stored as DATE in DB.
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
+
   @IsString()
   @IsIn(EMPLOYMENT_TYPES, {
     message: 'employmentType must be one of: full_time, part_time',
@@ -63,4 +71,34 @@ export class CreateStaffDto {
   @IsString()
   @Length(0, 500)
   notes?: string;
+
+  // Free-text job title — display + HR reporting only, NOT used for authz.
+  // 50 chars matches schema.prisma VarChar(50). Per PO decision: free
+  // text, no controlled vocabulary.
+  @IsOptional()
+  @IsString()
+  @Length(0, 50)
+  position?: string;
+
+  // SUPER_ADMIN MUST provide this (which center to put the staff into).
+  // DIRECTOR omits it (auto-derived from User.centerId), or passes one of
+  // their owned centers for multi-center DIRECTORs (validated via
+  // resolveCenterIdForUser in the service).
+  @IsOptional()
+  @IsUUID()
+  centerId?: string;
+
+  // UI shortcut: a Director creating a new hire can flip these to true
+  // when the new hire already has compliance verified. Service translates
+  // `true` → backgroundCheckStatus=APPROVED + date=now + verifier=current
+  // user. For richer edits (expiry date, notes, provider, transitions),
+  // use the dedicated PATCH /staff/:id/background-check + /cpr endpoints
+  // (or the Compliance Card on the detail page).
+  @IsOptional()
+  @IsBoolean()
+  backgroundCheckCompleted?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  cprCertified?: boolean;
 }

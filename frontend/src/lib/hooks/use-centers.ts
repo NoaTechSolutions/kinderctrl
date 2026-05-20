@@ -23,10 +23,18 @@ export const centersQueryKeys = {
 // Query is part of the cache key so different page/status combos don't
 // stomp each other. Mutations invalidate `centers` (prefix) to refresh
 // every cached list at once.
-export function useCenters(query: CentersQuery = {}) {
+//
+// `enabled` is exposed so callers can gate the request — e.g. staff-form
+// only fetches centers when the SUPER_ADMIN Center select is rendered,
+// preventing a console-noise 401 for DIRECTOR sessions on /staff/new.
+export function useCenters(
+  query: CentersQuery = {},
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: centersQueryKeys.list(query),
     queryFn: () => getCenters(query),
+    enabled: options.enabled ?? true,
   });
 }
 

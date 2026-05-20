@@ -27,7 +27,6 @@ import { useTranslation } from '@/lib/i18n';
 import { useAuthStore } from '@/store/auth';
 import type { Staff } from '@/lib/types/staff';
 import type { UserRole } from '@/store/auth';
-import { formatPhoneUS } from '@/lib/utils/phone';
 import { StaffStatusBadge } from './staff-status-badge';
 import { DeleteStaffDialog } from './delete-staff-dialog';
 
@@ -89,10 +88,7 @@ export function StaffTable({ staff, userRole }: StaffTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('staff.firstName')}</TableHead>
-              <TableHead className="hidden lg:table-cell">
-                {t('staff.email')}
-              </TableHead>
+              <TableHead>{t('staff.colEmailName')}</TableHead>
               <TableHead>{t('staff.role')}</TableHead>
               {showCenter && (
                 <TableHead className="hidden lg:table-cell">
@@ -130,24 +126,19 @@ export function StaffTable({ staff, userRole }: StaffTableProps) {
                     }
                   }}
                 >
-                  <TableCell className="font-medium" title={fullName}>
-                    <span className="block max-w-[200px] truncate">
+                  <TableCell
+                    className="font-medium"
+                    title={`${s.email} — ${fullName}`}
+                  >
+                    <span className="block max-w-[260px] truncate text-sm">
+                      {s.email}
+                    </span>
+                    <span
+                      className="block text-xs truncate max-w-[260px]"
+                      style={{ color: 'var(--kc-text-3)' }}
+                    >
                       {fullName}
                     </span>
-                    {s.phone && (
-                      <span
-                        className="block text-xs font-mono"
-                        style={{ color: 'var(--kc-text-3)' }}
-                      >
-                        {formatPhoneUS(s.phone)}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell
-                    className="hidden lg:table-cell truncate max-w-[220px]"
-                    title={s.email}
-                  >
-                    {s.email}
                   </TableCell>
                   <TableCell>{t(ROLE_LABEL_KEY[s.role])}</TableCell>
                   {showCenter && (

@@ -344,6 +344,22 @@ export class AuthService {
     ]);
   }
 
+  // Public wrapper around generateTokens for callers outside the auth module
+  // (e.g. StaffService.acceptInvitation, which creates a User + Staff and
+  // wants to drop the new user straight into the dashboard with valid JWTs).
+  // Keeps the AuthUser shape + AUTH_USER_SELECT as private implementation
+  // details — the caller only needs a userId.
+  async issueTokensForUser(userId: string): Promise<AuthResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: AUTH_USER_SELECT,
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return this.generateTokens(user);
+  }
+
   // /auth/me always queries fresh from the DB rather than reading the JWT,
   // because the JWT only carries id/email/role/centerId — staff/parent/center
   // relations are needed for the topbar greeting + job title.

@@ -47,6 +47,11 @@ model User {
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
 
+  // Staff module — back-relations for verifier FKs and invitations.
+  backgroundChecksVerified Staff[]                @relation("StaffBackgroundVerifier")
+  cprChecksVerified        Staff[]                @relation("StaffCprVerifier")
+  staffInvitationsSent     StaffInvitationToken[] @relation("StaffInvitationInviter")
+
   // Timestamps
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -147,17 +152,18 @@ model Center {
   ownerId String @map("owner_id") @db.Uuid
   owner   User   @relation("CenterOwner", fields: [ownerId], references: [id])
 
-  users            User[]            @relation("CenterUsers")
-  staff            Staff[]
-  parents          Parent[]
-  children         Child[]
-  classrooms       Classroom[]
-  centerHours      CenterHours[]
-  milestoneConfigs MilestoneConfig[]
-  pricingConfig    PricingConfig?
-  invoices         Invoice[]
-  attendance       Attendance[]
-  documents        Document[]
+  users              User[]                 @relation("CenterUsers")
+  staff              Staff[]
+  staffInvitations   StaffInvitationToken[]
+  parents            Parent[]
+  children           Child[]
+  classrooms         Classroom[]
+  centerHours        CenterHours[]
+  milestoneConfigs   MilestoneConfig[]
+  pricingConfig      PricingConfig?
+  invoices           Invoice[]
+  attendance         Attendance[]
+  documents          Document[]
 
   // Timestamps
   createdAt        DateTime  @default(now()) @map("created_at")
@@ -254,8 +260,18 @@ model Staff {
 
   firstName String    @map("first_name")
   lastName  String    @map("last_name")
-  email     String
+  // email field intentionally removed (spec §2.2): User.email is the
+  // single source of truth. Read via staff.user.email through the 1:1
+  // relation (User.staffId @unique → Staff.id).
   role      StaffRole
+
+  // Free-text job title — display + HR reporting only, never used for
+  // authorization. role (TEACHER/ASSISTANT/ADMIN) stays the authz axis.
+  position  String?   @db.VarChar(50)
+
+  // Optional. Director can leave blank at create; staff fills later from
+  // their profile. Date-only column (no time/timezone semantics).
+  dateOfBirth DateTime? @map("date_of_birth") @db.Date
 
   hireDate       DateTime @map("hire_date")
   hourlyRate     Decimal? @map("hourly_rate") @db.Decimal(10, 2)
@@ -266,6 +282,26 @@ model Staff {
 
   status StaffStatus @default(INVITED)
 
+  // Background Check compliance. Soft-tracked: the activation flow does
+  // NOT block on this; the Director marks status manually. The fields
+  // exist so the UI can surface badges and a Director can audit.
+  backgroundCheckStatus       BackgroundCheckStatus @default(NOT_STARTED) @map("background_check_status")
+  backgroundCheckDate         DateTime?             @map("background_check_date") @db.Date
+  backgroundCheckExpiryDate   DateTime?             @map("background_check_expiry_date") @db.Date
+  backgroundCheckVerifiedById String?               @map("background_check_verified_by_id") @db.Uuid
+  backgroundCheckVerifiedBy   User?                 @relation("StaffBackgroundVerifier", fields: [backgroundCheckVerifiedById], references: [id], onDelete: SetNull)
+  backgroundCheckNotes        String?               @map("background_check_notes")
+
+  // CPR / First Aid certification. Same soft-track pattern as background
+  // check. Provider lets centers note the certifying org (Red Cross, AHA).
+  cprCertified             Boolean   @default(false) @map("cpr_certified")
+  cprCertificationDate     DateTime? @map("cpr_certification_date") @db.Date
+  cprExpiryDate            DateTime? @map("cpr_expiry_date") @db.Date
+  cprCertificationProvider String?   @map("cpr_certification_provider") @db.VarChar(100)
+  cprVerifiedById          String?   @map("cpr_verified_by_id") @db.Uuid
+  cprVerifiedBy            User?     @relation("StaffCprVerifier", fields: [cprVerifiedById], references: [id], onDelete: SetNull)
+  cprNotes                 String?   @map("cpr_notes")
+
   // Relations
   user           User?
   classroomStaff ClassroomStaff[]
@@ -274,6 +310,9 @@ model Staff {
   updatedAt   DateTime  @updatedAt @map("updated_at")
   activatedAt DateTime? @map("activated_at")
 
+  @@index([backgroundCheckExpiryDate])
+  @@index([cprExpiryDate])
+  @@index([backgroundCheckStatus])
   @@map("staff")
 }
 
@@ -288,6 +327,42 @@ enum StaffStatus {
   ACTIVE
   SUSPENDED
   TERMINATED
+}
+
+enum BackgroundCheckStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// Staff invitation tokens. Mirrors PasswordResetToken's shape exactly so
+// the lifecycle (single-use via usedAt, expiry via expiresAt, cascade on
+// related-record delete) is identical and predictable. centerId is the
+// only "metadata" stored — Director derives from center.owner at accept
+// time, no need to denormalize directorId here.
+model StaffInvitationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  token     String    @unique
+  email     String
+  centerId  String    @map("center_id") @db.Uuid
+  center    Center    @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  // Role frozen at invite time — the invitee can't pick their own role.
+  role      StaffRole
+
+  // Audit: who clicked "invite". Nullable + SetNull so a deleted inviter
+  // doesn't cascade-delete in-flight invitations.
+  invitedById String? @map("invited_by_id") @db.Uuid
+  invitedBy   User?   @relation("StaffInvitationInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([expiresAt])
+  @@map("staff_invitation_tokens")
 }
 
 // ============================================

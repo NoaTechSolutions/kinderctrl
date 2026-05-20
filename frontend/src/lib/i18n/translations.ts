@@ -201,7 +201,7 @@ export const translations = {
       center: 'Center',
       hireDate: 'Hire date',
       employmentType: 'Employment type',
-      hourlyRate: 'Hourly rate',
+      hourlyRate: 'Hourly Rate ($/hour)',
       hourlyRatePlaceholder: '25.00',
       notes: 'Notes',
       notesPlaceholder: 'Additional information…',
@@ -241,6 +241,99 @@ export const translations = {
       confirmRemoveDescription:
         'This will mark {name} as terminated and disable their account. This action cannot be undone via the UI.',
       confirmRemoveBtn: 'Yes, remove',
+
+      // Position (free-text job title, NOT used for authz — display only).
+      position: 'Position',
+      positionPlaceholder: 'e.g., Lead Toddler Teacher',
+
+      // Invitation flow (inviter side).
+      invite: 'Invite staff',
+      inviteSubtitle:
+        'Send an invitation email. The invitee picks their own password.',
+      invitePlaceholderEmail: 'staff@email.com',
+      inviteCenter: 'Center',
+      inviteCenterPlaceholder: 'Select a center',
+      inviteSend: 'Send invitation',
+      inviteSending: 'Sending…',
+      inviteSuccess: 'Invitation sent to {email}',
+      inviteError: 'Could not send invitation',
+      inviteEmailExists: 'This email is already registered.',
+      inviteThrottled:
+        'Too many invitations for this email. Try again in about {minutes} minute(s).',
+
+      // Accept-invitation flow (invitee side, public).
+      acceptTitle: 'Complete your registration',
+      acceptSubtitle: 'You were invited to join {center}.',
+      acceptInvitedBy: 'Invited by {name}',
+      acceptAgreeTerms: 'I agree to the terms and conditions',
+      acceptSubmit: 'Complete registration',
+      acceptSubmitting: 'Creating your account…',
+      acceptSuccessTitle: 'Welcome to KinderCtrl',
+      acceptSuccessBody: 'Your account is ready. Redirecting you in…',
+      acceptInvalidTitle: 'Invitation no longer valid',
+      acceptInvalidBody:
+        'This invitation link may have expired or already been used. Ask your director to send a new one.',
+      acceptConflict:
+        'This email is already registered. Contact your director if you need help.',
+
+      // Compliance — section labels + status copy.
+      complianceTitle: 'Compliance',
+      complianceLoading: 'Loading…',
+      backgroundCheckLabel: 'Background check',
+      cprLabel: 'CPR / First Aid',
+      bgStatus: 'Status',
+      bgDate: 'Check date',
+      bgExpiryDate: 'Expiry date',
+      bgNotes: 'Notes',
+      bgEditTitle: 'Update background check',
+      bgEditDescription:
+        'Set status, verification date, expiry and notes. Changes are recorded with your user as the verifier.',
+      bgSave: 'Save background check',
+      bgSaved: 'Background check updated',
+      bgSaveError: 'Could not update background check',
+      bgVerifiedBy: 'Last verified by you',
+      bgNeverVerified: 'Not yet verified',
+      // Status copy.
+      bgStatusNotStarted: 'Not started',
+      bgStatusPending: 'Pending',
+      bgStatusApproved: 'Approved',
+      bgStatusRejected: 'Rejected',
+      bgStatusExpired: 'Expired',
+
+      cprCertified: 'Certified',
+      cprCertificationDate: 'Certification date',
+      cprExpiryDate: 'Expiry date',
+      cprProvider: 'Provider',
+      cprProviderPlaceholder: 'e.g., Red Cross, AHA',
+      cprNotes: 'Notes',
+      cprEditTitle: 'Update CPR certification',
+      cprEditDescription:
+        'Set certification status, dates, provider and notes. Changes are recorded with your user as the verifier.',
+      cprSave: 'Save CPR certification',
+      cprSaved: 'CPR certification updated',
+      cprSaveError: 'Could not update CPR certification',
+      // Computed status copy (matches the four CPR buckets in the summary).
+      cprStatusValid: 'Valid',
+      cprStatusExpiring: 'Expiring soon',
+      cprStatusExpired: 'Expired',
+      cprStatusMissing: 'Not certified',
+
+      // Generic.
+      complianceUnknown: '—',
+      addManually: 'Add',
+      colEmailName: 'User',
+      roleHintFixed: 'Currently all staff are teachers',
+      bgCompletedLabel: 'Background check completed',
+      bgCompletedHint: 'Mark if background check is already approved',
+      cprCompletedLabel: 'CPR certification current',
+      cprCompletedHint: 'Mark if CPR certification is current',
+      assignToCenter: 'Assign to Center',
+      centerDirectorHint:
+        "Staff will be managed by the center's director",
+      centerSearchPlaceholder: 'Search centers or directors…',
+      centerSearchEmpty: 'No centers found',
+      dateOfBirth: 'Date of Birth',
+      dateOfBirthHint: 'Optional. Staff can complete this later from their profile.',
     },
 
     // Admin tools (SUPER_ADMIN only). Accessed via t('admin.*').
@@ -535,7 +628,7 @@ export const translations = {
       role: 'Cargo',
       hireDate: 'Fecha de ingreso',
       employmentType: 'Tipo de contrato',
-      hourlyRate: 'Tarifa por hora',
+      hourlyRate: 'Tarifa por hora ($/hora)',
       hourlyRatePlaceholder: '25.00',
       notes: 'Notas',
       notesPlaceholder: 'Información adicional…',
@@ -574,6 +667,93 @@ export const translations = {
       confirmRemoveDescription:
         'Esto va a marcar a {name} como terminado y deshabilitar su cuenta. Esta acción no se puede deshacer desde la UI.',
       confirmRemoveBtn: 'Sí, eliminar',
+
+      position: 'Puesto',
+      positionPlaceholder: 'ej., Profe principal sala bebés',
+
+      invite: 'Invitar empleado',
+      inviteSubtitle:
+        'Enviá una invitación por email. El invitado elige su propia contraseña.',
+      invitePlaceholderEmail: 'empleado@email.com',
+      inviteCenter: 'Centro',
+      inviteCenterPlaceholder: 'Elegí un centro',
+      inviteSend: 'Enviar invitación',
+      inviteSending: 'Enviando…',
+      inviteSuccess: 'Invitación enviada a {email}',
+      inviteError: 'No se pudo enviar la invitación',
+      inviteEmailExists: 'Este email ya está registrado.',
+      inviteThrottled:
+        'Demasiadas invitaciones a este email. Intentá de nuevo en {minutes} minuto(s).',
+
+      acceptTitle: 'Completá tu registro',
+      acceptSubtitle: 'Te invitaron a unirte a {center}.',
+      acceptInvitedBy: 'Invitado por {name}',
+      acceptAgreeTerms: 'Acepto los términos y condiciones',
+      acceptSubmit: 'Completar registro',
+      acceptSubmitting: 'Creando tu cuenta…',
+      acceptSuccessTitle: 'Bienvenido a KinderCtrl',
+      acceptSuccessBody: 'Tu cuenta está lista. Te redirigimos en…',
+      acceptInvalidTitle: 'Invitación inválida',
+      acceptInvalidBody:
+        'Este link puede haber expirado o ya fue usado. Pedile a tu director que te mande uno nuevo.',
+      acceptConflict:
+        'Este email ya está registrado. Contactá a tu director si necesitás ayuda.',
+
+      complianceTitle: 'Cumplimiento',
+      complianceLoading: 'Cargando…',
+      backgroundCheckLabel: 'Antecedentes',
+      cprLabel: 'RCP / Primeros auxilios',
+      bgStatus: 'Estado',
+      bgDate: 'Fecha del check',
+      bgExpiryDate: 'Fecha de vencimiento',
+      bgNotes: 'Notas',
+      bgEditTitle: 'Actualizar antecedentes',
+      bgEditDescription:
+        'Definí estado, fecha de verificación, vencimiento y notas. Los cambios quedan registrados con tu usuario como verificador.',
+      bgSave: 'Guardar antecedentes',
+      bgSaved: 'Antecedentes actualizados',
+      bgSaveError: 'No se pudo actualizar antecedentes',
+      bgVerifiedBy: 'Verificado por vos',
+      bgNeverVerified: 'Aún no verificado',
+      bgStatusNotStarted: 'No iniciado',
+      bgStatusPending: 'En proceso',
+      bgStatusApproved: 'Aprobado',
+      bgStatusRejected: 'Rechazado',
+      bgStatusExpired: 'Vencido',
+
+      cprCertified: 'Certificado',
+      cprCertificationDate: 'Fecha de certificación',
+      cprExpiryDate: 'Fecha de vencimiento',
+      cprProvider: 'Proveedor',
+      cprProviderPlaceholder: 'ej., Cruz Roja, AHA',
+      cprNotes: 'Notas',
+      cprEditTitle: 'Actualizar RCP',
+      cprEditDescription:
+        'Definí estado, fechas, proveedor y notas. Los cambios quedan registrados con tu usuario como verificador.',
+      cprSave: 'Guardar RCP',
+      cprSaved: 'RCP actualizada',
+      cprSaveError: 'No se pudo actualizar RCP',
+      cprStatusValid: 'Vigente',
+      cprStatusExpiring: 'Por vencer',
+      cprStatusExpired: 'Vencida',
+      cprStatusMissing: 'Sin certificación',
+
+      complianceUnknown: '—',
+      addManually: 'Agregar',
+      colEmailName: 'Usuario',
+      roleHintFixed: 'Por ahora todos son profesores',
+      bgCompletedLabel: 'Antecedentes verificados',
+      bgCompletedHint: 'Marcá si los antecedentes ya están aprobados',
+      cprCompletedLabel: 'Certificación RCP vigente',
+      cprCompletedHint: 'Marcá si la certificación RCP está vigente',
+      assignToCenter: 'Asignar a Centro',
+      centerDirectorHint:
+        'El staff queda gestionado por el director del centro',
+      centerSearchPlaceholder: 'Buscar centros o directores…',
+      centerSearchEmpty: 'No se encontraron centros',
+      dateOfBirth: 'Fecha de nacimiento',
+      dateOfBirthHint:
+        'Opcional. El staff puede completarlo después desde su perfil.',
     },
 
     setup: {

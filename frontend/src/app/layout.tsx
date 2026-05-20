@@ -32,9 +32,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
+        // Suppress hydration mismatch caused by browser extensions that
+        // inject body attributes (ColorZilla → `cz-shortcut-listen`,
+        // Grammarly → `data-gr-*`, etc.). Scope limited to <body> so any
+        // real hydration bugs in the app shell still surface.
+        suppressHydrationWarning
       >
         <Providers>{children}</Providers>
       </body>

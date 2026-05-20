@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
@@ -9,18 +10,29 @@ import {
   Edit,
   Mail,
   Phone,
+  ShieldCheck,
   StickyNote,
   User as UserIcon,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useStaffMember } from '@/lib/hooks/use-staff';
 import { ApiError } from '@/lib/api/client';
 import { useTranslation } from '@/lib/i18n';
 import { useAuthStore } from '@/store/auth';
 import { StaffStatusBadge } from '@/components/staff/staff-status-badge';
+import { StaffComplianceStatus } from '@/components/staff/staff-compliance-status';
+import { BackgroundCheckForm } from '@/components/staff/background-check-form';
+import { CprCertificationForm } from '@/components/staff/cpr-certification-form';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import type { Staff } from '@/lib/types/staff';
 
@@ -45,6 +57,10 @@ export default function StaffDetailPage() {
 
   const canManage =
     user?.role === 'DIRECTOR' || user?.role === 'SUPER_ADMIN';
+
+  // Dialog open state for compliance forms (one each for bg-check + CPR).
+  const [bgOpen, setBgOpen] = useState(false);
+  const [cprOpen, setCprOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -208,6 +224,69 @@ export default function StaffDetailPage() {
           </dl>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" aria-hidden />
+            {t('staff.complianceTitle')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <StaffComplianceStatus
+            backgroundCheckStatus={staff.backgroundCheckStatus}
+            backgroundCheckExpiryDate={staff.backgroundCheckExpiryDate}
+            cprCertified={staff.cprCertified}
+            cprExpiryDate={staff.cprExpiryDate}
+            variant="full"
+          />
+
+          {canManage && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBgOpen(true)}
+              >
+                <Edit className="mr-2 h-3.5 w-3.5" />
+                {t('staff.bgEditTitle')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCprOpen(true)}
+              >
+                <Edit className="mr-2 h-3.5 w-3.5" />
+                {t('staff.cprEditTitle')}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={bgOpen} onOpenChange={setBgOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('staff.bgEditTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('staff.bgEditDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <BackgroundCheckForm staff={staff} onClose={() => setBgOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cprOpen} onOpenChange={setCprOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('staff.cprEditTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('staff.cprEditDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <CprCertificationForm staff={staff} onClose={() => setCprOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

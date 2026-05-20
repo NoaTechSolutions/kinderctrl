@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search } from 'lucide-react';
+import { Mail, Plus, Search } from 'lucide-react';
 import { useStaff } from '@/lib/hooks/use-staff';
 import { useTranslation } from '@/lib/i18n';
 import { useAuthStore } from '@/store/auth';
@@ -50,12 +50,20 @@ export default function StaffPage() {
         </div>
 
         {canCreate && (
-          <Button asChild className="self-start">
-            <Link href="/staff/new">
-              <Plus className="mr-2 h-4 w-4" />
-              {t('staff.create')}
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2 self-start">
+            <Button asChild variant="outline">
+              <Link href="/staff/invite">
+                <Mail className="mr-2 h-4 w-4" />
+                {t('staff.invite')}
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/staff/new">
+                <Plus className="mr-2 h-4 w-4" />
+                {t('staff.addManually')}
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 

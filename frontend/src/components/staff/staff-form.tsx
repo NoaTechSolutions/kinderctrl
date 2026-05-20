@@ -1,11 +1,20 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { Briefcase, Loader2, User as UserIcon } from 'lucide-react';
+import {
+  Briefcase,
+  Check,
+  Loader2,
+  Search,
+  ShieldCheck,
+  User as UserIcon,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -17,15 +26,17 @@ import {
 } from '@/components/ui/select';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
+import { useCenters } from '@/lib/hooks/use-centers';
+import { cn } from '@/lib/utils';
 import {
   EMPLOYMENT_TYPES,
-  STAFF_ROLES,
   STAFF_STATUSES,
   staffCreateSchema,
   type StaffFormData,
 } from '@/lib/schemas/staff';
 import type { Staff, StaffStatus } from '@/lib/types/staff';
 import { formatPhoneUS, parsePhoneDigits } from '@/lib/utils/phone';
+import { useAuthStore } from '@/store/auth';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
 
 export type StaffFormMode = 'create' | 'edit';
@@ -39,6 +50,10 @@ interface StaffFormProps {
   onCancel?: () => void;
 }
 
+// Role is locked to TEACHER per PO post-QA-2 decision (CAMBIO 2). The
+// schema still accepts the full enum so the field is forward-compatible
+// when the lock is lifted; the form just disables the select and forces
+// the value at submit time.
 const DEFAULT_VALUES: StaffFormData = {
   firstName: '',
   lastName: '',
@@ -46,9 +61,13 @@ const DEFAULT_VALUES: StaffFormData = {
   phone: '',
   role: 'TEACHER',
   hireDate: new Date().toISOString().split('T')[0],
+  dateOfBirth: '',
   employmentType: 'full_time',
   hourlyRate: undefined,
   notes: '',
+  centerId: undefined,
+  backgroundCheckCompleted: false,
+  cprCertified: false,
 };
 
 function toFormDefaults(staff?: Staff): StaffFormData {
@@ -60,6 +79,7 @@ function toFormDefaults(staff?: Staff): StaffFormData {
     phone: staff.phone ? formatPhoneUS(staff.phone) : '',
     role: staff.role,
     hireDate: staff.hireDate.split('T')[0], // ISO → yyyy-mm-dd
+    dateOfBirth: staff.dateOfBirth ? staff.dateOfBirth.split('T')[0] : '',
     employmentType: EMPLOYMENT_TYPES.includes(
       staff.employmentType as (typeof EMPLOYMENT_TYPES)[number],
     )
@@ -67,6 +87,12 @@ function toFormDefaults(staff?: Staff): StaffFormData {
       : 'full_time',
     hourlyRate: staff.hourlyRate ?? undefined,
     notes: staff.notes ?? '',
+    centerId: staff.centerId,
+    // Compliance checkboxes are CREATE-only (in edit mode they don't
+    // render). Defaulting to false is harmless because the edit submit
+    // strips them out (see onValid below).
+    backgroundCheckCompleted: false,
+    cprCertified: false,
   };
 }
 
@@ -130,6 +156,39 @@ export function StaffForm({
     }
   };
 
+  const user = useAuthStore((s) => s.user);
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const showCenterSelect = mode === 'create' && isSuperAdmin;
+  const showComplianceSection = mode === 'create';
+
+  // Centers list for SUPER_ADMIN's Center picker (CAMBIO 6 Opción Y —
+  // director is shown via center.owner.email, no denormalized directorId).
+  // useCenters returns PaginatedCenters; unwrap .data.data for the array.
+  //
+  // ERROR-1 fix (PO QA #4): only fire the query when the Center select is
+  // actually rendered — DIRECTOR's session would otherwise hit /centers
+  // unnecessarily and surface a 401 in the console during the initial
+  // accessToken-null-then-refresh window (token isn't persisted across
+  // reloads, only refreshToken is).
+  const centersQuery = useCenters(
+    {},
+    { enabled: showCenterSelect },
+  );
+  const centers = centersQuery.data?.data ?? [];
+
+  // PO QA #3 CAMBIO 8: searchable combobox (Center name OR director email).
+  // Inline implementation — no cmdk/Popover deps needed at this scale.
+  const [centerSearch, setCenterSearch] = useState('');
+  const filteredCenters = useMemo(() => {
+    const q = centerSearch.trim().toLowerCase();
+    if (!q) return centers;
+    return centers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.owner?.email ?? '').toLowerCase().includes(q),
+    );
+  }, [centers, centerSearch]);
+
   // Status select (edit-only). Kept outside the zod schema so the field is
   // truly optional at the form level; the parent merges it into the
   // payload on submit.
@@ -140,7 +199,25 @@ export function StaffForm({
     const payload: FormWithStatus = {
       ...data,
       phone: data.phone ? parsePhoneDigits(data.phone) : data.phone,
+      // Force role=TEACHER (the select is disabled but defense-in-depth).
+      role: 'TEACHER',
     };
+
+    // Compliance checkboxes only meaningful on create — strip in edit so
+    // we don't accidentally re-stamp an already-verified record's date.
+    if (mode === 'edit') {
+      delete payload.backgroundCheckCompleted;
+      delete payload.cprCertified;
+    }
+
+    // For DIRECTOR, centerId must not be sent (backend derives from User).
+    // For SUPER_ADMIN in create mode, centerId comes from the select.
+    // In edit mode, never send centerId — moving staff between centers
+    // isn't a supported operation through this form.
+    if (mode === 'edit' || !isSuperAdmin) {
+      delete payload.centerId;
+    }
+
     onSubmit(payload);
   };
 
@@ -228,43 +305,153 @@ export function StaffForm({
             )}
           />
         </Field>
+
+        {/* PO QA #3 CAMBIO 9: optional DOB. <input type="date"> is the
+            same pattern used by hireDate + every other date field in the
+            app — no DatePicker component needed. */}
+        <Field
+          id="dateOfBirth"
+          label={t('staff.dateOfBirth')}
+          error={form.formState.errors.dateOfBirth?.message}
+        >
+          <Input
+            id="dateOfBirth"
+            type="date"
+            disabled={isSubmitting}
+            {...form.register('dateOfBirth')}
+          />
+        </Field>
       </Section>
 
       <Section icon={Briefcase} title={t('staff.employmentType')}>
+        {/* CAMBIO 2: Role locked to TEACHER. Select stays visible (so the
+            user understands what role the new hire gets) but disabled. The
+            hint below reinforces the temporary nature of the lock. */}
         <Field
           id="role"
           label={t('staff.role')}
           error={form.formState.errors.role?.message}
           required
           requiredLabel={requiredLabel}
+          hint={t('staff.roleHintFixed')}
         >
-          <Controller
-            control={form.control}
-            name="role"
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger id="role" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TEACHER">
-                    {t('staff.roleTeacher')}
-                  </SelectItem>
-                  <SelectItem value="ASSISTANT">
-                    {t('staff.roleAssistant')}
-                  </SelectItem>
-                  <SelectItem value="ADMIN">
-                    {t('staff.roleAdmin')}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
+          <Select value="TEACHER" disabled>
+            <SelectTrigger id="role" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="TEACHER">
+                {t('staff.roleTeacher')}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
+
+        {/* CAMBIO 6 Opción Y + PO QA #3 CAMBIO 8: SUPER_ADMIN Center
+            picker with always-visible search (filters by center name OR
+            director email). Director derived from center.owner — no
+            denormalized directorId per spec D-5. */}
+        {showCenterSelect && (
+          <Field
+            id="centerId"
+            label={t('staff.assignToCenter')}
+            error={form.formState.errors.centerId?.message}
+            required
+            requiredLabel={requiredLabel}
+            full
+          >
+            <Controller
+              control={form.control}
+              name="centerId"
+              render={({ field }) => {
+                return (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search
+                        className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
+                        style={{ color: 'var(--kc-text-3)' }}
+                        aria-hidden
+                      />
+                      <Input
+                        type="text"
+                        value={centerSearch}
+                        onChange={(e) => setCenterSearch(e.target.value)}
+                        placeholder={t('staff.centerSearchPlaceholder')}
+                        disabled={isSubmitting || centersQuery.isLoading}
+                        className="pl-9"
+                        aria-label={t('staff.centerSearchPlaceholder')}
+                      />
+                    </div>
+                    <div
+                      role="listbox"
+                      aria-label={t('staff.assignToCenter')}
+                      className="rounded-md border max-h-56 overflow-y-auto"
+                      style={{
+                        background: 'var(--kc-surface)',
+                        borderColor: 'var(--kc-border)',
+                      }}
+                    >
+                      {centersQuery.isLoading && (
+                        <div
+                          className="px-3 py-4 text-sm"
+                          style={{ color: 'var(--kc-text-3)' }}
+                        >
+                          {t('staff.complianceLoading')}
+                        </div>
+                      )}
+                      {!centersQuery.isLoading && filteredCenters.length === 0 && (
+                        <div
+                          className="px-3 py-4 text-sm"
+                          style={{ color: 'var(--kc-text-3)' }}
+                        >
+                          {t('staff.centerSearchEmpty')}
+                        </div>
+                      )}
+                      {filteredCenters.map((c) => {
+                        const isSelected = c.id === field.value;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => field.onChange(c.id)}
+                            disabled={isSubmitting}
+                            className={cn(
+                              'w-full text-left px-3 py-2 flex items-start gap-2 transition-colors focus-visible:outline-none',
+                              isSelected
+                                ? 'bg-primary/10 border-l-2 border-primary'
+                                : 'hover:bg-secondary focus-visible:bg-secondary',
+                            )}
+                          >
+                            <span className="flex-1 min-w-0">
+                              <span className="block font-medium text-sm truncate">
+                                {c.name}
+                              </span>
+                              <span
+                                className="block text-xs truncate"
+                                style={{ color: 'var(--kc-text-3)' }}
+                              >
+                                Director: {c.owner?.email ?? '(no owner)'}
+                              </span>
+                            </span>
+                            {isSelected && (
+                              <Check
+                                className="h-5 w-5 flex-none mt-0.5 text-green-600"
+                                strokeWidth={3}
+                                aria-hidden
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }}
+            />
+          </Field>
+        )}
 
         <Field
           id="employmentType"
@@ -332,6 +519,75 @@ export function StaffForm({
           />
         </Field>
       </Section>
+
+      {/* CAMBIO 4 + 5: Compliance shortcuts on create only. Edit mode uses
+          the Compliance Card on /staff/[id] (richer: status enum, dates,
+          notes, provider). Checking either box stamps date=today and
+          verifier=current user server-side. */}
+      {showComplianceSection && (
+        <Section icon={ShieldCheck} title={t('staff.complianceTitle')}>
+          <div className="sm:col-span-2 space-y-3">
+            <Controller
+              control={form.control}
+              name="backgroundCheckCompleted"
+              render={({ field }) => (
+                <label
+                  htmlFor="bgCompleted"
+                  className="flex items-start gap-3 cursor-pointer"
+                >
+                  <Checkbox
+                    id="bgCompleted"
+                    checked={field.value === true}
+                    onCheckedChange={(v) => field.onChange(v === true)}
+                    disabled={isSubmitting}
+                    className="mt-0.5"
+                  />
+                  <span className="space-y-0.5 leading-tight">
+                    <span className="block text-sm font-medium">
+                      {t('staff.bgCompletedLabel')}
+                    </span>
+                    <span
+                      className="block text-xs"
+                      style={{ color: 'var(--kc-text-3)' }}
+                    >
+                      {t('staff.bgCompletedHint')}
+                    </span>
+                  </span>
+                </label>
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="cprCertified"
+              render={({ field }) => (
+                <label
+                  htmlFor="cprCompleted"
+                  className="flex items-start gap-3 cursor-pointer"
+                >
+                  <Checkbox
+                    id="cprCompleted"
+                    checked={field.value === true}
+                    onCheckedChange={(v) => field.onChange(v === true)}
+                    disabled={isSubmitting}
+                    className="mt-0.5"
+                  />
+                  <span className="space-y-0.5 leading-tight">
+                    <span className="block text-sm font-medium">
+                      {t('staff.cprCompletedLabel')}
+                    </span>
+                    <span
+                      className="block text-xs"
+                      style={{ color: 'var(--kc-text-3)' }}
+                    >
+                      {t('staff.cprCompletedHint')}
+                    </span>
+                  </span>
+                </label>
+              )}
+            />
+          </div>
+        </Section>
+      )}
 
       {mode === 'edit' && (
         <Section icon={Briefcase} title={t('staff.status')}>
