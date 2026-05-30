@@ -1,4 +1,13 @@
-import { Controller, Post, Body, Get, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Patch,
+  Body,
+  Get,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -7,6 +16,11 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
+import { UpdateMyEmailDto } from './dto/update-my-email.dto';
+import { ChangeMyPasswordDto } from './dto/change-my-password.dto';
+import { UpdateMyPreferencesDto } from './dto/update-my-preferences.dto';
+import { UpdateMyEmergencyContactDto } from './dto/update-my-emergency-contact.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
@@ -86,5 +100,87 @@ export class AuthController {
   @Get('me')
   async me(@CurrentUser() user: { id: string }) {
     return this.authService.getMe(user.id);
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // /profile module endpoints (Issue #6).
+  //  - GET me/profile: read unified profile (firstName/lastName/phone +
+  //    email + role). Allowed pre-setup (@SkipSetupCheck) so a user
+  //    landing on /profile before completing center setup still sees
+  //    their identity.
+  //  - PATCH me/profile: update firstName/lastName/phone.
+  //  - PATCH me/email: change email; requires currentPassword; revokes
+  //    all sessions on success (client must clear local tokens + redirect).
+  //  - PATCH me/password: change password; requires currentPassword;
+  //    revokes all sessions on success.
+  // ──────────────────────────────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @SkipSetupCheck()
+  @Get('me/profile')
+  async getMyProfile(@CurrentUser() user: { id: string }) {
+    return this.authService.getMyProfile(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @SkipSetupCheck()
+  @Patch('me/profile')
+  async updateMyProfile(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateMyProfileDto,
+  ) {
+    return this.authService.updateMyProfile(user.id, dto);
+  }
+
+  // 5/15min per IP — destructive action with bcrypt cost on every call.
+  // Same window/limit as login. Throttler prevents both brute-force
+  // attempts on currentPassword and accidental retry storms.
+  @UseGuards(JwtAuthGuard)
+  @SkipSetupCheck()
+  @Throttle({ default: { limit: 5, ttl: 900_000 } })
+  @Patch('me/email')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async updateMyEmail(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateMyEmailDto,
+  ): Promise<void> {
+    return this.authService.updateMyEmail(user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @SkipSetupCheck()
+  @Throttle({ default: { limit: 5, ttl: 900_000 } })
+  @Patch('me/password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async changeMyPassword(
+    @CurrentUser() user: { id: string },
+    @Body() dto: ChangeMyPasswordDto,
+  ): Promise<void> {
+    return this.authService.changeMyPassword(user.id, dto);
+  }
+
+  // Profile v2 — preferences + emergency contact. Both return the
+  // updated profile so the React Query cache can seed the next render
+  // without a follow-up GET. No throttler — non-destructive, no
+  // bcrypt cost.
+
+  @UseGuards(JwtAuthGuard)
+  @SkipSetupCheck()
+  @Patch('me/preferences')
+  async updateMyPreferences(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateMyPreferencesDto,
+  ) {
+    return this.authService.updateMyPreferences(user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @SkipSetupCheck()
+  @Patch('me/emergency-contact')
+  async updateMyEmergencyContact(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateMyEmergencyContactDto,
+  ) {
+    return this.authService.updateMyEmergencyContact(user.id, dto);
   }
 }

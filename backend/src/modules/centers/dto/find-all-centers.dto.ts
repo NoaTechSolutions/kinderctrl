@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { CenterStatus } from '@prisma/client';
 
 // Query params for GET /centers. ValidationPipe (main.ts) coerces strings
@@ -23,4 +23,11 @@ export class FindAllCentersDto {
   @IsOptional()
   @IsEnum(CenterStatus)
   status?: CenterStatus;
+
+  // Free-text search across name / city / state. Case-insensitive `contains`,
+  // handled in the service via buildSearchWhere(). Capped to keep payload sane.
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
 }

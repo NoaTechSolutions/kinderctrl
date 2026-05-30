@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Plus, Users } from 'lucide-react';
+import { Mail, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n';
 
@@ -28,10 +28,12 @@ export function EmptyState() {
       >
         {t('staff.createFirst')}
       </p>
+      {/* PO QA #28 Opción F: was "Add Manually"; now invitation is the
+          only onboarding path. CTA points to the dedicated invite page. */}
       <Button asChild className="mt-6">
-        <Link href="/staff/new">
-          <Plus className="mr-2 h-4 w-4" />
-          {t('staff.create')}
+        <Link href="/staff/invite">
+          <Mail className="mr-2 h-4 w-4" />
+          {t('staff.invite')}
         </Link>
       </Button>
     </div>

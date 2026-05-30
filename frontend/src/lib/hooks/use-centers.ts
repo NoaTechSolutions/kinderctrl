@@ -4,6 +4,8 @@ import {
   deleteCenter,
   getCenter,
   getCenters,
+  getCenterStats,
+  getGlobalStats,
   setCenterHours,
   updateCenter,
   type CenterHourInput,
@@ -18,7 +20,26 @@ export const centersQueryKeys = {
   all: ['centers'] as const,
   list: (query: CentersQuery) => ['centers', query] as const,
   detail: (id: string) => ['center', id] as const,
+  globalStats: ['centers', 'global-stats'] as const,
 };
+
+// SUPER_ADMIN's global stats — counts, alerts and per-center summaries used
+// by the SUPER_ADMIN dashboard view on /dashboard.
+export function useGlobalStats() {
+  return useQuery({
+    queryKey: centersQueryKeys.globalStats,
+    queryFn: getGlobalStats,
+  });
+}
+
+// Per-center stats for the detail page Overview tab.
+export function useCenterStats(id: string | undefined) {
+  return useQuery({
+    queryKey: ['center', id, 'stats'],
+    queryFn: () => getCenterStats(id!),
+    enabled: !!id,
+  });
+}
 
 // Query is part of the cache key so different page/status combos don't
 // stomp each other. Mutations invalidate `centers` (prefix) to refresh

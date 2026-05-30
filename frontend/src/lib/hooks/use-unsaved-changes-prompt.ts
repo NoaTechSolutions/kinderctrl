@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/lib/toast';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * Warn the user before they navigate away from the page while the
@@ -8,10 +11,18 @@ import { useEffect } from 'react';
  *
  *   - browser tab close / page refresh / external URL change — handled
  *     by `beforeunload`; the browser shows its native dialog and ignores
- *     custom message text.
+ *     custom message text. We CANNOT replace this with a branded
+ *     ConfirmDialog because `beforeunload` is synchronous and async
+ *     promises are dropped before the unload completes. This is a
+ *     browser-level constraint.
+ *
  *   - internal navigation via Next.js `<Link>` or any `<a href>` click —
- *     intercepted at the document level (capture phase) and blocked
- *     with `window.confirm` so we can show our own message.
+ *     intercepted at the document level (capture phase). PO QA #55
+ *     (FEATURE 4): we block the navigation immediately, then fire the
+ *     branded ConfirmDialog asynchronously. If the user confirms we
+ *     re-execute the navigation via `router.push`; if they cancel, we
+ *     stay on the page. The native window.confirm() pattern was
+ *     replaced because it didn't match the rest of the UI.
  *
  * Programmatic navigation via `router.push()` is intentionally NOT
  * intercepted — callers that perform programmatic navigation should
@@ -23,6 +34,10 @@ export function useUnsavedChangesPrompt(
   isDirty: boolean,
   message: string,
 ) {
+  const confirm = useConfirm();
+  const router = useRouter();
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (!isDirty) return;
 
@@ -50,11 +65,24 @@ export function useUnsavedChangesPrompt(
       // External links go through beforeunload naturally; let them.
       if (/^https?:\/\//i.test(href)) return;
 
-      const confirmed = window.confirm(message);
-      if (!confirmed) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
+      // Block first — the click handler is synchronous, we can't await
+      // the async confirm before deciding whether to navigate. Stop
+      // the default link behavior + bubbling so Next.js's own router
+      // doesn't pick it up either. Then run the branded ConfirmDialog
+      // asynchronously and re-trigger the navigation manually on
+      // confirm.
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      void confirm({
+        title: t('staff.discardChangesTitle'),
+        description: message,
+        confirmText: t('staff.discardChangesAction'),
+        cancelText: t('staff.keepEditing'),
+        variant: 'warning',
+      }).then((ok) => {
+        if (ok) router.push(href);
+      });
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -64,5 +92,5 @@ export function useUnsavedChangesPrompt(
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('click', handleClick, true);
     };
-  }, [isDirty, message]);
+  }, [isDirty, message, confirm, router, t]);
 }

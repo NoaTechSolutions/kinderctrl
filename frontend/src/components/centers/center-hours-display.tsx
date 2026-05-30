@@ -1,12 +1,7 @@
 'use client';
 
-import { Calendar, Clock } from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Clock } from 'lucide-react';
+import { CardWithHeader } from '@/components/ui/card-with-header';
 import { HoursFormDialog } from '@/components/centers/hours-form';
 import { useTimeFormat } from '@/lib/preferences/time-format';
 import { formatTimeRange } from '@/lib/utils/time';
@@ -50,27 +45,21 @@ export function CenterHoursDisplay({
     !!centerId && !!centerName && centerStatus !== 'CLOSED';
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-base min-w-0">
-            <Calendar className="h-4 w-4 flex-none" aria-hidden />
-            <span className="truncate">Operating hours</span>
-          </CardTitle>
-          {canManageHours && hasHours && (
-            <div className="flex-none">
-              <HoursFormDialog
-                centerId={centerId!}
-                centerName={centerName!}
-                initialHours={hours}
-                triggerStyle="icon"
-              />
-            </div>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {!hasHours ? (
+    <CardWithHeader
+      icon={Clock}
+      title="Operating Hours"
+      action={
+        canManageHours && hasHours ? (
+          <HoursFormDialog
+            centerId={centerId!}
+            centerName={centerName!}
+            initialHours={hours}
+            triggerStyle="icon"
+          />
+        ) : undefined
+      }
+    >
+      {!hasHours ? (
           <div className="flex flex-col items-center text-center py-4 gap-3">
             <Clock
               className="h-10 w-10"
@@ -124,7 +113,6 @@ export function CenterHoursDisplay({
             })()}
           </ul>
         )}
-      </CardContent>
-    </Card>
+    </CardWithHeader>
   );
 }

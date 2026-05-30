@@ -8,6 +8,9 @@ export class AuthResponseDto {
     email: string;
     role: UserRole;
     centerId: string | null;
+    // User's own name (DIRECTOR/SUPER_ADMIN display). STAFF use staff.firstName.
+    firstName: string | null;
+    lastName: string | null;
     // Populated for DIRECTOR/STAFF/PARENT/SUPER_ADMIN that have a linked center.
     // Null when the user has no center yet (e.g. fresh DIRECTOR registration).
     center: { id: string; name: string } | null;

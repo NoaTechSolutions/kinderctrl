@@ -5,8 +5,8 @@ import { StaffService } from './staff.service';
 import { StaffController } from './staff.controller';
 
 // AuthModule is imported so StaffService can call AuthService.issueTokensForUser
-// during /staff/accept-invitation. EmailModule is @Global (auto-injectable),
-// so no explicit import needed.
+// during POST /staff/accept-invitation (the public accept endpoint).
+// EmailModule is @Global (auto-injectable), so no explicit import needed.
 @Module({
   imports: [PrismaModule, AuthModule],
   controllers: [StaffController],

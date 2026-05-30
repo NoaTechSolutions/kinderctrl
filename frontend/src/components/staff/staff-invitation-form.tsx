@@ -1,14 +1,22 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Mail } from 'lucide-react';
-import { toast } from 'sonner';
+import { ChevronDown, Loader2, Mail } from 'lucide-react';
+import { toast } from '@/lib/toast';
+import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
 
 import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NumericInput } from '@/components/ui/numeric-input';
 import {
   Select,
   SelectContent,
@@ -16,34 +24,77 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
-import { useCenters } from '@/lib/hooks/use-centers';
 import { useInviteStaff } from '@/lib/hooks/use-staff';
 import { useAuthStore } from '@/store/auth';
 import {
   inviteStaffSchema,
   type InviteStaffFormData,
 } from '@/lib/schemas/staff';
+import { CenterCombobox } from './center-combobox';
 
-export function StaffInvitationForm() {
+// Optional success/cancel hooks so the form works both as a standalone
+// page and as a dialog body. When omitted, defaults to the legacy
+// router.push('/staff') behavior — keeps any caller that still embeds
+// the form as a page working without changes.
+//
+// PO QA #29 (Opción F++): `prefillOpenDefault` controls whether the
+// pre-fill section starts expanded. The compact modal (`/staff/invite`)
+// keeps it collapsed; the SUPER_ADMIN full-page entry at
+// `/admin/staff/new` opens it by default so all operational fields are
+// visible at once. The button is still "Send Invitation" because that's
+// what the backend does — the page framing is a UX hint, not a behavior
+// difference.
+interface StaffInvitationFormProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  prefillOpenDefault?: boolean;
+  // Issue #5 — bubbles the form's `isDirty` flag so the wrapping
+  // SendInvitationDialog can intercept X / ESC / outside-click closes
+  // and show the branded discard-changes ConfirmDialog. The dialog
+  // owns the confirm flow; the form is just a dirty-state source.
+  // Pass `setIsFormDirty` directly (stable reference) so the bubble
+  // effect only re-fires when the dirty flag actually flips.
+  onDirtyChange?: (isDirty: boolean) => void;
+}
+
+export function StaffInvitationForm({
+  onSuccess,
+  onCancel,
+  prefillOpenDefault = false,
+  onDirtyChange,
+}: StaffInvitationFormProps = {}) {
   const { t } = useTranslation();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
-  // Center dropdown is only relevant for SUPER_ADMIN. DIRECTOR's centerId
-  // is auto-derived server-side from their User row.
-  // useCenters returns PaginatedCenters; unwrap .data.data for the array.
-  const centersQuery = useCenters({});
-  const centers = centersQuery.data?.data ?? [];
-
   const mutation = useInviteStaff();
 
   const form = useForm<InviteStaffFormData>({
     resolver: zodResolver(inviteStaffSchema),
-    defaultValues: { email: '', centerId: undefined },
+    defaultValues: { email: '', centerId: undefined, prefill: undefined },
   });
+
+  // Issue #5 — mirror the dirty flag up to the dialog (if any) so it
+  // can prompt before closing. Also guards F5 / Cmd-R via beforeunload
+  // and intercepts in-app <Link> clicks, same as StaffForm.
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+  useUnsavedChangesPrompt(
+    isDirty && !mutation.isPending,
+    t('staff.unsavedChangesPrompt'),
+  );
+
+  // Collapsed by default — the pre-fill section is for power users
+  // batching staff onboarding with known operational data (PO QA #28
+  // Opción F). The full-page SUPER_ADMIN entry passes
+  // prefillOpenDefault=true to invert this (PO QA #29 Opción F++).
+  const [prefillOpen, setPrefillOpen] = useState(prefillOpenDefault);
 
   const onSubmit = (data: InviteStaffFormData) => {
     if (isSuperAdmin && !data.centerId) {
@@ -56,7 +107,12 @@ export function StaffInvitationForm() {
         toast.success(
           t('staff.inviteSuccess').replace('{email}', res.email),
         );
-        router.push('/staff');
+        if (onSuccess) {
+          form.reset();
+          onSuccess();
+        } else {
+          router.push('/staff');
+        }
       },
       onError: (err) => {
         let msg = t('staff.inviteError');
@@ -79,7 +135,11 @@ export function StaffInvitationForm() {
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className="space-y-5 max-w-lg"
+      // No max-w here — the only consumer now is SendInvitationDialog
+      // whose DialogContent already caps width at sm:max-w-lg. Keeping
+      // max-w-lg on the form fought the dialog constraint on narrow
+      // viewports and caused a horizontal overflow (PO QA #17 AJUSTE 1).
+      className="space-y-5"
       noValidate
       aria-busy={mutation.isPending}
     >
@@ -118,26 +178,23 @@ export function StaffInvitationForm() {
           <Label htmlFor="invite-center" className="text-sm font-medium">
             {t('staff.inviteCenter')}
           </Label>
-          <Select
-            value={form.watch('centerId') ?? ''}
-            onValueChange={(v) =>
-              form.setValue('centerId', v, {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-          >
-            <SelectTrigger id="invite-center" className="h-11">
-              <SelectValue placeholder={t('staff.inviteCenterPlaceholder')} />
-            </SelectTrigger>
-            <SelectContent>
-              {centers.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            control={form.control}
+            name="centerId"
+            render={({ field }) => (
+              <CenterCombobox
+                id="invite-center"
+                value={field.value}
+                onChange={(v) =>
+                  form.setValue('centerId', v, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                disabled={mutation.isPending}
+              />
+            )}
+          />
           {form.formState.errors.centerId && (
             <p
               role="alert"
@@ -149,6 +206,132 @@ export function StaffInvitationForm() {
           )}
         </div>
       )}
+
+      {/* PO QA #28 Opción F: optional pre-fill section. Collapsed by
+          default so the modal stays compact for the typical
+          invite-by-email case. */}
+      <Collapsible open={prefillOpen} onOpenChange={setPrefillOpen}>
+        <CollapsibleTrigger
+          type="button"
+          className="flex items-center gap-2 text-sm font-medium w-full hover:opacity-80"
+          style={{ color: 'var(--kc-text-2)' }}
+        >
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 transition-transform duration-200',
+              prefillOpen && 'rotate-180',
+            )}
+            aria-hidden
+          />
+          {t('staff.invitePrefillToggle')}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 pt-3">
+          <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
+            {t('staff.invitePrefillHint')}
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 [&>*]:min-w-0">
+            <div className="space-y-1.5 min-w-0">
+              <Label
+                htmlFor="invite-prefill-position"
+                className="text-sm font-medium"
+              >
+                {t('staff.position')}
+              </Label>
+              <Input
+                id="invite-prefill-position"
+                type="text"
+                placeholder={t('staff.invitePrefillPositionPh')}
+                {...form.register('prefill.position')}
+              />
+            </div>
+
+            <div className="space-y-1.5 min-w-0">
+              <Label
+                htmlFor="invite-prefill-employment"
+                className="text-sm font-medium"
+              >
+                {t('staff.employmentType')}
+              </Label>
+              <Controller
+                control={form.control}
+                name="prefill.employmentType"
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? ''}
+                    onValueChange={(v) =>
+                      field.onChange(
+                        v === 'full_time' || v === 'part_time'
+                          ? v
+                          : undefined,
+                      )
+                    }
+                  >
+                    <SelectTrigger
+                      id="invite-prefill-employment"
+                      className="w-full"
+                    >
+                      <SelectValue
+                        placeholder={t('staff.invitePrefillSelectPh')}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full_time">
+                        {t('staff.employmentFullTime')}
+                      </SelectItem>
+                      <SelectItem value="part_time">
+                        {t('staff.employmentPartTime')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+
+            <div className="space-y-1.5 min-w-0">
+              <Label
+                htmlFor="invite-prefill-hireDate"
+                className="text-sm font-medium"
+              >
+                {t('staff.hireDate')}
+              </Label>
+              <Input
+                id="invite-prefill-hireDate"
+                type="date"
+                {...form.register('prefill.hireDate')}
+              />
+            </div>
+
+            <div className="space-y-1.5 min-w-0">
+              <Label
+                htmlFor="invite-prefill-rate"
+                className="text-sm font-medium"
+              >
+                {t('staff.hourlyRate')}
+              </Label>
+              {/* PO QA #50: NumericInput with decimals — same control as
+                  /staff/new hourlyRate. Letters/negative blocked in real
+                  time; schema preprocess converts the string to number. */}
+              <Controller
+                control={form.control}
+                name="prefill.hourlyRate"
+                render={({ field }) => (
+                  <NumericInput
+                    id="invite-prefill-rate"
+                    allowDecimal
+                    placeholder="0.00"
+                    value={field.value == null ? '' : String(field.value)}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                  />
+                )}
+              />
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {form.formState.errors.root && (
         <div
@@ -171,7 +354,10 @@ export function StaffInvitationForm() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push('/staff')}
+          onClick={() => {
+            if (onCancel) onCancel();
+            else router.push('/staff');
+          }}
           disabled={mutation.isPending}
         >
           {t('staff.cancel')}

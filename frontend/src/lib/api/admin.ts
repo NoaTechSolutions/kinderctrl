@@ -22,3 +22,5 @@ export function unlockUser(id: string) {
     { method: 'POST' },
   );
 }
+
+// Global stats moved to lib/api/centers.ts (endpoint is /centers/global-stats).

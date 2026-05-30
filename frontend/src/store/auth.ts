@@ -9,17 +9,23 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   centerId: string | null;
+  // User's own name — used for DIRECTOR/SUPER_ADMIN topbar display. STAFF read
+  // their name from the staff satellite below.
+  firstName: string | null;
+  lastName: string | null;
   // Populated when the user has a linked center. Null for DIRECTORs who
   // haven't completed setup, or SUPER_ADMINs without a primary center.
   center: { id: string; name: string } | null;
   // Populated when role === 'STAFF'. staff.role is the job title used by
   // the topbar — distinct from auth-level `role` (see UserRole vs StaffRole
-  // in the data model).
+  // in the data model). profileComplete drives the dashboard "complete
+  // your profile" banner (PO QA #8 Opción C).
   staff: {
     id: string;
     firstName: string;
     lastName: string;
     role: StaffRole;
+    profileComplete: boolean;
   } | null;
   // Populated when role === 'PARENT'.
   parent: {

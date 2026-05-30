@@ -15,6 +15,7 @@ export function getCenters(query: CentersQuery = {}) {
   if (query.page != null) params.set('page', String(query.page));
   if (query.limit != null) params.set('limit', String(query.limit));
   if (query.status) params.set('status', query.status);
+  if (query.search) params.set('search', query.search);
   const qs = params.toString();
   return apiRequest<PaginatedCenters>(
     qs ? `/centers?${qs}` : '/centers',
@@ -79,4 +80,59 @@ export function setCenterHours(id: string, hours: CenterHourInput[]) {
     method: 'POST',
     body: { hours },
   });
+}
+
+// =================================================== Global stats (SUPER_ADMIN)
+
+export interface GlobalStatsCenter {
+  id: string;
+  name: string;
+  status: 'SETUP_PENDING' | 'ACTIVE' | 'SUSPENDED' | 'CLOSED';
+  city: string | null;
+  state: string | null;
+  director: { id: string; name: string; email: string } | null;
+  staffCount: number;
+  childrenCount: number;
+}
+
+export interface GlobalStats {
+  counts: {
+    centers: number;
+    staff: number;
+    children: number;
+    directors: number;
+  };
+  alerts: {
+    // CorrectionRequest in PENDING older than 48 hours.
+    oldCorrections: number;
+    // PayrollPeriod still OPEN whose endDate is >7 days in the past.
+    overduePayrolls: number;
+    // ACTIVE staff with no CLOCK_IN in the last 7 days.
+    staffWithoutClockIn: number;
+  };
+  centers: GlobalStatsCenter[];
+}
+
+export function getGlobalStats() {
+  return apiRequest<GlobalStats>('/centers/global-stats', { method: 'GET' });
+}
+
+// =================================================== Center stats (detail)
+
+export interface CenterStats {
+  counts: {
+    staff: number;
+    children: number;
+    schedules: number;
+    corrections: number;
+  };
+  alerts: {
+    oldCorrections: number;
+    overduePayrolls: number;
+    staffWithoutClockIn: number;
+  };
+}
+
+export function getCenterStats(id: string) {
+  return apiRequest<CenterStats>(`/centers/${id}/stats`, { method: 'GET' });
 }

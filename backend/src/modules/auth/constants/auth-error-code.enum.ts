@@ -9,4 +9,8 @@ export enum AuthErrorCode {
   RATE_LIMITED = 'RATE_LIMITED',
   EMAIL_EXISTS = 'EMAIL_EXISTS',
   RESET_TOKEN_INVALID = 'RESET_TOKEN_INVALID',
+  // Distinct from INVALID_CREDENTIALS so the in-app Change Email /
+  // Change Password flows can surface a field-scoped error ("Current
+  // password is wrong") instead of the login-style generic.
+  CURRENT_PASSWORD_INVALID = 'CURRENT_PASSWORD_INVALID',
 }

@@ -9,6 +9,7 @@ import { Building2, Loader2, MapPin, Phone as PhoneIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NumericInput } from '@/components/ui/numeric-input';
 import {
   Select,
   SelectContent,
@@ -23,6 +24,7 @@ import { VALID_TIMEZONES, type Center } from '@/lib/types/center';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import { lookupTimezoneByZip } from '@/lib/utils/zip-timezone';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
+import { useConfirm } from '@/lib/toast';
 
 export type CenterFormMode = 'create' | 'edit';
 
@@ -169,11 +171,20 @@ export function CenterForm({
     unsavedMessage,
   );
 
-  const handleCancel = () => {
+  // PO QA #51: branded ConfirmDialog for unsaved-changes prompt.
+  const confirm = useConfirm();
+  const handleCancel = async () => {
     // The global hook only intercepts <a> clicks and tab close; the
     // Cancel button is a <button> so we confirm here explicitly.
-    if (form.formState.isDirty && !window.confirm(unsavedMessage)) {
-      return;
+    if (form.formState.isDirty) {
+      const ok = await confirm({
+        title: t('staff.discardChangesTitle'),
+        description: unsavedMessage,
+        confirmText: t('staff.discardChangesAction'),
+        cancelText: t('staff.keepEditing'),
+        variant: 'warning',
+      });
+      if (!ok) return;
     }
     if (onCancel) {
       onCancel();
@@ -305,11 +316,22 @@ export function CenterForm({
           required={isRequired('zipCode')}
           requiredLabel={requiredLabel}
         >
-          <Input
-            id="zipCode"
-            placeholder={t('centers.zipCodePlaceholder')}
-            disabled={isSubmitting}
-            {...form.register('zipCode')}
+          <Controller
+            control={form.control}
+            name="zipCode"
+            render={({ field }) => (
+              <NumericInput
+                id="zipCode"
+                maxLength={5}
+                placeholder={t('centers.zipCodePlaceholder')}
+                disabled={isSubmitting}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                name={field.name}
+              />
+            )}
           />
         </Field>
 

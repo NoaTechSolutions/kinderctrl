@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Unlock, ShieldAlert, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast, useConfirm } from '@/lib/toast';
 
 import {
   Table,
@@ -32,13 +32,16 @@ export default function LockedAccountsPage() {
   const unlockMutation = useUnlockUser();
   const [pendingId, setPendingId] = useState<string | null>(null);
 
-  const handleUnlock = (user: LockedUser) => {
-    // Confirm before unlocking — irreversible from a "this triggered an
-    // audit log entry" standpoint, and we want admins to think before
-    // they click on the wrong row.
-    const ok = window.confirm(
-      t('admin.confirmUnlock').replace('{email}', user.email),
-    );
+  // PO QA #51: branded ConfirmDialog (warning variant — unlock is
+  // sensitive but not strictly destructive). Replaces window.confirm.
+  const confirm = useConfirm();
+  const handleUnlock = async (user: LockedUser) => {
+    const ok = await confirm({
+      title: t('admin.confirmUnlockTitle'),
+      description: t('admin.confirmUnlock').replace('{email}', user.email),
+      confirmText: t('admin.unlock'),
+      variant: 'warning',
+    });
     if (!ok) return;
     setPendingId(user.id);
     unlockMutation.mutate(user.id, {

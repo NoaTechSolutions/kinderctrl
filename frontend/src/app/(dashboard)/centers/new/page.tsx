@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Building2, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 import { Button } from '@/components/ui/button';
 import { useCenters, useCreateCenter } from '@/lib/hooks/use-centers';

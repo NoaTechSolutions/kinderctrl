@@ -18,9 +18,58 @@ datasource db {
 model User {
   id       String     @id @default(uuid()) @db.Uuid
   email    String     @unique
-  password String
+  // Nullable since PO QA #30 (Opción E): SUPER_ADMIN can create a User
+  // for a staff member without a password. The user receives an email
+  // with a tokenized setup link and supplies their own password via
+  // POST /auth/reset-password (reusing the existing reset flow with
+  // 7-day expiry for admin-triggered first-setup tokens).
+  // Login enforces: password=null behaves IDENTICALLY to wrong-password
+  // for the response shape — no enumeration leak.
+  password String?
   role     UserRole
   status   UserStatus @default(PENDING_ACTIVATION)
+
+  // Self-service profile fields for the /profile module (Issue #6).
+  // Populated by PATCH /auth/me/profile. For STAFF role the satellite
+  // Staff record already carries firstName/lastName/phone — the auth
+  // service route-dispatches reads/writes there. For DIRECTOR /
+  // SUPER_ADMIN there is no satellite, so the User row IS the source of
+  // truth. PARENT will follow when its profile surface ships.
+  firstName String? @map("first_name") @db.VarChar(100)
+  lastName  String? @map("last_name") @db.VarChar(100)
+  phone     String? @db.VarChar(20)
+
+  // Profile v2 — preferences. Theme + language stay client-only
+  // (localStorage); only timeFormat persists server-side so the value
+  // survives device changes and pre-renders correctly on first paint.
+  // Default = TWENTY_FOUR_HOUR to match the existing client default
+  // (frontend/src/lib/preferences/time-format.tsx) — flipping it would
+  // silently regress every existing user's preference on first server
+  // hydrate.
+  timeFormat TimeFormat @default(TWENTY_FOUR_HOUR) @map("time_format")
+
+  // Profile v2/v6 — primary + secondary emergency contacts for
+  // DIRECTOR / SUPER_ADMIN. STAFF keeps reading/writing the Staff
+  // satellite (which has the same two-contact pair). Relationship is
+  // free-text-with-whitelist (validated at DTO boundary) so adding
+  // options later is a no-migration change. v6 added the secondary
+  // contact columns so the User row matches the Staff satellite for
+  // every role that lands on the User-side dispatch.
+  emergencyContactName         String? @map("emergency_contact_name") @db.VarChar(100)
+  emergencyContactPhone        String? @map("emergency_contact_phone") @db.VarChar(20)
+  emergencyContactRelationship String? @map("emergency_contact_relationship") @db.VarChar(20)
+  emergencyContact2Name         String? @map("emergency_contact_2_name") @db.VarChar(100)
+  emergencyContact2Phone        String? @map("emergency_contact_2_phone") @db.VarChar(20)
+  emergencyContact2Relationship String? @map("emergency_contact_2_relationship") @db.VarChar(20)
+
+  // Profile v3 — address fields for DIRECTOR / SUPER_ADMIN (STAFF reads
+  // and writes through Staff.street/city/state/zipCode via the role
+  // dispatch in auth.service.updateMyProfile). Same column shapes as
+  // Center / Staff so the address rendering helper can stay generic.
+  street  String? @db.VarChar(200)
+  city    String? @db.VarChar(100)
+  state   String? @db.VarChar(2)
+  zipCode String? @map("zip_code") @db.VarChar(10)
 
   // Auth security — populated by the login flow.
   // failedLoginAttempts increments on each bad-password attempt and resets to 0
@@ -47,10 +96,18 @@ model User {
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
 
-  // Staff module — back-relations for verifier FKs and invitations.
-  backgroundChecksVerified Staff[]                @relation("StaffBackgroundVerifier")
+  // Staff module — back-relation for the CPR verifier FK + invitations.
+  // PO QA #46: backgroundChecksVerified relation removed alongside the
+  // simplified BG model (no per-check verifier any more — status +
+  // approved boolean is all the data we track).
   cprChecksVerified        Staff[]                @relation("StaffCprVerifier")
   staffInvitationsSent     StaffInvitationToken[] @relation("StaffInvitationInviter")
+
+  // Password-admin audit trail (PO QA #28 Opción F). Two directions:
+  // actions this user PERFORMED (as Director/SUPER_ADMIN) and actions
+  // RECEIVED (as the target user whose password was reset).
+  passwordAdminActionsPerformed PasswordAdminAction[] @relation("PasswordAdminActor")
+  passwordAdminActionsReceived  PasswordAdminAction[] @relation("PasswordAdminTarget")
 
   // Timestamps
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -73,6 +130,14 @@ enum UserStatus {
   PENDING_ACTIVATION
   SUSPENDED
   DELETED
+}
+
+// Profile v2 — server-persisted time format preference. The two values
+// match the client TimeFormat type ('12h' / '24h') — the mapping happens
+// at the service/DTO boundary.
+enum TimeFormat {
+  TWELVE_HOUR
+  TWENTY_FOUR_HOUR
 }
 
 model Session {
@@ -145,6 +210,11 @@ model Center {
   website       String?
   timezone      String  @default("America/Los_Angeles")
 
+  // Geolocation — staff attendance geo-fencing (Haversine on backend)
+  latitude             Float?
+  longitude            Float?
+  geoFenceRadiusMeters Int     @default(100) @map("geo_fence_radius_meters")
+
   // Status
   status CenterStatus @default(SETUP_PENDING)
 
@@ -164,6 +234,14 @@ model Center {
   invoices           Invoice[]
   attendance         Attendance[]
   documents          Document[]
+  // Staff attendance & time tracking
+  staffTimeEntries    StaffTimeEntry[]
+  correctionRequests  CorrectionRequest[]
+  schedules           Schedule[]
+  attendanceApprovals AttendanceApproval[]
+  payrollSettings     PayrollSettings?
+  payrollPeriods      PayrollPeriod[]
+  kioskSettings       KioskSettings?
 
   // Timestamps
   createdAt        DateTime  @default(now()) @map("created_at")
@@ -273,6 +351,30 @@ model Staff {
   // their profile. Date-only column (no time/timezone semantics).
   dateOfBirth DateTime? @map("date_of_birth") @db.Date
 
+  // Self-service profile fields (Opción C). Address is stored as 4
+  // discrete columns matching Center's pattern (street/city/state/zip)
+  // — all nullable, since Staff fill these in optionally via
+  // /profile/complete. PO QA #11 replaced the v1 single-string `address`
+  // column with this structured form for consistency with Centers.
+  street                String? @db.VarChar(200)
+  city                  String? @db.VarChar(100)
+  state                 String? @db.VarChar(2)
+  zipCode               String? @map("zip_code") @db.VarChar(10)
+  emergencyContactName         String? @map("emergency_contact_name") @db.VarChar(100)
+  emergencyContactPhone        String? @map("emergency_contact_phone")
+  // PO QA #31: relationship + second emergency contact. Relationship is
+  // a free-text-with-whitelist string (validated at DTO boundary against
+  // ['father','mother','spouse','partner','sibling','friend','other'])
+  // instead of a Prisma enum so adding new options later is a no-migration
+  // change.
+  emergencyContactRelationship String? @map("emergency_contact_relationship") @db.VarChar(20)
+  emergencyContact2Name        String? @map("emergency_contact_2_name") @db.VarChar(100)
+  emergencyContact2Phone       String? @map("emergency_contact_2_phone")
+  emergencyContact2Relationship String? @map("emergency_contact_2_relationship") @db.VarChar(20)
+  // Set to true when the staff member saves anything via /staff/me/profile.
+  // Drives the "Complete your profile" banner on the dashboard.
+  profileComplete        Boolean @default(false) @map("profile_complete")
+
   hireDate       DateTime @map("hire_date")
   hourlyRate     Decimal? @map("hourly_rate") @db.Decimal(10, 2)
   employmentType String   @map("employment_type") // full_time, part_time
@@ -282,19 +384,25 @@ model Staff {
 
   status StaffStatus @default(INVITED)
 
-  // Background Check compliance. Soft-tracked: the activation flow does
-  // NOT block on this; the Director marks status manually. The fields
-  // exist so the UI can surface badges and a Director can audit.
-  backgroundCheckStatus       BackgroundCheckStatus @default(NOT_STARTED) @map("background_check_status")
-  backgroundCheckDate         DateTime?             @map("background_check_date") @db.Date
-  backgroundCheckExpiryDate   DateTime?             @map("background_check_expiry_date") @db.Date
-  backgroundCheckVerifiedById String?               @map("background_check_verified_by_id") @db.Uuid
-  backgroundCheckVerifiedBy   User?                 @relation("StaffBackgroundVerifier", fields: [backgroundCheckVerifiedById], references: [id], onDelete: SetNull)
-  backgroundCheckNotes        String?               @map("background_check_notes")
+  // Background Check compliance — PO QA #46 simplification.
+  // `status` models the *process phase* (where the check is in its
+  // lifecycle); `approved` carries the *outcome* and only matters when
+  // status=COMPLETED (NULL otherwise). The QA #45 verifier FK + date /
+  // expiry / notes columns were dropped after PO confirmed the model
+  // collapse — there's no per-check audit, only the current state.
+  backgroundCheckStatus    BackgroundCheckStatus @default(PENDING) @map("background_check_status")
+  backgroundCheckApproved  Boolean?              @map("background_check_approved")
 
-  // CPR / First Aid certification. Same soft-track pattern as background
-  // check. Provider lets centers note the certifying org (Red Cross, AHA).
-  cprCertified             Boolean   @default(false) @map("cpr_certified")
+  // CPR / First Aid certification — PO QA #49 simplification.
+  // `cprStatus` mirrors the BG #46 model: lifecycle phase explicitly
+  // stored, not derived from date. Validation rules at the service
+  // layer: ACTIVE requires a future cprExpiryDate, EXPIRED requires a
+  // past one; PENDING / CANCELLED don't constrain expiry. The legacy
+  // `cprCertified` boolean was dropped (derivable as status IN
+  // ('ACTIVE', 'EXPIRED') if external code ever needs it). Provider /
+  // notes / verifier columns RETAINED per PO — CPR keeps the richer
+  // history that BG didn't need.
+  cprStatus                CprStatus @default(PENDING) @map("cpr_status")
   cprCertificationDate     DateTime? @map("cpr_certification_date") @db.Date
   cprExpiryDate            DateTime? @map("cpr_expiry_date") @db.Date
   cprCertificationProvider String?   @map("cpr_certification_provider") @db.VarChar(100)
@@ -305,14 +413,19 @@ model Staff {
   // Relations
   user           User?
   classroomStaff ClassroomStaff[]
+  // Attendance module
+  timeEntries         StaffTimeEntry[]
+  correctionRequests  CorrectionRequest[]
+  schedules           Schedule[]
+  attendanceApprovals AttendanceApproval[]
 
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   activatedAt DateTime? @map("activated_at")
 
-  @@index([backgroundCheckExpiryDate])
   @@index([cprExpiryDate])
   @@index([backgroundCheckStatus])
+  @@index([cprStatus])
   @@map("staff")
 }
 
@@ -329,12 +442,24 @@ enum StaffStatus {
   TERMINATED
 }
 
-enum BackgroundCheckStatus {
-  NOT_STARTED
+enum CprStatus {
+  // PO QA #49 — CPR mirror of BG #46. Lifecycle phases only:
+  //   PENDING   — newly hired / cert not yet validated
+  //   ACTIVE    — cert in force (future expiry required)
+  //   EXPIRED   — cert lapsed (past expiry required)
+  //   CANCELLED — cert revoked / no longer applicable
   PENDING
-  APPROVED
-  REJECTED
+  ACTIVE
   EXPIRED
+  CANCELLED
+}
+
+enum BackgroundCheckStatus {
+  // PO QA #46 — collapsed from 5 states. Process phases only; the
+  // outcome (approved / not approved) lives in Staff.backgroundCheckApproved.
+  PENDING
+  COMPLETED
+  CANCELLED
 }
 
 // Staff invitation tokens. Mirrors PasswordResetToken's shape exactly so
@@ -356,13 +481,63 @@ model StaffInvitationToken {
   invitedById String? @map("invited_by_id") @db.Uuid
   invitedBy   User?   @relation("StaffInvitationInviter", fields: [invitedById], references: [id], onDelete: SetNull)
 
-  expiresAt DateTime  @map("expires_at")
-  usedAt    DateTime? @map("used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime  @map("expires_at")
+  // Set the moment an invitee successfully POSTs /staff/accept-invitation.
+  // Token becomes single-use after this.
+  usedAt      DateTime? @map("used_at")
+  // Set when an inviter explicitly cancels via DELETE /staff/invitations/:id
+  // (PO QA #13). Distinguishes "cancelled" from "accepted" — both set the
+  // token to "no longer usable", but cancelled means "Director took it
+  // back" vs accepted means "invitee successfully redeemed".
+  cancelledAt  DateTime? @map("cancelled_at")
+  // Per-invitation resend rate limit state (PO QA #14 AJUSTE 3). Sliding
+  // window: if lastResendAt is >1h ago, the counter is stale and resets
+  // to 1 on next resend; otherwise it increments and rejects at 3.
+  // Resend NO longer rotates rows — it updates this row in place so the
+  // counter stays attached to the invitation across multiple resends.
+  lastResendAt DateTime? @map("last_resend_at")
+  resendCount  Int       @default(0) @map("resend_count")
+  // Optional operational fields the inviter wants pre-populated on the
+  // Staff record when this invitation is accepted (PO QA #28 Opción F).
+  // Free-form JSON to avoid bikeshedding new columns; the service
+  // validates known keys at invite-time and again at accept-time.
+  // Known keys (all optional):
+  //   hireDate: ISO date string
+  //   employmentType: 'full_time' | 'part_time'
+  //   hourlyRate: number
+  //   position: string
+  //   dateOfBirth: ISO date string
+  prefillData  Json?     @map("prefill_data")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   @@index([email])
   @@index([expiresAt])
   @@map("staff_invitation_tokens")
+}
+
+// Audit log for admin-triggered credential actions (PO QA #28 Opción F).
+// Currently only RESET_TRIGGERED — when a Director or SUPER_ADMIN clicks
+// "Send Password Reset" on a staff detail page. The actor never sees the
+// password itself; the audit only records who triggered the email send
+// for whom + when. Indexed on both userIds so "who reset my password?"
+// and "what resets has this admin triggered?" queries stay cheap.
+model PasswordAdminAction {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorUserId  String   @map("actor_user_id") @db.Uuid
+  actor        User     @relation("PasswordAdminActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  targetUserId String   @map("target_user_id") @db.Uuid
+  target       User     @relation("PasswordAdminTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  // Open string for forward-compat (e.g. future TEMP_PASSWORD_ISSUED,
+  // FORCE_PASSWORD_CHANGE). Validated at the service boundary.
+  action       String
+  // Captured from the request when available; nullable because background
+  // jobs / CLI tools don't have one.
+  ipAddress    String?  @map("ip_address")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([targetUserId])
+  @@index([actorUserId])
+  @@map("password_admin_actions")
 }
 
 // ============================================
@@ -868,4 +1043,223 @@ enum DocumentStatus {
   ACTIVE
   EXPIRED
   ARCHIVED
+}
+
+// ============================================
+// STAFF ATTENDANCE & TIME TRACKING
+// ============================================
+
+model StaffTimeEntry {
+  id                String      @id @default(uuid()) @db.Uuid
+  staffId           String      @map("staff_id") @db.Uuid
+  staff             Staff       @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  centerId          String      @map("center_id") @db.Uuid
+  center            Center      @relation(fields: [centerId], references: [id])
+  date              DateTime    @db.Date
+  type              PunchType
+  deviceTimestamp   DateTime    @map("device_timestamp")
+  serverReceivedAt  DateTime?   @map("server_received_at")
+  timeDriftDetected Boolean     @default(false) @map("time_drift_detected")
+  latitude          Float?
+  longitude         Float?
+  withinGeoFence    Boolean?    @map("within_geo_fence")
+  source            PunchSource @default(APP)
+  isCorrection      Boolean     @default(false) @map("is_correction")
+  correctionId      String?     @map("correction_id") @db.Uuid
+  correction        CorrectionRequest? @relation(fields: [correctionId], references: [id])
+
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  @@unique([staffId, centerId, date, type])
+  @@index([staffId, date])
+  @@index([centerId, date])
+  @@map("staff_time_entries")
+}
+
+model CorrectionRequest {
+  id                  String            @id @default(uuid()) @db.Uuid
+  staffId             String            @map("staff_id") @db.Uuid
+  staff               Staff             @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  centerId            String            @map("center_id") @db.Uuid
+  center              Center            @relation(fields: [centerId], references: [id])
+  date                DateTime          @db.Date
+  status              CorrectionStatus  @default(PENDING)
+
+  originalClockIn     DateTime?         @map("original_clock_in")
+  originalBreakIn     DateTime?         @map("original_break_in")
+  originalBreakOut    DateTime?         @map("original_break_out")
+  originalClockOut    DateTime?         @map("original_clock_out")
+
+  requestedClockIn    DateTime?         @map("requested_clock_in")
+  requestedBreakIn    DateTime?         @map("requested_break_in")
+  requestedBreakOut   DateTime?         @map("requested_break_out")
+  requestedClockOut   DateTime?         @map("requested_clock_out")
+
+  staffComment        String            @map("staff_comment")
+  directorComment     String?           @map("director_comment")
+  reviewedBy          String?           @map("reviewed_by") @db.Uuid
+  reviewedAt          DateTime?         @map("reviewed_at")
+
+  expiresAt           DateTime          @map("expires_at")
+  createdAt           DateTime          @default(now()) @map("created_at")
+
+  affectedEntries     StaffTimeEntry[]
+
+  @@index([staffId, status])
+  @@index([centerId, status])
+  @@map("correction_requests")
+}
+
+model Schedule {
+  id          String         @id @default(uuid()) @db.Uuid
+  staffId     String         @map("staff_id") @db.Uuid
+  staff       Staff          @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  centerId    String         @map("center_id") @db.Uuid
+  center      Center         @relation(fields: [centerId], references: [id])
+  startDate   DateTime       @map("start_date") @db.Date
+  endDate     DateTime       @map("end_date") @db.Date
+  status      ScheduleStatus @default(DRAFT)
+  approvedBy  String?        @map("approved_by") @db.Uuid
+  approvedAt  DateTime?      @map("approved_at")
+
+  days        ScheduleDay[]
+
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  @@unique([staffId, centerId, startDate])
+  @@index([staffId, startDate])
+  @@index([centerId, startDate])
+  @@map("schedules")
+}
+
+model ScheduleDay {
+  id          String    @id @default(uuid()) @db.Uuid
+  scheduleId  String    @map("schedule_id") @db.Uuid
+  schedule    Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int       @map("day_of_week") // ISO 8601: 1=Mon, 7=Sun
+  startTime   String?   @map("start_time")  // "08:00"
+  endTime     String?   @map("end_time")    // "16:00"
+  isOff       Boolean   @default(false) @map("is_off")
+
+  @@unique([scheduleId, dayOfWeek])
+  @@map("schedule_days")
+}
+
+model PayrollSettings {
+  id                      String       @id @default(uuid()) @db.Uuid
+  centerId                String       @unique @map("center_id") @db.Uuid
+  center                  Center       @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  frequency               PayFrequency @default(WEEKLY)
+  breakPaid               Boolean      @default(false) @map("break_paid")
+  overtimeDailyThreshold  Int          @default(8) @map("overtime_daily_threshold")
+  overtimeWeeklyThreshold Int          @default(40) @map("overtime_weekly_threshold")
+  overtimeRate            Float        @default(1.5) @map("overtime_rate")
+
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
+
+  @@map("payroll_settings")
+}
+
+model PayrollPeriod {
+  id          String       @id @default(uuid()) @db.Uuid
+  centerId    String       @map("center_id") @db.Uuid
+  center      Center       @relation(fields: [centerId], references: [id])
+  startDate   DateTime     @map("start_date") @db.Date
+  endDate     DateTime     @map("end_date") @db.Date
+  status      PeriodStatus @default(OPEN)
+  approvedBy  String?      @map("approved_by") @db.Uuid
+  approvedAt  DateTime?    @map("approved_at")
+
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@index([centerId, startDate])
+  @@map("payroll_periods")
+}
+
+model KioskSettings {
+  id                String    @id @default(uuid()) @db.Uuid
+  centerId          String    @unique @map("center_id") @db.Uuid
+  center            Center    @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  pin                 String
+  isEnabled           Boolean   @default(false) @map("is_enabled")
+  timeoutMin          Int       @default(2) @map("timeout_min")
+  kioskSessionToken   String?   @map("kiosk_session_token")
+  failedPinAttempts   Int       @default(0) @map("failed_pin_attempts")
+  pinResetToken       String?   @unique @map("pin_reset_token")
+  pinResetTokenExpiry DateTime? @map("pin_reset_token_expiry")
+
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@map("kiosk_settings")
+}
+
+// Director's approval of a staff's worked hours on a given day. Created
+// (or upserted) when the director marks a day or a full week as APPROVED /
+// REJECTED in the Team Clock view. The unique([staffId, centerId, date])
+// constraint keeps one record per (staff, day). weekStart is denormalized
+// so the UI can query a whole week's approval status in one round-trip.
+model AttendanceApproval {
+  id              String         @id @default(uuid()) @db.Uuid
+  staffId         String         @map("staff_id") @db.Uuid
+  staff           Staff          @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  centerId        String         @map("center_id") @db.Uuid
+  center          Center         @relation(fields: [centerId], references: [id])
+  date            DateTime       @db.Date
+  weekStart       DateTime       @map("week_start") @db.Date
+  status          ApprovalStatus @default(PENDING)
+  directorComment String?        @map("director_comment")
+  reviewedBy      String?        @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?      @map("reviewed_at")
+
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@unique([staffId, centerId, date])
+  @@index([centerId, weekStart])
+  @@index([staffId, weekStart])
+  @@map("attendance_approvals")
+}
+
+enum PunchType {
+  CLOCK_IN
+  BREAK_IN
+  BREAK_OUT
+  CLOCK_OUT
+}
+
+enum PunchSource {
+  APP
+  KIOSK
+}
+
+enum CorrectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ScheduleStatus {
+  DRAFT
+  APPROVED
+}
+
+enum PayFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum PeriodStatus {
+  OPEN
+  APPROVED
+  EXPORTED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

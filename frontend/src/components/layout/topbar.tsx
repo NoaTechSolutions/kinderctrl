@@ -1,26 +1,34 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LogOut, Menu, Settings, User } from 'lucide-react';
+import {
+  ChevronDown,
+  Loader2,
+  LogOut,
+  Menu,
+  Play,
+  Settings,
+  User,
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ThemeDropdown } from '@/components/auth/theme-dropdown';
-import { LanguageDropdown } from '@/components/auth/language-dropdown';
-import { TimeFormatDropdown } from '@/components/auth/time-format-dropdown';
+import { UserAvatar } from '@/components/profile/user-avatar';
 import { useAuthStore } from '@/store/auth';
 import { logout as logoutApi } from '@/lib/api/auth';
-import { useTranslation } from '@/lib/i18n';
-import { getDisplayRole } from '@/lib/user-display';
+import { activateKiosk, KioskNotConfiguredError } from '@/lib/api/kiosk';
+import { getTopbarTitle, getTopbarSubtitle } from '@/lib/user-display';
 
 interface TopbarProps {
   onMenuClick?: () => void;
@@ -28,9 +36,12 @@ interface TopbarProps {
 
 export function Topbar({ onMenuClick }: TopbarProps) {
   const router = useRouter();
-  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const clearTokens = useAuthStore((s) => s.clearTokens);
+
+  const [kioskLoading, setKioskLoading] = useState(false);
+
+  const canAccessKiosk = user?.role === 'DIRECTOR' || user?.role === 'SUPER_ADMIN';
 
   const handleLogout = async () => {
     try {
@@ -43,9 +54,25 @@ export function Topbar({ onMenuClick }: TopbarProps) {
     }
   };
 
-  const initials = user?.email
-    ? user.email.substring(0, 2).toUpperCase()
-    : 'U';
+  // Launch the kiosk directly — no PIN required (the PIN is only used to exit).
+  const handleLaunchKiosk = async () => {
+    setKioskLoading(true);
+    try {
+      const result = await activateKiosk();
+      sessionStorage.setItem('kc-kiosk-token', result.kioskSessionToken);
+      sessionStorage.setItem('kc-kiosk-timeout', String(result.timeoutMin));
+      router.push('/kiosk');
+    } catch (e) {
+      if (e instanceof KioskNotConfiguredError) {
+        toast.error('Set up a PIN first');
+      } else {
+        toast.error('Could not launch kiosk');
+      }
+      router.push('/kiosk-settings');
+    } finally {
+      setKioskLoading(false);
+    }
+  };
 
   return (
     <div
@@ -68,82 +95,59 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       <div className="flex-1 lg:flex-none" />
 
       <div className="flex items-center gap-2">
-        {/* Theme stays in the topbar at every breakpoint — light/dark is a
-            quick toggle a user needs at hand. Language + time-format are
-            preferences that will move to Settings when that module ships;
-            for now they're hidden on mobile (Settings is the long-term home). */}
         <ThemeDropdown />
-        <div className="hidden md:flex items-center gap-2">
-          <LanguageDropdown />
-          <TimeFormatDropdown />
-        </div>
+
+        {canAccessKiosk && (
+          <Button
+            variant="outline"
+            size="sm"
+            title="Launch Kiosk Mode"
+            onClick={handleLaunchKiosk}
+            disabled={kioskLoading}
+          >
+            {kioskLoading
+              ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              : <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />}
+            Kiosk
+          </Button>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="relative h-10 w-10 rounded-full ml-1 p-0"
+            <button
+              className="flex items-center gap-2 ml-1 hover:opacity-80 transition-opacity focus:outline-none focus-visible:outline-none focus:ring-0"
               aria-label="User menu"
             >
-              <Avatar className="h-10 w-10">
-                <AvatarFallback
-                  className="text-white font-semibold"
-                  style={{ background: 'var(--kc-p-600)' }}
-                >
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
+              <UserAvatar
+                firstName={user?.firstName}
+                lastName={user?.lastName}
+                email={user?.email}
+                className="h-9 w-9"
+              />
+              {user && (
+                <div className="hidden md:flex flex-col items-start leading-tight">
+                  <span className="text-sm font-semibold truncate max-w-[160px]" style={{ color: 'var(--kc-text-1)' }} title={getTopbarTitle(user)}>
+                    {getTopbarTitle(user)}
+                  </span>
+                  <span className="text-xs truncate max-w-[160px]" style={{ color: 'var(--kc-text-3)' }} title={getTopbarSubtitle(user)}>
+                    {getTopbarSubtitle(user)}
+                  </span>
+                </div>
+              )}
+              <ChevronDown className="h-3.5 w-3.5 hidden md:block" style={{ color: 'var(--kc-text-3)' }} />
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
-              <div className="flex flex-col gap-0.5">
-                {user?.center?.name ? (
-                  <p
-                    className="text-sm font-medium truncate"
-                    title={user.center.name}
-                  >
-                    {user.center.name}
-                  </p>
-                ) : (
-                  <p
-                    className="text-sm"
-                    style={{ color: 'var(--kc-text-3)' }}
-                  >
-                    {user?.role === 'SUPER_ADMIN'
-                      ? 'No Center'
-                      : t('centers.statusSetupPending')}
-                  </p>
-                )}
-                <p
-                  className="text-xs"
-                  style={{ color: 'var(--kc-text-3)' }}
-                >
-                  {user ? getDisplayRole(user) : ''}
-                </p>
-                <p
-                  className="text-xs truncate"
-                  style={{ color: 'var(--kc-text-3)' }}
-                  title={user?.email}
-                >
-                  {user?.email}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-              <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">
-                Soon
-              </Badge>
+            <DropdownMenuItem asChild>
+              <Link href="/profile">
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem disabled>
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
-              <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">
-                Soon
-              </Badge>
+              <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">Soon</Badge>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>

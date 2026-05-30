@@ -30,6 +30,30 @@ export function getDashboardGreeting(user: AuthUser): string {
 }
 
 /**
+ * Topbar identity — line 1 (bold). Center name for DIRECTOR, full name for
+ * STAFF, "KinderCtrl" for SUPER_ADMIN.
+ */
+export function getTopbarTitle(user: AuthUser): string {
+  if (user.role === 'SUPER_ADMIN') return 'KinderCtrl';
+  if (user.role === 'STAFF' && user.staff) {
+    return `${user.staff.firstName} ${user.staff.lastName}`.trim();
+  }
+  return user.center?.name ?? 'KinderCtrl';
+}
+
+/**
+ * Topbar identity — line 2 (muted). Director name for DIRECTOR, job title for
+ * STAFF, "Super Admin" for SUPER_ADMIN.
+ */
+export function getTopbarSubtitle(user: AuthUser): string {
+  if (user.role === 'DIRECTOR') {
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+    return name || 'Director';
+  }
+  return getDisplayRole(user);
+}
+
+/**
  * Job-title or auth-role string for the topbar / dashboard subheading.
  * For STAFF, prefers the `staff.role` (TEACHER → "Teacher") over the
  * generic "Staff" — see UserRole vs StaffRole in the data model.

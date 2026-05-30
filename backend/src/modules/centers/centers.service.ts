@@ -10,6 +10,7 @@ import { CreateCenterDto } from './dto/create-center.dto';
 import { UpdateCenterDto } from './dto/update-center.dto';
 import { SetCenterHoursDto } from './dto/center-hours.dto';
 import { FindAllCentersDto } from './dto/find-all-centers.dto';
+import { buildSearchWhere } from '../../common/utils/search';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 15;
@@ -79,6 +80,12 @@ export class CentersService {
 
     if (query.status) {
       where = { ...where, status: query.status };
+    }
+
+    // Free-text search across name / city / state, case-insensitive.
+    const searchWhere = buildSearchWhere(['name', 'city', 'state'], query.search);
+    if (searchWhere) {
+      where = { ...where, ...searchWhere };
     }
 
     // Run page + count in parallel — they hit the same predicate, the DB
@@ -233,5 +240,161 @@ export class CentersService {
         `Invalid status transition from ${current} to ${next}`,
       );
     }
+  }
+
+  // Per-center stats for the detail page Overview tab. Authorization is
+  // enforced at the controller (Director scoped via CenterOwnershipGuard,
+  // SUPER_ADMIN passes through). Single round-trip with 7 parallel queries.
+  async getCenterStats(centerId: string) {
+    const now = new Date();
+    const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      staffCount,
+      childrenCount,
+      schedulesCount,
+      pendingCorrectionsCount,
+      oldCorrectionsCount,
+      overduePayrollsCount,
+      staffWithoutClockInCount,
+    ] = await Promise.all([
+      this.prisma.staff.count({ where: { centerId, status: 'ACTIVE' } }),
+      this.prisma.child.count({ where: { centerId, status: 'ACTIVE' } }),
+      this.prisma.schedule.count({ where: { centerId } }),
+      this.prisma.correctionRequest.count({
+        where: { centerId, status: 'PENDING' },
+      }),
+      this.prisma.correctionRequest.count({
+        where: { centerId, status: 'PENDING', createdAt: { lt: fortyEightHoursAgo } },
+      }),
+      this.prisma.payrollPeriod.count({
+        where: { centerId, status: 'OPEN', endDate: { lt: sevenDaysAgo } },
+      }),
+      this.prisma.staff.count({
+        where: {
+          centerId,
+          status: 'ACTIVE',
+          timeEntries: {
+            none: { type: 'CLOCK_IN', date: { gte: sevenDaysAgo } },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      counts: {
+        staff: staffCount,
+        children: childrenCount,
+        schedules: schedulesCount,
+        corrections: pendingCorrectionsCount,
+      },
+      alerts: {
+        oldCorrections: oldCorrectionsCount,
+        overduePayrolls: overduePayrollsCount,
+        staffWithoutClockIn: staffWithoutClockInCount,
+      },
+    };
+  }
+
+  // SUPER_ADMIN's global stats. Single round-trip aggregating top-level
+  // counts, critical-attention alerts (only counts; detail lists live in
+  // their module endpoints), and the list of centers with per-center
+  // active staff/children counts and owner info as the "director".
+  // Authorization is enforced at the controller via @Roles(SUPER_ADMIN).
+  async getGlobalStats() {
+    const now = new Date();
+    const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      centersCount,
+      staffActiveCount,
+      childrenActiveCount,
+      directorsCount,
+      centers,
+      staffByCenter,
+      childrenByCenter,
+      oldCorrectionsCount,
+      overduePayrollsCount,
+      staffWithoutClockInCount,
+    ] = await Promise.all([
+      this.prisma.center.count(),
+      this.prisma.staff.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.child.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.user.count({ where: { role: 'DIRECTOR' } }),
+      this.prisma.center.findMany({
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          city: true,
+          state: true,
+          owner: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      // _count.where isn't supported on related counts → groupBy + merge.
+      this.prisma.staff.groupBy({
+        by: ['centerId'],
+        where: { status: 'ACTIVE' },
+        _count: { _all: true },
+      }),
+      this.prisma.child.groupBy({
+        by: ['centerId'],
+        where: { status: 'ACTIVE' },
+        _count: { _all: true },
+      }),
+      this.prisma.correctionRequest.count({
+        where: { status: 'PENDING', createdAt: { lt: fortyEightHoursAgo } },
+      }),
+      // Overdue = OPEN with endDate >7d ago. Threshold could become config.
+      this.prisma.payrollPeriod.count({
+        where: { status: 'OPEN', endDate: { lt: sevenDaysAgo } },
+      }),
+      this.prisma.staff.count({
+        where: {
+          status: 'ACTIVE',
+          timeEntries: {
+            none: { type: 'CLOCK_IN', date: { gte: sevenDaysAgo } },
+          },
+        },
+      }),
+    ]);
+
+    const staffMap = new Map(staffByCenter.map((s) => [s.centerId, s._count._all]));
+    const childMap = new Map(childrenByCenter.map((c) => [c.centerId, c._count._all]));
+
+    return {
+      counts: {
+        centers: centersCount,
+        staff: staffActiveCount,
+        children: childrenActiveCount,
+        directors: directorsCount,
+      },
+      alerts: {
+        oldCorrections: oldCorrectionsCount,
+        overduePayrolls: overduePayrollsCount,
+        staffWithoutClockIn: staffWithoutClockInCount,
+      },
+      centers: centers.map((c) => ({
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        city: c.city,
+        state: c.state,
+        director: c.owner
+          ? {
+              id: c.owner.id,
+              name: `${c.owner.firstName} ${c.owner.lastName}`,
+              email: c.owner.email,
+            }
+          : null,
+        staffCount: staffMap.get(c.id) ?? 0,
+        childrenCount: childMap.get(c.id) ?? 0,
+      })),
+    };
   }
 }

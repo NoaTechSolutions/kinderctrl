@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,7 +23,13 @@ export default function ResetPasswordPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useParams<{ token: string }>();
+  const searchParams = useSearchParams();
   const token = params?.token ?? '';
+  // PO QA #30 Opción E: when the link came from the SUPER_ADMIN-create
+  // welcome email, ?welcome=1 swaps the copy from "Reset your password"
+  // to "Welcome — set your password". The underlying API call is
+  // identical (POST /auth/reset-password with the same token type).
+  const isWelcome = searchParams?.get('welcome') === '1';
   const [showPassword, setShowPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -91,9 +97,11 @@ export default function ResetPasswordPage() {
   return (
     <div className="w-full">
       <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight mb-2">
-        {t('resetTitle')}
+        {isWelcome ? t('welcomeSetTitle') : t('resetTitle')}
       </h1>
-      <p className="text-muted-foreground mb-8">{t('resetSubtitle')}</p>
+      <p className="text-muted-foreground mb-8">
+        {isWelcome ? t('welcomeSetSubtitle') : t('resetSubtitle')}
+      </p>
 
       <form
         onSubmit={form.handleSubmit((data) => {
@@ -205,6 +213,8 @@ export default function ResetPasswordPage() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {t('resetSubmitting')}
             </>
+          ) : isWelcome ? (
+            t('welcomeSetButton')
           ) : (
             t('resetSubmit')
           )}

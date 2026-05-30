@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Edit, Eye, MoreVertical, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 import {
   Table,
@@ -57,6 +57,11 @@ export function StaffTable({ staff, userRole }: StaffTableProps) {
   const canManage =
     user?.role === 'DIRECTOR' || user?.role === 'SUPER_ADMIN';
   const showCenter = userRole === 'SUPER_ADMIN';
+  // PO QA #19 CAMBIO 1: Employment Type is operational data DIRECTORs use
+  // to manage their own center; SUPER_ADMIN's cross-center view doesn't
+  // act on it, so hide the column to reduce noise. STAFF role isn't on
+  // this page (redirected elsewhere); defensive show.
+  const showEmploymentType = userRole !== 'SUPER_ADMIN';
   const [pendingDelete, setPendingDelete] = useState<Staff | null>(null);
 
   const handleConfirmDelete = () => {
@@ -95,9 +100,11 @@ export function StaffTable({ staff, userRole }: StaffTableProps) {
                   {t('staff.center')}
                 </TableHead>
               )}
-              <TableHead className="hidden lg:table-cell">
-                {t('staff.employmentType')}
-              </TableHead>
+              {showEmploymentType && (
+                <TableHead className="hidden lg:table-cell">
+                  {t('staff.employmentType')}
+                </TableHead>
+              )}
               <TableHead>{t('staff.status')}</TableHead>
               <TableHead className="hidden xl:table-cell">
                 {t('staff.hireDate')}
@@ -149,9 +156,11 @@ export function StaffTable({ staff, userRole }: StaffTableProps) {
                       {s.centerName ?? '—'}
                     </TableCell>
                   )}
-                  <TableCell className="hidden lg:table-cell">
-                    {employmentKey ? t(employmentKey) : s.employmentType}
-                  </TableCell>
+                  {showEmploymentType && (
+                    <TableCell className="hidden lg:table-cell">
+                      {employmentKey ? t(employmentKey) : s.employmentType}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <StaffStatusBadge status={s.status} />
                   </TableCell>

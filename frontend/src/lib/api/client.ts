@@ -1,4 +1,4 @@
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore, type AuthUser } from '@/store/auth';
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002';
@@ -10,9 +10,12 @@ export type ApiErrorCode =
   | 'ACCOUNT_NOT_ACTIVE'
   | 'ACCOUNT_LOCKED'
   | 'RATE_LIMITED'
-  | 'EMAIL_EXISTS';
-// (ACCOUNT_LOCKED already in the union — PR2 reused it. Kept here as the
-// canonical mirror of backend AuthErrorCode.)
+  | 'EMAIL_EXISTS'
+  | 'RESET_TOKEN_INVALID'
+  // Issue #6 — surfaced by /auth/me/email + /auth/me/password when the
+  // currentPassword field doesn't match. UI scopes the error to that
+  // field instead of showing a generic 401 banner.
+  | 'CURRENT_PASSWORD_INVALID';
 
 export class ApiError extends Error {
   status: number;
@@ -58,12 +61,7 @@ async function refreshAccessToken(): Promise<boolean> {
     const data = (await res.json()) as {
       access_token: string;
       refresh_token: string;
-      user: {
-        id: string;
-        email: string;
-        role: 'DIRECTOR' | 'STAFF' | 'PARENT' | 'SUPER_ADMIN';
-        centerId: string | null;
-      };
+      user: AuthUser;
     };
 
     setTokens(data.access_token, data.refresh_token, data.user);

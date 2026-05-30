@@ -3,9 +3,10 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/lib/i18n';
 import { useInvitation } from '@/lib/hooks/use-staff';
 import { AcceptInvitationForm } from '@/components/staff/accept-invitation-form';
@@ -26,9 +27,13 @@ function AcceptInvitationInner() {
 
   if (isLoading) {
     return (
-      <div className="w-full flex items-center gap-3 py-12" style={{ color: 'var(--kc-text-3)' }}>
-        <Loader2 className="h-5 w-5 animate-spin" />
-        <span className="text-sm">{t('staff.complianceLoading')}</span>
+      <div className="w-full space-y-4 py-2">
+        <Skeleton className="h-8 w-3/4 rounded" />
+        <Skeleton className="h-4 w-1/2 rounded" />
+        <div className="space-y-3 pt-4">
+          <Skeleton className="h-11 w-full rounded-md" />
+          <Skeleton className="h-11 w-full rounded-md" />
+        </div>
       </div>
     );
   }

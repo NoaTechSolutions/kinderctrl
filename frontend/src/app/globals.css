@@ -142,6 +142,46 @@
 }
 
 /* ============================================================
+   Dark-mode scrollbar polish (PO QA #34)
+   ============================================================
+   The browser default scrollbar reads nearly white on dark surfaces
+   (--kc-bg = #0a0a0c) and breaks the visual rhythm. We target ALL
+   scrollbars inside .dark — main, combobox listboxes, modals, etc. —
+   so the look stays uniform across the app. KC tokens used directly
+   (no hsl() wrapper) because the underlying values are hex / oklch,
+   not HSL components.
+
+   Light mode intentionally untouched: the default light scrollbar
+   already blends fine against the lighter surfaces.
+
+   Two-engine coverage:
+   - ::-webkit-scrollbar: Chrome, Edge, Safari, Opera (Blink/WebKit)
+   - scrollbar-color/width: Firefox (Gecko has no pseudo-element)
+*/
+.dark ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--kc-border-strong);
+  border-radius: 5px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--kc-text-3);
+}
+.dark ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* Firefox */
+.dark {
+  scrollbar-width: thin;
+  scrollbar-color: var(--kc-border-strong) transparent;
+}
+
+/* ============================================================
    Tailwind v4 theme — exposes KC tokens as Tailwind utilities
    ============================================================ */
 @theme inline {
@@ -217,6 +257,44 @@
   :focus:not(:focus-visible) {
     outline: none;
   }
+
+  /* Date picker icon in dark mode (PO QA #10 BUG 2). The native calendar
+     icon ships as a dark glyph that's invisible on dark backgrounds —
+     invert it so it reads as light. Applies to every <input type="date">
+     in the app (DOB, hire date, bg-check date, cpr date, etc.). */
+  .dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="time"]::-webkit-calendar-picker-indicator,
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(1.2);
+    opacity: 0.7;
+    cursor: pointer;
+  }
+  .dark input[type="date"]::-webkit-calendar-picker-indicator:hover,
+  .dark input[type="time"]::-webkit-calendar-picker-indicator:hover,
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+
+  /* PO QA #61: native <input type="date"> on iOS Safari (and some
+     WebKit/Android builds) has an *intrinsic* width derived from the
+     placeholder string "mm/dd/yyyy" rendered in the user's locale.
+     That intrinsic width ignores the Tailwind `w-full` on the input
+     and pushes the parent container wider than the viewport on small
+     phones — the visible symptom is "the date input overflows the
+     form". The Input component already sets w-full + min-w-0 in the
+     React layer; we need these CSS-side resets too so WebKit honors
+     them. `-webkit-appearance: none` strips the locale-driven width
+     hint; the `min-inline-size` reset (alias for min-width on form
+     controls) closes the same gap on Gecko. */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    min-inline-size: 0;
+    max-width: 100%;
+  }
 }
 
 /* ============================================================
@@ -280,3 +358,21 @@
     /* Lateral padding handled by Tailwind p-6/sm:p-10/lg:p-16 — don't override */
   }
 }
+
+/* The instant app skeleton (#kc-initial-skeleton) styles live in
+   SKELETON_CRITICAL_CSS, inlined in the root layout <head>/<body> so they're
+   available in the first byte (before this bundle). Kept out of globals.css
+   on purpose — see src/lib/skeleton-html.ts. */
+
+/* Mobile-only: give the first legend-card (.card-legend) extra breathing room
+   below the section heading / hero above it. The legend badge floats at
+   -top-3 (−12px), eating into the stack's gap, so on phones the first card
+   reads as cramped against the title. Scoped to the FIRST card in a stack
+   (which has no space-y margin, so there's no conflict) and to ≤767px only —
+   desktop/tablet spacing is untouched. */
+@media (max-width: 767px) {
+  .card-legend:first-child {
+    margin-top: 1.5rem; /* 24px */
+  }
+}
+

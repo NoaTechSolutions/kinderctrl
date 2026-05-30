@@ -1,16 +1,23 @@
 import {
-  IsBoolean,
   IsDateString,
+  IsEnum,
   IsOptional,
   IsString,
   Length,
 } from 'class-validator';
+import { CprStatus } from '@prisma/client';
 
+// PO QA #49: CPR moved to the BG-style explicit-status model. `certified`
+// boolean dropped — status now carries the lifecycle phase. Auxiliary
+// fields (certificationDate / expiryDate / provider / notes) are RETAINED
+// per PO and stay optional. Service layer enforces:
+//   ACTIVE  → expiryDate required AND in the future
+//   EXPIRED → expiryDate required AND in the past (or today)
+//   PENDING / CANCELLED → expiryDate optional, no temporal constraint
 export class UpdateCprDto {
-  @IsBoolean()
-  certified: boolean;
+  @IsEnum(CprStatus)
+  status: CprStatus;
 
-  // Service-level rule: REQUIRED when certified === true. Optional otherwise.
   @IsOptional()
   @IsDateString()
   certificationDate?: string;

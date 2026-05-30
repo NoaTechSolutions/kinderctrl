@@ -1,15 +1,17 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import {
+  AlertTriangle,
   Briefcase,
-  Check,
+  Home,
   Loader2,
-  Search,
+  PhoneCall,
   ShieldCheck,
+  ToggleLeft,
   User as UserIcon,
 } from 'lucide-react';
 
@@ -17,6 +19,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NameInput } from '@/components/ui/name-input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import {
   Select,
   SelectContent,
@@ -24,10 +28,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FilterTabs } from '@/components/ui/filter-tabs';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
-import { useCenters } from '@/lib/hooks/use-centers';
-import { cn } from '@/lib/utils';
+import { CenterCombobox } from './center-combobox';
 import {
   EMPLOYMENT_TYPES,
   STAFF_STATUSES,
@@ -38,8 +42,24 @@ import type { Staff, StaffStatus } from '@/lib/types/staff';
 import { formatPhoneUS, parsePhoneDigits } from '@/lib/utils/phone';
 import { useAuthStore } from '@/store/auth';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
+import { useConfirm } from '@/lib/toast';
 
 export type StaffFormMode = 'create' | 'edit';
+
+// PO QA #36 (Opción C hybrid): the form can render the full set of
+// sections (default — used by /staff/new and /staff/[id]/edit) OR a
+// filtered subset for in-dialog card edits on /staff/[id]. Section keys
+// match the visual cards on the detail page so the wiring stays
+// one-to-one. Compliance + status sections are kept out of the
+// filterable set — compliance has dedicated forms (BackgroundCheckForm
+// + CprCertificationForm) and status lives in the full edit page only.
+export type StaffFormSectionKey =
+  | 'personal'
+  | 'address'
+  | 'emergency'
+  | 'employment'
+  | 'status'
+  | 'notes';
 
 interface StaffFormProps {
   mode: StaffFormMode;
@@ -48,6 +68,10 @@ interface StaffFormProps {
   serverError?: Error | null;
   onSubmit: (data: StaffFormData & { status?: StaffStatus }) => void;
   onCancel?: () => void;
+  // PO QA #36 — when undefined, all sections render (legacy behavior).
+  // When provided, only those sections render. Compliance + status
+  // sections are unaffected by this filter (see comment above the type).
+  sections?: ReadonlyArray<StaffFormSectionKey>;
 }
 
 // Role is locked to TEACHER per PO post-QA-2 decision (CAMBIO 2). The
@@ -66,8 +90,30 @@ const DEFAULT_VALUES: StaffFormData = {
   hourlyRate: undefined,
   notes: '',
   centerId: undefined,
+  // PO QA #31 — address + emergency contacts default to empty strings
+  // (the API strips blanks before submitting so the DTO sees undefined).
+  street: '',
+  city: '',
+  state: '',
+  zipCode: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactRelationship: '',
+  emergencyContact2Name: '',
+  emergencyContact2Phone: '',
+  emergencyContact2Relationship: '',
   backgroundCheckCompleted: false,
   cprCertified: false,
+  // PO QA #46/#49 — Both BG and CPR now carry an explicit status field
+  // for the EDIT flow (ComplianceEditBlock) plus the legacy boolean
+  // shortcut (backgroundCheckCompleted / cprCertified) for the CREATE
+  // flow's compliance shortcuts. The /edit page strips both before
+  // forwarding to dedicated /background-check + /cpr endpoints.
+  backgroundCheckApproved: false,
+  cprStatus: 'PENDING',
+  cprCertificationDate: '',
+  cprExpiryDate: '',
+  cprNotes: '',
 };
 
 function toFormDefaults(staff?: Staff): StaffFormData {
@@ -88,11 +134,39 @@ function toFormDefaults(staff?: Staff): StaffFormData {
     hourlyRate: staff.hourlyRate ?? undefined,
     notes: staff.notes ?? '',
     centerId: staff.centerId,
-    // Compliance checkboxes are CREATE-only (in edit mode they don't
-    // render). Defaulting to false is harmless because the edit submit
-    // strips them out (see onValid below).
-    backgroundCheckCompleted: false,
+    // PO QA #31 — repopulate address + emergency contacts when editing.
+    street: staff.street ?? '',
+    city: staff.city ?? '',
+    state: staff.state ?? '',
+    zipCode: staff.zipCode ?? '',
+    emergencyContactName: staff.emergencyContactName ?? '',
+    emergencyContactPhone: staff.emergencyContactPhone
+      ? formatPhoneUS(staff.emergencyContactPhone)
+      : '',
+    emergencyContactRelationship:
+      (staff.emergencyContactRelationship as
+        | StaffFormData['emergencyContactRelationship']
+        | null) ?? '',
+    emergencyContact2Name: staff.emergencyContact2Name ?? '',
+    emergencyContact2Phone: staff.emergencyContact2Phone
+      ? formatPhoneUS(staff.emergencyContact2Phone)
+      : '',
+    emergencyContact2Relationship:
+      (staff.emergencyContact2Relationship as
+        | StaffFormData['emergencyContact2Relationship']
+        | null) ?? '',
+    // PO QA #46/#49: BG and CPR statuses populate from the staff row.
+    // The legacy *_Certified booleans are CREATE-only — defaulted to
+    // false here, ignored in the edit flow (which reads *_status).
+    backgroundCheckCompleted: staff.backgroundCheckStatus === 'COMPLETED',
+    backgroundCheckApproved: staff.backgroundCheckApproved === true,
     cprCertified: false,
+    cprStatus: staff.cprStatus,
+    cprCertificationDate: staff.cprCertificationDate
+      ? staff.cprCertificationDate.split('T')[0]
+      : '',
+    cprExpiryDate: staff.cprExpiryDate ? staff.cprExpiryDate.split('T')[0] : '',
+    cprNotes: staff.cprNotes ?? '',
   };
 }
 
@@ -123,7 +197,23 @@ export function StaffForm({
   serverError,
   onSubmit,
   onCancel,
+  sections,
 }: StaffFormProps) {
+  // PO QA #36 — section filter helper. Undefined sections means show
+  // everything (preserves /staff/new + /staff/[id]/edit page behavior).
+  // Explicit list means render only the matching <Section> blocks.
+  const showSection = (key: StaffFormSectionKey) =>
+    sections === undefined || sections.includes(key);
+
+  // PO QA #38 — Emergency Contacts tab state. Primary is the default;
+  // user can toggle to Secondary. Tab state is local to this form
+  // instance — when a modal closes & reopens, it resets to Primary.
+  // Form FIELD values (firstName, emergencyContact2Phone, etc.) persist
+  // across tab switches because they live in the form state, not the
+  // DOM — only the visual presentation switches.
+  const [emergencyTab, setEmergencyTab] = useState<'primary' | 'secondary'>(
+    'primary',
+  );
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -141,9 +231,20 @@ export function StaffForm({
     unsavedMessage,
   );
 
-  const handleCancel = () => {
-    if (form.formState.isDirty && !window.confirm(unsavedMessage)) {
-      return;
+  // PO QA #51: branded ConfirmDialog replaces window.confirm() for the
+  // unsaved-changes prompt. Async because confirm() returns a Promise
+  // that resolves on Confirm / Cancel / Escape / backdrop dismiss.
+  const confirm = useConfirm();
+  const handleCancel = async () => {
+    if (form.formState.isDirty) {
+      const ok = await confirm({
+        title: t('staff.discardChangesTitle'),
+        description: unsavedMessage,
+        confirmText: t('staff.discardChangesAction'),
+        cancelText: t('staff.keepEditing'),
+        variant: 'warning',
+      });
+      if (!ok) return;
     }
     if (onCancel) {
       onCancel();
@@ -158,36 +259,26 @@ export function StaffForm({
 
   const user = useAuthStore((s) => s.user);
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const showCenterSelect = mode === 'create' && isSuperAdmin;
-  const showComplianceSection = mode === 'create';
-
-  // Centers list for SUPER_ADMIN's Center picker (CAMBIO 6 Opción Y —
-  // director is shown via center.owner.email, no denormalized directorId).
-  // useCenters returns PaginatedCenters; unwrap .data.data for the array.
-  //
-  // ERROR-1 fix (PO QA #4): only fire the query when the Center select is
-  // actually rendered — DIRECTOR's session would otherwise hit /centers
-  // unnecessarily and surface a 401 in the console during the initial
-  // accessToken-null-then-refresh window (token isn't persisted across
-  // reloads, only refreshToken is).
-  const centersQuery = useCenters(
-    {},
-    { enabled: showCenterSelect },
-  );
-  const centers = centersQuery.data?.data ?? [];
-
-  // PO QA #3 CAMBIO 8: searchable combobox (Center name OR director email).
-  // Inline implementation — no cmdk/Popover deps needed at this scale.
-  const [centerSearch, setCenterSearch] = useState('');
-  const filteredCenters = useMemo(() => {
-    const q = centerSearch.trim().toLowerCase();
-    if (!q) return centers;
-    return centers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.owner?.email ?? '').toLowerCase().includes(q),
-    );
-  }, [centers, centerSearch]);
+  const isDirector = user?.role === 'DIRECTOR';
+  // PO QA #45: Center is editable in edit mode too — SUPER_ADMIN-only.
+  // DIRECTOR can't reassign staff between centers (cross-center op).
+  const showCenterSelect = isSuperAdmin;
+  // PO QA #55 (FEATURE 2): Email is editable by SUPER_ADMIN AND DIRECTOR
+  // in edit mode. Both roles trigger the same destructive flow on save
+  // (session revoke + setup-email to new address). STAFF/PARENT etc.
+  // keep the locked input. Create mode is always editable.
+  const canEditEmail = isSuperAdmin || isDirector;
+  const isEmailReadOnly = mode === 'edit' && !canEditEmail;
+  // PO QA #45: Compliance section now renders in edit mode too — but
+  // ONLY in the full /staff/[id]/edit page (sections === undefined). The
+  // Employment-card modal uses its own dedicated 3-tab structure (#44)
+  // so we keep this section out of any filtered render to avoid
+  // surfacing a second editing surface for the same data.
+  const showComplianceSection =
+    mode === 'create' || (mode === 'edit' && sections === undefined);
+  // Center picker logic lives in <CenterCombobox> now (PO QA #8 extraction
+  // — shared with /staff/invite). useCenters fires inside the component
+  // and is gated by showCenterSelect via React's conditional render.
 
   // Status select (edit-only). Kept outside the zod schema so the field is
   // truly optional at the form level; the parent merges it into the
@@ -203,18 +294,34 @@ export function StaffForm({
       role: 'TEACHER',
     };
 
-    // Compliance checkboxes only meaningful on create — strip in edit so
-    // we don't accidentally re-stamp an already-verified record's date.
-    if (mode === 'edit') {
-      delete payload.backgroundCheckCompleted;
-      delete payload.cprCertified;
+    // PO QA #45: in edit mode, compliance fields stay on the payload —
+    // the parent (/staff/[id]/edit page) diffs them against initialData
+    // and dispatches separate PATCH /staff/:id/background-check + /cpr
+    // calls when they're dirty. The basic staff PATCH ignores them
+    // (UpdateStaffDto inherits them via PartialType but the service
+    // doesn't write to compliance columns — see staff.service.ts).
+    //
+    // PO QA #56 (BUG 2): in CREATE mode the form's compliance EDIT
+    // fields (backgroundCheckApproved, cprStatus, cprCertificationDate,
+    // cprExpiryDate, cprNotes) are NOT in CreateStaffDto on the backend.
+    // The form state carries them as defaults because the same schema
+    // serves both create and edit, but POST /staff with strict
+    // ValidationPipe (forbidNonWhitelisted) rejects unknown fields with
+    // 400. Strip them on create. The legacy boolean shortcuts
+    // (backgroundCheckCompleted, cprCertified) STAY because the service
+    // reads them to default-stamp Status + dates on the new row.
+    if (mode === 'create') {
+      delete payload.backgroundCheckApproved;
+      delete payload.cprStatus;
+      delete payload.cprCertificationDate;
+      delete payload.cprExpiryDate;
+      delete payload.cprNotes;
     }
 
-    // For DIRECTOR, centerId must not be sent (backend derives from User).
-    // For SUPER_ADMIN in create mode, centerId comes from the select.
-    // In edit mode, never send centerId — moving staff between centers
-    // isn't a supported operation through this form.
-    if (mode === 'edit' || !isSuperAdmin) {
+    // For DIRECTOR (non-SUPER_ADMIN), strip centerId on submit so a
+    // forged payload can't slip past the form's hidden select. For
+    // SUPER_ADMIN, centerId is intentionally sent through.
+    if (!isSuperAdmin) {
       delete payload.centerId;
     }
 
@@ -228,7 +335,12 @@ export function StaffForm({
       noValidate
       aria-busy={isSubmitting}
     >
+      {showSection('personal') && (
       <Section icon={UserIcon} title={t('staff.titleSingular')}>
+        {/* PO QA #55: NameInput auto-capitalizes on blur ("john doe" →
+            "John Doe", "mary-anne o'brien" → "Mary-Anne O'Brien"). The
+            user can type freely while focused; normalization is purely
+            blur-time so we don't fight their keystrokes. */}
         <Field
           id="firstName"
           label={t('staff.firstName')}
@@ -236,11 +348,21 @@ export function StaffForm({
           required
           requiredLabel={requiredLabel}
         >
-          <Input
-            id="firstName"
-            placeholder={t('staff.firstNamePlaceholder')}
-            disabled={isSubmitting}
-            {...form.register('firstName')}
+          <Controller
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <NameInput
+                id="firstName"
+                placeholder={t('staff.firstNamePlaceholder')}
+                disabled={isSubmitting}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                name={field.name}
+              />
+            )}
           />
         </Field>
 
@@ -251,14 +373,30 @@ export function StaffForm({
           required
           requiredLabel={requiredLabel}
         >
-          <Input
-            id="lastName"
-            placeholder={t('staff.lastNamePlaceholder')}
-            disabled={isSubmitting}
-            {...form.register('lastName')}
+          <Controller
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <NameInput
+                id="lastName"
+                placeholder={t('staff.lastNamePlaceholder')}
+                disabled={isSubmitting}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                name={field.name}
+              />
+            )}
           />
         </Field>
 
+        {/* PO QA #45: Email is editable on create (everyone) and on edit
+            ONLY for SUPER_ADMIN. The /edit page guards the submit with a
+            confirm dialog because changing email is destructive (sessions
+            revoked, password nulled, setup email re-issued to the new
+            address). DIRECTOR sees a locked input with the legacy
+            "Email cannot be changed" hint. */}
         <Field
           id="email"
           label={t('staff.email')}
@@ -266,13 +404,22 @@ export function StaffForm({
           required
           requiredLabel={requiredLabel}
           full
-          hint={mode === 'edit' ? 'Email cannot be changed' : undefined}
+          hint={
+            mode === 'edit'
+              ? canEditEmail
+                ? t('staff.emailEditWarn')
+                : t('staff.emailReadOnly')
+              : undefined
+          }
+          hintTone={
+            mode === 'edit' && canEditEmail ? 'warning' : 'default'
+          }
         >
           <Input
             id="email"
             type="email"
             placeholder={t('staff.emailPlaceholder')}
-            disabled={isSubmitting || mode === 'edit'}
+            disabled={isSubmitting || isEmailReadOnly}
             {...form.register('email')}
           />
         </Field>
@@ -322,7 +469,143 @@ export function StaffForm({
           />
         </Field>
       </Section>
+      )}
 
+      {/* PO QA #31: Address section. Same 4-field layout as Center /
+          self-service profile. All optional — the admin can leave any
+          combination blank and the API strips empties before submit. */}
+      {showSection('address') && (
+      <Section icon={Home} title={t('staff.addressSection')}>
+        <Field
+          id="street"
+          label={t('centers.street')}
+          error={form.formState.errors.street?.message}
+          full
+        >
+          <Input
+            id="street"
+            placeholder={t('staff.addressStreetPh')}
+            disabled={isSubmitting}
+            {...form.register('street')}
+          />
+        </Field>
+
+        {/* PO QA #37: City gets its own full row (was sharing the right
+            half with state+zip and the zip ended up cramped). State and
+            Zip share the next row 50/50 inside a sm:col-span-2 wrapper
+            so the modal stays balanced. */}
+        <Field
+          id="city"
+          label={t('centers.city')}
+          error={form.formState.errors.city?.message}
+          full
+        >
+          <Input
+            id="city"
+            placeholder={t('staff.addressCityPh')}
+            disabled={isSubmitting}
+            {...form.register('city')}
+          />
+        </Field>
+
+        <div className="sm:col-span-2 grid grid-cols-2 gap-3 [&>*]:min-w-0">
+          <Field
+            id="state"
+            label={t('centers.state')}
+            error={form.formState.errors.state?.message}
+          >
+            <Input
+              id="state"
+              placeholder="CA"
+              maxLength={2}
+              disabled={isSubmitting}
+              {...form.register('state', {
+                setValueAs: (v: unknown) =>
+                  typeof v === 'string' ? v.trim().toUpperCase() : v,
+              })}
+            />
+          </Field>
+
+          <Field
+            id="zipCode"
+            label={t('centers.zipCode')}
+            error={form.formState.errors.zipCode?.message}
+          >
+            {/* PO QA #50: digits-only NumericInput (no `-` for the +4
+                suffix any more — spec says "solo números"). maxLength=5
+                caps at the 5-digit ZIP; backend regex still accepts the
+                legacy "94102-1234" format for already-stored rows. */}
+            <Controller
+              control={form.control}
+              name="zipCode"
+              render={({ field }) => (
+                <NumericInput
+                  id="zipCode"
+                  placeholder="94102"
+                  maxLength={5}
+                  disabled={isSubmitting}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  ref={field.ref}
+                  name={field.name}
+                />
+              )}
+            />
+          </Field>
+        </div>
+      </Section>
+      )}
+
+      {/* PO QA #32: Emergency Contacts unified into ONE Section with
+          Primary + Secondary subsections separated by a hairline. Was
+          two separate fieldsets in QA #31. Each subsection has its own
+          row of name+phone+relationship fields wrapped in a grid so the
+          parent Section's grid-cols-2 layout doesn't fight the inner
+          structure. */}
+      {showSection('emergency') && (
+      <Section icon={PhoneCall} title={t('staff.emergencyContactSection')}>
+        {/* PO QA #38: Primary + Secondary in tabs instead of stacked.
+            Less scroll, clear separation, encourages focused entry of
+            one contact at a time. Form values for the inactive tab
+            persist in form state — switching back recovers what was
+            typed. */}
+        <div className="sm:col-span-2 space-y-4">
+          <FilterTabs<'primary' | 'secondary'>
+            tabs={[
+              {
+                value: 'primary',
+                label: t('staff.emergencyPrimaryHeading'),
+              },
+              {
+                value: 'secondary',
+                label: t('staff.emergencySecondaryHeading'),
+              },
+            ]}
+            value={emergencyTab}
+            onChange={setEmergencyTab}
+            ariaLabel={t('staff.emergencyContactSection')}
+          />
+          {emergencyTab === 'primary' ? (
+            <EmergencyContactBlock
+              namePrefix="emergencyContact"
+              isSubmitting={isSubmitting}
+              form={form}
+              t={t}
+            />
+          ) : (
+            <EmergencyContactBlock
+              namePrefix="emergencyContact2"
+              isSubmitting={isSubmitting}
+              form={form}
+              t={t}
+            />
+          )}
+        </div>
+      </Section>
+      )}
+
+      {showSection('employment') && (
       <Section icon={Briefcase} title={t('staff.employmentType')}>
         {/* CAMBIO 2: Role locked to TEACHER. Select stays visible (so the
             user understands what role the new hire gets) but disabled. The
@@ -347,108 +630,37 @@ export function StaffForm({
           </Select>
         </Field>
 
-        {/* CAMBIO 6 Opción Y + PO QA #3 CAMBIO 8: SUPER_ADMIN Center
-            picker with always-visible search (filters by center name OR
-            director email). Director derived from center.owner — no
-            denormalized directorId per spec D-5. */}
+        {/* CAMBIO 6 Opción Y + PO QA #3/#8/#45: SUPER_ADMIN Center picker.
+            On create it's a required selection (no center → no staff). On
+            edit it's optional — the staff already has a center, and the
+            picker only enforces a change when the SUPER_ADMIN intentionally
+            picks a different one. DIRECTOR doesn't see this field; they
+            inherit centerId from their own User row server-side. */}
         {showCenterSelect && (
           <Field
             id="centerId"
-            label={t('staff.assignToCenter')}
+            label={
+              mode === 'create' ? t('staff.assignToCenter') : t('staff.center')
+            }
             error={form.formState.errors.centerId?.message}
-            required
-            requiredLabel={requiredLabel}
+            required={mode === 'create'}
+            requiredLabel={mode === 'create' ? requiredLabel : undefined}
             full
+            hint={
+              mode === 'edit' ? t('staff.centerReassignHint') : undefined
+            }
           >
             <Controller
               control={form.control}
               name="centerId"
-              render={({ field }) => {
-                return (
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Search
-                        className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-                        style={{ color: 'var(--kc-text-3)' }}
-                        aria-hidden
-                      />
-                      <Input
-                        type="text"
-                        value={centerSearch}
-                        onChange={(e) => setCenterSearch(e.target.value)}
-                        placeholder={t('staff.centerSearchPlaceholder')}
-                        disabled={isSubmitting || centersQuery.isLoading}
-                        className="pl-9"
-                        aria-label={t('staff.centerSearchPlaceholder')}
-                      />
-                    </div>
-                    <div
-                      role="listbox"
-                      aria-label={t('staff.assignToCenter')}
-                      className="rounded-md border max-h-56 overflow-y-auto"
-                      style={{
-                        background: 'var(--kc-surface)',
-                        borderColor: 'var(--kc-border)',
-                      }}
-                    >
-                      {centersQuery.isLoading && (
-                        <div
-                          className="px-3 py-4 text-sm"
-                          style={{ color: 'var(--kc-text-3)' }}
-                        >
-                          {t('staff.complianceLoading')}
-                        </div>
-                      )}
-                      {!centersQuery.isLoading && filteredCenters.length === 0 && (
-                        <div
-                          className="px-3 py-4 text-sm"
-                          style={{ color: 'var(--kc-text-3)' }}
-                        >
-                          {t('staff.centerSearchEmpty')}
-                        </div>
-                      )}
-                      {filteredCenters.map((c) => {
-                        const isSelected = c.id === field.value;
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            role="option"
-                            aria-selected={isSelected}
-                            onClick={() => field.onChange(c.id)}
-                            disabled={isSubmitting}
-                            className={cn(
-                              'w-full text-left px-3 py-2 flex items-start gap-2 transition-colors focus-visible:outline-none',
-                              isSelected
-                                ? 'bg-primary/10 border-l-2 border-primary'
-                                : 'hover:bg-secondary focus-visible:bg-secondary',
-                            )}
-                          >
-                            <span className="flex-1 min-w-0">
-                              <span className="block font-medium text-sm truncate">
-                                {c.name}
-                              </span>
-                              <span
-                                className="block text-xs truncate"
-                                style={{ color: 'var(--kc-text-3)' }}
-                              >
-                                Director: {c.owner?.email ?? '(no owner)'}
-                              </span>
-                            </span>
-                            {isSelected && (
-                              <Check
-                                className="h-5 w-5 flex-none mt-0.5 text-green-600"
-                                strokeWidth={3}
-                                aria-hidden
-                              />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              }}
+              render={({ field }) => (
+                <CenterCombobox
+                  id="centerId"
+                  value={field.value}
+                  onChange={(v) => field.onChange(v)}
+                  disabled={isSubmitting}
+                />
+              )}
             />
           </Field>
         )}
@@ -457,8 +669,6 @@ export function StaffForm({
           id="employmentType"
           label={t('staff.employmentType')}
           error={form.formState.errors.employmentType?.message}
-          required
-          requiredLabel={requiredLabel}
         >
           <Controller
             control={form.control}
@@ -489,8 +699,6 @@ export function StaffForm({
           id="hireDate"
           label={t('staff.hireDate')}
           error={form.formState.errors.hireDate?.message}
-          required
-          requiredLabel={requiredLabel}
         >
           <Input
             id="hireDate"
@@ -505,98 +713,137 @@ export function StaffForm({
           label={t('staff.hourlyRate')}
           error={form.formState.errors.hourlyRate?.message}
         >
-          <Input
-            id="hourlyRate"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder={t('staff.hourlyRatePlaceholder')}
-            disabled={isSubmitting}
-            {...form.register('hourlyRate', {
-              setValueAs: (v) =>
-                v === '' || v == null ? undefined : Number(v),
-            })}
+          {/* PO QA #50: decimals allowed (25.50), negatives blocked,
+              letters blocked — replaces native <input type="number">
+              which let scroll-wheel + `e` notation slip through.
+              Schema's preprocess converts the string to a number on
+              submit; `positive()` enforces > 0. */}
+          <Controller
+            control={form.control}
+            name="hourlyRate"
+            render={({ field }) => (
+              <NumericInput
+                id="hourlyRate"
+                allowDecimal
+                placeholder={t('staff.hourlyRatePlaceholder')}
+                disabled={isSubmitting}
+                value={field.value == null ? '' : String(field.value)}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                name={field.name}
+              />
+            )}
           />
         </Field>
       </Section>
+      )}
 
-      {/* CAMBIO 4 + 5: Compliance shortcuts on create only. Edit mode uses
-          the Compliance Card on /staff/[id] (richer: status enum, dates,
-          notes, provider). Checking either box stamps date=today and
-          verifier=current user server-side. */}
+      {/* PO QA #45: Compliance section now renders in BOTH modes.
+          - Create: same 2-checkbox shortcut as before. Server translates
+            true → status=APPROVED + date=now + verifier=actor.
+          - Edit: extended fields — BG (Completed + Verifier display +
+            Date + Notes) and CPR (Certified + Expiry Date + Notes).
+            /staff/[id]/edit page diffs these against initialData and
+            fires the dedicated /background-check + /cpr endpoints when
+            dirty (multi-call), so the basic PATCH /staff/:id stays
+            compliance-free. */}
       {showComplianceSection && (
         <Section icon={ShieldCheck} title={t('staff.complianceTitle')}>
-          <div className="sm:col-span-2 space-y-3">
-            <Controller
-              control={form.control}
-              name="backgroundCheckCompleted"
-              render={({ field }) => (
-                <label
-                  htmlFor="bgCompleted"
-                  className="flex items-start gap-3 cursor-pointer"
-                >
-                  <Checkbox
-                    id="bgCompleted"
-                    checked={field.value === true}
-                    onCheckedChange={(v) => field.onChange(v === true)}
-                    disabled={isSubmitting}
-                    className="mt-0.5"
-                  />
-                  <span className="space-y-0.5 leading-tight">
-                    <span className="block text-sm font-medium">
-                      {t('staff.bgCompletedLabel')}
+          {mode === 'create' ? (
+            <div className="sm:col-span-2 space-y-3">
+              <Controller
+                control={form.control}
+                name="backgroundCheckCompleted"
+                render={({ field }) => (
+                  <label
+                    htmlFor="bgCompleted"
+                    className="flex items-start gap-3 cursor-pointer"
+                  >
+                    <Checkbox
+                      id="bgCompleted"
+                      checked={field.value === true}
+                      onCheckedChange={(v) => field.onChange(v === true)}
+                      disabled={isSubmitting}
+                      className="mt-0.5"
+                    />
+                    <span className="space-y-0.5 leading-tight">
+                      <span className="block text-sm font-medium">
+                        {t('staff.bgCompletedLabel')}
+                      </span>
+                      <span
+                        className="block text-xs"
+                        style={{ color: 'var(--kc-text-3)' }}
+                      >
+                        {t('staff.bgCompletedHint')}
+                      </span>
                     </span>
-                    <span
-                      className="block text-xs"
-                      style={{ color: 'var(--kc-text-3)' }}
-                    >
-                      {t('staff.bgCompletedHint')}
+                  </label>
+                )}
+              />
+              <Controller
+                control={form.control}
+                name="cprCertified"
+                render={({ field }) => (
+                  <label
+                    htmlFor="cprCompleted"
+                    className="flex items-start gap-3 cursor-pointer"
+                  >
+                    <Checkbox
+                      id="cprCompleted"
+                      checked={field.value === true}
+                      onCheckedChange={(v) => field.onChange(v === true)}
+                      disabled={isSubmitting}
+                      className="mt-0.5"
+                    />
+                    <span className="space-y-0.5 leading-tight">
+                      <span className="block text-sm font-medium">
+                        {t('staff.cprCompletedLabel')}
+                      </span>
+                      <span
+                        className="block text-xs"
+                        style={{ color: 'var(--kc-text-3)' }}
+                      >
+                        {t('staff.cprCompletedHint')}
+                      </span>
                     </span>
-                  </span>
-                </label>
-              )}
+                  </label>
+                )}
+              />
+            </div>
+          ) : (
+            <ComplianceEditBlock
+              form={form}
+              isSubmitting={isSubmitting}
+              t={t}
             />
-            <Controller
-              control={form.control}
-              name="cprCertified"
-              render={({ field }) => (
-                <label
-                  htmlFor="cprCompleted"
-                  className="flex items-start gap-3 cursor-pointer"
-                >
-                  <Checkbox
-                    id="cprCompleted"
-                    checked={field.value === true}
-                    onCheckedChange={(v) => field.onChange(v === true)}
-                    disabled={isSubmitting}
-                    className="mt-0.5"
-                  />
-                  <span className="space-y-0.5 leading-tight">
-                    <span className="block text-sm font-medium">
-                      {t('staff.cprCompletedLabel')}
-                    </span>
-                    <span
-                      className="block text-xs"
-                      style={{ color: 'var(--kc-text-3)' }}
-                    >
-                      {t('staff.cprCompletedHint')}
-                    </span>
-                  </span>
-                </label>
-              )}
-            />
-          </div>
+          )}
         </Section>
       )}
 
-      {mode === 'edit' && (
-        <Section icon={Briefcase} title={t('staff.status')}>
+      {/* PO QA #36 bugfix: Status was rendering in every per-card edit
+          modal (Personal, Address, Emergency, Employment) because the
+          gate was only `mode === 'edit'`. Now it's `'status'` as part
+          of the filterable section set — only renders when:
+            (a) sections is undefined (full /staff/[id]/edit page), or
+            (b) the caller's sections array includes 'status' (Personal
+                Info modal does; other card modals don't). */}
+      {mode === 'edit' && showSection('status') && (
+        <Section icon={ToggleLeft} title={t('staff.status')}>
+          {/* PO QA #47 (BUG 2b fix): the Section heading already says
+              "Status" — wrapping the Select in a Field with the same
+              label rendered "Status" twice (Section title + Field
+              label). Render the Select directly with an sr-only Label
+              so screen readers still get an accessible name. */}
           <Controller
             control={form.control}
             name={'status' as never}
             defaultValue={initialData?.status as never}
             render={({ field }) => (
-              <Field id="status" label={t('staff.status')} full>
+              <div className="sm:col-span-2 min-w-0">
+                <Label htmlFor="status" className="sr-only">
+                  {t('staff.status')}
+                </Label>
                 <Select
                   value={(field.value as StaffStatus) ?? initialData?.status}
                   onValueChange={field.onChange}
@@ -613,12 +860,13 @@ export function StaffForm({
                     ))}
                   </SelectContent>
                 </Select>
-              </Field>
+              </div>
             )}
           />
         </Section>
       )}
 
+      {showSection('notes') && (
       <Section icon={UserIcon} title={t('staff.notes')}>
         <Field id="notes" label={t('staff.notes')} full>
           <textarea
@@ -631,6 +879,7 @@ export function StaffForm({
           />
         </Field>
       </Section>
+      )}
 
       {(rootMessage || fieldMessages.length > 0) && (
         <div
@@ -709,29 +958,18 @@ function Section({
   title: string;
   children: React.ReactNode;
 }) {
+  // Visually matches the shared CardWithHeader (legend badge that notches the
+  // top border) while keeping fieldset semantics + the 2-col field grid. Same
+  // neutral tokens as CardWithHeader: border/foreground/muted-foreground.
   return (
-    <fieldset
-      className="rounded-lg border p-5"
-      style={{
-        background: 'var(--kc-surface)',
-        borderColor:
-          'color-mix(in oklch, var(--kc-border), transparent 30%)',
-      }}
-    >
-      <legend className="px-2 flex items-center gap-2">
-        <Icon
-          className="h-4 w-4"
-          style={{ color: 'var(--kc-p-600)' }}
-          aria-hidden
-        />
-        <span
-          className="text-sm font-semibold"
-          style={{ color: 'var(--kc-text-1)' }}
-        >
+    <fieldset className="card-legend rounded-lg border border-border bg-card p-4 pt-5">
+      <legend className="ml-1 flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+        <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
           {title}
         </span>
       </legend>
-      <div className="grid gap-4 sm:grid-cols-2 mt-3">{children}</div>
+      <div className="grid gap-4 sm:grid-cols-2 mt-2">{children}</div>
     </fieldset>
   );
 }
@@ -744,6 +982,7 @@ function Field({
   required,
   requiredLabel,
   hint,
+  hintTone = 'default',
   children,
 }: {
   id: string;
@@ -753,12 +992,30 @@ function Field({
   required?: boolean;
   requiredLabel?: string;
   hint?: string;
+  // PO QA #50: 'warning' renders the hint in amber with an alert icon —
+  // used for destructive-action heads-ups (e.g. SUPER_ADMIN editing
+  // someone else's email rotates sessions + sends a setup link). The
+  // default tone stays subdued gray, same as before.
+  hintTone?: 'default' | 'warning';
   children: React.ReactNode;
 }) {
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   return (
-    <div className={full ? 'sm:col-span-2 space-y-1.5' : 'space-y-1.5'}>
+    // min-w-0: the parent layout is CSS Grid, and grid items default to
+    // min-width:auto (= min-content). Without min-w-0 here, any field
+    // whose children have wide unbreakable content (the CenterCombobox
+    // listbox is the canonical offender — long center names + emails)
+    // grows its column past the viewport on narrow screens, even though
+    // the children themselves are correctly set up to truncate.
+    // Same root cause as PO QA #18 on the SendInvitationDialog. PO QA #21.
+    <div
+      className={
+        full
+          ? 'sm:col-span-2 space-y-1.5 min-w-0'
+          : 'space-y-1.5 min-w-0'
+      }
+    >
       <Label
         htmlFor={id}
         className="text-sm font-medium inline-flex items-center gap-1"
@@ -777,10 +1034,25 @@ function Field({
       {hint && !error && (
         <p
           id={hintId}
-          className="text-xs"
-          style={{ color: 'var(--kc-text-3)' }}
+          className={
+            hintTone === 'warning'
+              ? 'text-xs inline-flex items-start gap-1.5'
+              : 'text-xs'
+          }
+          style={{
+            color:
+              hintTone === 'warning'
+                ? 'var(--kc-warning)'
+                : 'var(--kc-text-3)',
+          }}
         >
-          {hint}
+          {hintTone === 'warning' && (
+            <AlertTriangle
+              className="h-3.5 w-3.5 flex-none mt-0.5"
+              aria-hidden
+            />
+          )}
+          <span>{hint}</span>
         </p>
       )}
       {error && (
@@ -793,6 +1065,342 @@ function Field({
           {error}
         </p>
       )}
+    </div>
+  );
+}
+
+// PO QA #46: Compliance edit block — only rendered inside the full
+// /staff/[id]/edit page (mode === 'edit' && sections === undefined).
+// The Employment-card modal on /staff/[id] uses its own dedicated 3-tab
+// structure (#44) so this block stays out of any filtered render.
+//
+// Fields per spec:
+//   Background Check: Status (Completed boolean) + Approved (boolean
+//                     shown only when Completed=true). All other BG
+//                     columns (date / expiry / notes / verifier) were
+//                     dropped in #46 and no longer exist server-side.
+//   CPR:              Certified (boolean) + Expiry Date + Notes
+// `staff` prop is non-null because the caller is the edit page (which
+// only renders the form once the staff fetch resolves).
+//
+// IMPORTANT: this block writes to `form` but does NOT submit. The /edit
+// page diffs the dirty fields against `initialData` and dispatches up
+// to three PATCH endpoints (basic + bg + cpr) in parallel. The
+// "Completed" checkbox is the binary view of backgroundCheckStatus —
+// true maps to COMPLETED, false maps to PENDING. The "Approved"
+// checkbox carries the outcome (true / false) for COMPLETED rows.
+function ComplianceEditBlock({
+  form,
+  isSubmitting,
+  t,
+}: {
+  form: ReturnType<typeof useForm<StaffFormData>>;
+  isSubmitting: boolean;
+  t: (key: string) => string;
+}) {
+  // Watch the Completed flag so the Approved checkbox can toggle into
+  // view only when it's relevant (per spec: "Approved visible only when
+  // status = Completed"). react-hook-form's `watch` re-renders the
+  // block on change so the conditional render lands in the same paint.
+  const bgCompleted = form.watch('backgroundCheckCompleted') === true;
+
+  return (
+    <div className="sm:col-span-2 space-y-6">
+      {/* ─── Background Check ───────────────────────────────────── */}
+      <div className="space-y-3">
+        <h4
+          className="text-sm font-semibold"
+          style={{ color: 'var(--kc-text-2)' }}
+        >
+          {t('staff.detailBgLabel')}
+        </h4>
+        <Controller
+          control={form.control}
+          name="backgroundCheckCompleted"
+          render={({ field }) => (
+            <label
+              htmlFor="bgCompletedEdit"
+              className="flex items-start gap-3 cursor-pointer"
+            >
+              <Checkbox
+                id="bgCompletedEdit"
+                checked={field.value === true}
+                onCheckedChange={(v) => {
+                  field.onChange(v === true);
+                  // PO QA #46: clearing Completed must also clear the
+                  // Approved outcome so the form state can't carry a
+                  // stale "yes, approved" flag into a pending/cancelled
+                  // save. Backend will also null it out, but resetting
+                  // here keeps the checkbox visually consistent.
+                  if (v !== true) {
+                    form.setValue('backgroundCheckApproved', false, {
+                      shouldDirty: true,
+                    });
+                  }
+                }}
+                disabled={isSubmitting}
+                className="mt-0.5"
+              />
+              <span className="space-y-0.5 leading-tight">
+                <span className="block text-sm font-medium">
+                  {t('staff.bgCompletedLabel')}
+                </span>
+                <span
+                  className="block text-xs"
+                  style={{ color: 'var(--kc-text-3)' }}
+                >
+                  {t('staff.bgCompletedHintEdit')}
+                </span>
+              </span>
+            </label>
+          )}
+        />
+        {bgCompleted && (
+          <Controller
+            control={form.control}
+            name="backgroundCheckApproved"
+            render={({ field }) => (
+              <label
+                htmlFor="bgApprovedEdit"
+                className="flex items-start gap-3 cursor-pointer pl-7"
+              >
+                <Checkbox
+                  id="bgApprovedEdit"
+                  checked={field.value === true}
+                  onCheckedChange={(v) => field.onChange(v === true)}
+                  disabled={isSubmitting}
+                  className="mt-0.5"
+                />
+                <span className="space-y-0.5 leading-tight">
+                  <span className="block text-sm font-medium">
+                    {t('staff.bgApprovedLabel')}
+                  </span>
+                  <span
+                    className="block text-xs"
+                    style={{ color: 'var(--kc-text-3)' }}
+                  >
+                    {t('staff.bgApprovedHint')}
+                  </span>
+                </span>
+              </label>
+            )}
+          />
+        )}
+      </div>
+
+      <div
+        className="border-t"
+        style={{
+          borderColor:
+            'color-mix(in oklch, var(--kc-border), transparent 50%)',
+        }}
+      />
+
+      {/* ─── CPR / First Aid ──────────────────────────────────────
+          PO QA #49: mirror of BG above — Status dropdown drives the
+          lifecycle, Expiry is conditional (required when ACTIVE/EXPIRED
+          per validator). The cprCertified shortcut stays the CREATE-only
+          flag (handled in the create-mode branch above this helper). */}
+      <div className="space-y-3">
+        <h4
+          className="text-sm font-semibold"
+          style={{ color: 'var(--kc-text-2)' }}
+        >
+          {t('staff.detailCprLabel')}
+        </h4>
+        <Controller
+          control={form.control}
+          name="cprStatus"
+          render={({ field }) => {
+            const cprStatusValue = (field.value as CprStatusValue) ?? 'PENDING';
+            const expiryRequired =
+              cprStatusValue === 'ACTIVE' || cprStatusValue === 'EXPIRED';
+            return (
+              <>
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="cprStatusEdit"
+                    className="text-sm font-medium"
+                  >
+                    {t('staff.cprStatus')}
+                  </Label>
+                  <Select
+                    value={cprStatusValue}
+                    onValueChange={(v) =>
+                      field.onChange(v as CprStatusValue)
+                    }
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="cprStatusEdit" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PENDING">
+                        {t('staff.cprStatusPending')}
+                      </SelectItem>
+                      <SelectItem value="ACTIVE">
+                        {t('staff.cprStatusActive')}
+                      </SelectItem>
+                      <SelectItem value="EXPIRED">
+                        {t('staff.cprStatusExpired')}
+                      </SelectItem>
+                      <SelectItem value="CANCELLED">
+                        {t('staff.cprStatusCancelled')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Field
+                  id="cprExpiryDate"
+                  label={
+                    expiryRequired
+                      ? `${t('staff.cprExpiryDate')} *`
+                      : t('staff.cprExpiryDate')
+                  }
+                  error={form.formState.errors.cprExpiryDate?.message}
+                  hint={
+                    expiryRequired
+                      ? cprStatusValue === 'ACTIVE'
+                        ? t('staff.cprExpiryHintActive')
+                        : t('staff.cprExpiryHintExpired')
+                      : undefined
+                  }
+                >
+                  <Input
+                    id="cprExpiryDate"
+                    type="date"
+                    disabled={isSubmitting}
+                    {...form.register('cprExpiryDate')}
+                  />
+                </Field>
+                <Field
+                  id="cprNotes"
+                  label={t('staff.cprNotes')}
+                  error={form.formState.errors.cprNotes?.message}
+                  full
+                >
+                  <textarea
+                    id="cprNotes"
+                    placeholder={t('staff.cprNotesPh')}
+                    disabled={isSubmitting}
+                    rows={3}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    {...form.register('cprNotes')}
+                  />
+                </Field>
+              </>
+            );
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// PO QA #49 — local alias so the Controller's render callback above
+// can type the value without importing the union from types/. Kept
+// inline to avoid widening the public type surface.
+type CprStatusValue = 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+
+// Shared subsection for Primary + Secondary emergency contacts (PO QA
+// #32, restructured in #38 to be tab-content rather than stacked). The
+// caller now provides the visual heading (was: inline <p>); this block
+// just renders the 3 fields. The namePrefix template-literal types keep
+// `form.register()` typecheck-safe.
+function EmergencyContactBlock({
+  namePrefix,
+  isSubmitting,
+  form,
+  t,
+}: {
+  namePrefix: 'emergencyContact' | 'emergencyContact2';
+  isSubmitting: boolean;
+  form: ReturnType<typeof useForm<StaffFormData>>;
+  t: (key: string) => string;
+}) {
+  const nameField = `${namePrefix}Name` as const;
+  const phoneField = `${namePrefix}Phone` as const;
+  const relField = `${namePrefix}Relationship` as const;
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 [&>*]:min-w-0">
+        <Field
+          id={nameField}
+          label={t('staff.emergencyName')}
+          error={form.formState.errors[nameField]?.message as string | undefined}
+        >
+          <Input
+            id={nameField}
+            placeholder={t('staff.emergencyNamePh')}
+            disabled={isSubmitting}
+            {...form.register(nameField)}
+          />
+        </Field>
+
+        <Field
+          id={phoneField}
+          label={t('staff.emergencyPhone')}
+          error={form.formState.errors[phoneField]?.message as string | undefined}
+        >
+          <Controller
+            control={form.control}
+            name={phoneField}
+            render={({ field }) => (
+              <Input
+                id={phoneField}
+                type="tel"
+                inputMode="tel"
+                maxLength={14}
+                placeholder={t('staff.phonePlaceholder')}
+                disabled={isSubmitting}
+                value={field.value ?? ''}
+                onChange={(e) =>
+                  field.onChange(formatPhoneUS(e.target.value))
+                }
+                onBlur={field.onBlur}
+                ref={field.ref}
+                name={field.name}
+              />
+            )}
+          />
+        </Field>
+
+        <div className="sm:col-span-2 min-w-0">
+          <Field
+            id={relField}
+            label={t('staff.emergencyRelationship')}
+            error={form.formState.errors[relField]?.message as string | undefined}
+            full
+          >
+            <Controller
+              control={form.control}
+              name={relField}
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? ''}
+                  onValueChange={(v) => field.onChange(v)}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger id={relField} className="w-full">
+                    <SelectValue
+                      placeholder={t('staff.emergencyRelationshipPh')}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="father">{t('staff.relFather')}</SelectItem>
+                    <SelectItem value="mother">{t('staff.relMother')}</SelectItem>
+                    <SelectItem value="spouse">{t('staff.relSpouse')}</SelectItem>
+                    <SelectItem value="partner">{t('staff.relPartner')}</SelectItem>
+                    <SelectItem value="sibling">{t('staff.relSibling')}</SelectItem>
+                    <SelectItem value="friend">{t('staff.relFriend')}</SelectItem>
+                    <SelectItem value="other">{t('staff.relOther')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        </div>
+      </div>
     </div>
   );
 }

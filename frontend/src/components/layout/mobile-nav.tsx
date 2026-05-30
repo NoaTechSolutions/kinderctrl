@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -7,20 +8,30 @@ import {
   BarChart3,
   Building2,
   Calendar,
+  ChevronDown,
   CreditCard,
+  GraduationCap,
   Home,
+  Mail,
   Settings,
   ShieldAlert,
   UserCog,
   Users,
+  UsersRound,
   type LucideIcon,
 } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/auth';
 import { useCenters } from '@/lib/hooks/use-centers';
@@ -32,6 +43,16 @@ interface NavItem {
   icon: LucideIcon;
   active: boolean;
 }
+
+interface NavGroup {
+  kind: 'group';
+  title: string;
+  icon: LucideIcon;
+  items: NavItem[];
+}
+
+type NavEntry = NavItem | NavGroup;
+const isGroup = (e: NavEntry): e is NavGroup => (e as NavGroup).kind === 'group';
 
 interface MobileNavProps {
   open: boolean;
@@ -69,40 +90,94 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
             active: true,
           };
 
-  // Mirror sidebar's role-aware Staff entry: DIRECTOR / SUPER_ADMIN only.
-  const staffItem: NavItem | null =
-    user?.role === 'DIRECTOR' || user?.role === 'SUPER_ADMIN'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
+  // Mirror sidebar's "Users" group for SUPER_ADMIN (PO QA #7).
+  const usersGroup: NavGroup | null = isSuperAdmin
+    ? {
+        kind: 'group',
+        title: t('admin.usersGroup'),
+        icon: Users,
+        items: [
+          {
+            title: t('admin.staffNav'),
+            href: '/staff',
+            icon: GraduationCap,
+            active: true,
+          },
+          // PO QA #16 — mirror sidebar's SUPER_ADMIN Invitations entry.
+          {
+            title: t('admin.invitationsNav'),
+            href: '/admin/invitations',
+            icon: Mail,
+            active: true,
+          },
+          {
+            title: t('admin.directorsNav'),
+            href: '/admin/directors',
+            icon: UserCog,
+            active: true,
+          },
+          {
+            title: t('admin.parentsNav'),
+            href: '/admin/parents',
+            icon: UsersRound,
+            active: true,
+          },
+          {
+            title: t('admin.lockedAccountsNav'),
+            href: '/admin/locked-accounts',
+            icon: ShieldAlert,
+            active: true,
+          },
+        ],
+      }
+    : null;
+
+  // DIRECTOR Staff group with All Staff + Invitations sub-items (PO QA
+  // #14 AJUSTE 2). Mirrors the sidebar so mobile and desktop stay aligned.
+  const staffGroup: NavGroup | null =
+    user?.role === 'DIRECTOR'
       ? {
-          title: t('staff.title'),
-          href: '/staff',
+          kind: 'group',
+          title: t('admin.staffGroup'),
           icon: Users,
-          active: true,
+          items: [
+            {
+              title: t('admin.staffAllNav'),
+              href: '/staff',
+              icon: GraduationCap,
+              active: true,
+            },
+            {
+              title: t('admin.staffInvitationsNav'),
+              href: '/staff/invite',
+              icon: Mail,
+              active: true,
+            },
+          ],
         }
       : null;
 
-  // Mirror sidebar's SUPER_ADMIN-only admin entry.
-  const adminItem: NavItem | null =
-    user?.role === 'SUPER_ADMIN'
-      ? {
-          title: t('admin.lockedAccountsNav'),
-          href: '/admin/locked-accounts',
-          icon: ShieldAlert,
-          active: true,
-        }
-      : null;
+  // Hide flat Parents for SUPER_ADMIN (replaced by Users > Parents).
+  const parentsFlatItem: NavItem | null = isSuperAdmin
+    ? null
+    : { title: 'Parents', href: '/parents', icon: UserCog, active: false };
 
-  const NAV_ITEMS: NavItem[] = [
+  const NAV_ENTRIES: NavEntry[] = [
     { title: 'Dashboard', href: '/dashboard', icon: Home, active: true },
+    ...(usersGroup ? [usersGroup] : []),
     ...(centerItem ? [centerItem] : []),
     { title: 'Children', href: '/children', icon: Baby, active: false },
-    ...(staffItem ? [staffItem] : []),
-    { title: 'Parents', href: '/parents', icon: UserCog, active: false },
+    ...(staffGroup ? [staffGroup] : []),
+    ...(parentsFlatItem ? [parentsFlatItem] : []),
     { title: 'Attendance', href: '/attendance', icon: Calendar, active: false },
     { title: 'Reports', href: '/reports', icon: BarChart3, active: false },
     { title: 'Billing', href: '/billing', icon: CreditCard, active: false },
-    ...(adminItem ? [adminItem] : []),
     { title: 'Settings', href: '/settings', icon: Settings, active: false },
   ];
+
+  const closeOnClick = () => onOpenChange(false);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -125,63 +200,130 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
         </SheetHeader>
 
         <nav className="space-y-1 p-4">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = item.href.startsWith('/centers')
-              ? pathname.startsWith('/centers')
-              : pathname.startsWith(item.href);
-
-            if (!item.active) {
-              return (
-                <div
-                  key={item.href}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium opacity-60 cursor-not-allowed select-none"
-                  style={{ color: 'var(--kc-text-3)' }}
-                  aria-disabled="true"
-                >
-                  <Icon className="h-5 w-5 flex-none" />
-                  <span className="flex-1">{item.title}</span>
-                  <Badge
-                    variant="secondary"
-                    className="text-[10px] px-1.5 py-0"
-                  >
-                    Soon
-                  </Badge>
-                </div>
-              );
-            }
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => onOpenChange(false)}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
-                style={
-                  isActive
-                    ? {
-                        background:
-                          'color-mix(in oklch, var(--kc-p-100), transparent 30%)',
-                        color: 'var(--kc-p-700)',
-                      }
-                    : { color: 'var(--kc-text-2)' }
-                }
-                onMouseEnter={(e) => {
-                  if (!isActive)
-                    e.currentTarget.style.background = 'var(--kc-surface-2)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive)
-                    e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                <Icon className="h-5 w-5 flex-none" />
-                <span>{item.title}</span>
-              </Link>
-            );
-          })}
+          {NAV_ENTRIES.map((entry, idx) =>
+            isGroup(entry) ? (
+              <MobileNavGroup
+                key={`group-${entry.title}-${idx}`}
+                group={entry}
+                pathname={pathname}
+                onItemClick={closeOnClick}
+              />
+            ) : (
+              <MobileNavItem
+                key={entry.href}
+                item={entry}
+                pathname={pathname}
+                onClick={closeOnClick}
+              />
+            ),
+          )}
         </nav>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function MobileNavGroup({
+  group,
+  pathname,
+  onItemClick,
+}: {
+  group: NavGroup;
+  pathname: string;
+  onItemClick: () => void;
+}) {
+  const isAnyChildActive = group.items.some((it) =>
+    pathname.startsWith(it.href),
+  );
+  const [open, setOpen] = useState(isAnyChildActive);
+  const Icon = group.icon;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+        style={{ color: 'var(--kc-text-2)' }}
+      >
+        <Icon className="h-5 w-5 flex-none" />
+        <span className="flex-1 text-left">{group.title}</span>
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 transition-transform',
+            open && 'rotate-180',
+          )}
+          aria-hidden
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent
+        className="ml-3 mt-1 space-y-1 border-l pl-3"
+        style={{ borderColor: 'var(--kc-border)' }}
+      >
+        {group.items.map((item) => (
+          <MobileNavItem
+            key={item.href}
+            item={item}
+            pathname={pathname}
+            onClick={onItemClick}
+          />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function MobileNavItem({
+  item,
+  pathname,
+  onClick,
+}: {
+  item: NavItem;
+  pathname: string;
+  onClick: () => void;
+}) {
+  const Icon = item.icon;
+  // Match the sibling-aware matcher in sidebar.tsx — /staff stays inactive
+  // when the Director is on /staff/invite so the Invitations entry is the
+  // one that highlights.
+  const isActive = item.href.startsWith('/centers')
+    ? pathname.startsWith('/centers')
+    : item.href === '/staff'
+      ? pathname === '/staff' ||
+        (pathname.startsWith('/staff/') && !pathname.startsWith('/staff/invite'))
+      : pathname.startsWith(item.href);
+
+  if (!item.active) {
+    return (
+      <div
+        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium opacity-60 cursor-not-allowed select-none"
+        style={{ color: 'var(--kc-text-3)' }}
+        aria-disabled="true"
+      >
+        <Icon className="h-5 w-5 flex-none" />
+        <span className="flex-1">{item.title}</span>
+        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+          Soon
+        </Badge>
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+      style={
+        isActive
+          ? {
+              background:
+                'color-mix(in oklch, var(--kc-p-100), transparent 30%)',
+              color: 'var(--kc-p-700)',
+            }
+          : { color: 'var(--kc-text-2)' }
+      }
+    >
+      <Icon className="h-5 w-5 flex-none" />
+      <span>{item.title}</span>
+    </Link>
   );
 }

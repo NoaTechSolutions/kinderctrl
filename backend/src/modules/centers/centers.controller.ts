@@ -57,6 +57,18 @@ export class CentersController {
     return this.centersService.findAll(user.id, user.role, query);
   }
 
+  // Global stats for SUPER_ADMIN's dashboard view: top-level counts, critical
+  // alerts (corrections >48h, payroll overdue, staff with no clock-in 7d), and
+  // the centers list with director + per-center counts. Single round-trip.
+  // Must be declared before @Get(':id') — Nest matches in declaration order
+  // and 'global-stats' would otherwise be captured as an :id param.
+  @Get('global-stats')
+  @SkipSetupCheck()
+  @Roles(UserRole.SUPER_ADMIN)
+  getGlobalStats() {
+    return this.centersService.getGlobalStats();
+  }
+
   @Get(':id')
   @SkipSetupCheck()
   async findOne(
@@ -64,6 +76,18 @@ export class CentersController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.centersService.findOne(id, user.id, user.role);
+  }
+
+  // Per-center stats for the SUPER_ADMIN detail page Overview tab. Returns
+  // counts (active staff/children, schedules, pending corrections) plus the
+  // critical-alerts subset scoped to this center. Ownership check protects
+  // Director access; SUPER_ADMIN passes through.
+  @Get(':id/stats')
+  @SkipSetupCheck()
+  @UseGuards(CenterOwnershipGuard)
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  getCenterStats(@Param('id', ParseUUIDPipe) id: string) {
+    return this.centersService.getCenterStats(id);
   }
 
   @Patch(':id')

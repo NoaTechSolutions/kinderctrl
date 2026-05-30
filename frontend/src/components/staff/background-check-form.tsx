@@ -3,10 +3,10 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -24,25 +24,23 @@ import {
 } from '@/lib/schemas/staff';
 import type { BackgroundCheckStatus, Staff } from '@/lib/types/staff';
 
-// Backend dates are full ISO strings; <input type="date"> needs YYYY-MM-DD.
-// Truncate at T to convert without timezone surprises (the API returns
-// midnight UTC for date-only columns).
-function isoToDateInput(iso: string | null | undefined): string {
-  if (!iso) return '';
-  return iso.slice(0, 10);
-}
+// PO QA #46: dialog-form for the BG sub-tab of the Employment-card
+// modal (#44). Simplified to Status + Approved (the date / expiry /
+// notes / verifier columns are gone from the schema). Approved only
+// renders when Status === COMPLETED, matching the spec UI rule.
 
 interface BackgroundCheckFormProps {
   staff: Staff;
+  // Optional — when provided, the modal closes on save and a Cancel
+  // button renders alongside Save (PO QA #36 hybrid pattern reused for
+  // the unified Employment modal).
   onClose?: () => void;
 }
 
 const STATUS_KEY: Record<BackgroundCheckStatus, string> = {
-  NOT_STARTED: 'staff.bgStatusNotStarted',
   PENDING: 'staff.bgStatusPending',
-  APPROVED: 'staff.bgStatusApproved',
-  REJECTED: 'staff.bgStatusRejected',
-  EXPIRED: 'staff.bgStatusExpired',
+  COMPLETED: 'staff.bgStatusCompleted',
+  CANCELLED: 'staff.bgStatusCancelled',
 };
 
 export function BackgroundCheckForm({
@@ -56,17 +54,24 @@ export function BackgroundCheckForm({
     resolver: zodResolver(updateBackgroundCheckSchema),
     defaultValues: {
       status: staff.backgroundCheckStatus,
-      date: isoToDateInput(staff.backgroundCheckDate),
-      expiryDate: isoToDateInput(staff.backgroundCheckExpiryDate),
-      notes: staff.backgroundCheckNotes ?? '',
+      approved: staff.backgroundCheckApproved === true,
     },
   });
 
   const status = form.watch('status');
+  const approved = form.watch('approved');
 
   const onSubmit = (data: UpdateBackgroundCheckFormData) => {
     form.clearErrors('root');
-    mutation.mutate(data, {
+    // Mirror the server-side rule in the request body — approved only
+    // travels with COMPLETED. Backend nulls it anyway, but keeping the
+    // payload coherent makes the network log easier to read.
+    const payload: UpdateBackgroundCheckFormData =
+      data.status === 'COMPLETED'
+        ? { status: 'COMPLETED', approved: data.approved === true }
+        : { status: data.status };
+
+    mutation.mutate(payload, {
       onSuccess: () => {
         toast.success(t('staff.bgSaved'));
         onClose?.();
@@ -95,12 +100,18 @@ export function BackgroundCheckForm({
         </Label>
         <Select
           value={status}
-          onValueChange={(v) =>
-            form.setValue('status', v as BackgroundCheckStatus, {
+          onValueChange={(v) => {
+            const next = v as BackgroundCheckStatus;
+            form.setValue('status', next, {
               shouldDirty: true,
               shouldValidate: true,
-            })
-          }
+            });
+            // Clear approved if we left COMPLETED — keeps form state
+            // honest with what the backend will persist.
+            if (next !== 'COMPLETED') {
+              form.setValue('approved', false, { shouldDirty: true });
+            }
+          }}
         >
           <SelectTrigger id="bg-status" className="h-10">
             <SelectValue />
@@ -115,46 +126,32 @@ export function BackgroundCheckForm({
         </Select>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="bg-date" className="text-sm font-medium">
-            {t('staff.bgDate')}
-          </Label>
-          <Input
-            id="bg-date"
-            type="date"
-            className="h-10"
-            {...form.register('date')}
+      {status === 'COMPLETED' && (
+        <label
+          htmlFor="bg-approved"
+          className="flex items-start gap-3 cursor-pointer"
+        >
+          <Checkbox
+            id="bg-approved"
+            checked={approved === true}
+            onCheckedChange={(v) =>
+              form.setValue('approved', v === true, { shouldDirty: true })
+            }
+            className="mt-0.5"
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="bg-expiry" className="text-sm font-medium">
-            {t('staff.bgExpiryDate')}
-          </Label>
-          <Input
-            id="bg-expiry"
-            type="date"
-            className="h-10"
-            {...form.register('expiryDate')}
-          />
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="bg-notes" className="text-sm font-medium">
-          {t('staff.bgNotes')}
-        </Label>
-        <textarea
-          id="bg-notes"
-          rows={3}
-          className="w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
-          style={{
-            background: 'var(--kc-surface)',
-            borderColor: 'var(--kc-border)',
-          }}
-          {...form.register('notes')}
-        />
-      </div>
+          <span className="space-y-0.5 leading-tight">
+            <span className="block text-sm font-medium">
+              {t('staff.bgApprovedLabel')}
+            </span>
+            <span
+              className="block text-xs"
+              style={{ color: 'var(--kc-text-3)' }}
+            >
+              {t('staff.bgApprovedHint')}
+            </span>
+          </span>
+        </label>
+      )}
 
       {form.formState.errors.root && (
         <div

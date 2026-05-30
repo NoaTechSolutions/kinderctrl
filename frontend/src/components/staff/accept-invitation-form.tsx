@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,6 +9,7 @@ import { Check, Eye, EyeOff, Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { NameInput } from '@/components/ui/name-input';
 import { Label } from '@/components/ui/label';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
@@ -19,6 +20,7 @@ import {
   type AcceptInvitationFormData,
 } from '@/lib/schemas/staff';
 import type { InvitationInfo } from '@/lib/types/staff';
+import { formatPhoneUS, parsePhoneDigits } from '@/lib/utils/phone';
 
 interface AcceptInvitationFormProps {
   token: string;
@@ -42,7 +44,6 @@ export function AcceptInvitationForm({
       firstName: '',
       lastName: '',
       phone: '',
-      position: '',
       password: '',
       confirmPassword: '',
       agreedToTerms: false as unknown as true,
@@ -51,13 +52,21 @@ export function AcceptInvitationForm({
 
   const onSubmit = (data: AcceptInvitationFormData) => {
     form.clearErrors('root');
-    mutation.mutate(data, {
+    // Strip phone formatting before POSTing — backend's @Matches accepts
+    // digits only. Symmetric with the staff-form pattern.
+    const payload: AcceptInvitationFormData = {
+      ...data,
+      phone: data.phone ? parsePhoneDigits(data.phone) : data.phone,
+    };
+    mutation.mutate(payload, {
       onSuccess: (res) => {
         // Persist tokens BEFORE navigation so the (dashboard) layout's auth
         // gate sees an authenticated state on first paint.
         setTokens(res.access_token, res.refresh_token, res.user);
         setSubmitted(true);
-        window.setTimeout(() => router.push('/dashboard'), 1500);
+        // PO QA #55 (FEATURE 6): countdown UI replaces the silent 1.5s
+        // wait. The redirect itself is driven by the useEffect below
+        // that ticks the counter; no setTimeout here.
       },
       onError: (err) => {
         let msg: string = t('errGeneric');
@@ -75,6 +84,24 @@ export function AcceptInvitationForm({
     });
   };
 
+  // PO QA #55 (FEATURE 6): 5-second countdown after a successful
+  // registration. Auto-redirects to /profile/complete when it hits 0,
+  // or the user clicks "Go now" to skip the wait. The countdown
+  // useEffect only runs when `submitted` is true (gated by early
+  // return), so there's no risk of double-redirect from the previous
+  // setTimeout pattern.
+  const POST_REGISTER_REDIRECT_SECONDS = 5;
+  const [countdown, setCountdown] = useState(POST_REGISTER_REDIRECT_SECONDS);
+  useEffect(() => {
+    if (!submitted) return;
+    if (countdown <= 0) {
+      router.push('/profile/complete');
+      return;
+    }
+    const timer = window.setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [submitted, countdown, router]);
+
   if (submitted) {
     return (
       <div className="w-full">
@@ -91,9 +118,34 @@ export function AcceptInvitationForm({
         <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight mb-2">
           {t('staff.acceptSuccessTitle')}
         </h1>
-        <p className="text-sm" style={{ color: 'var(--kc-text-3)' }}>
+        <p
+          className="text-sm mb-6"
+          style={{ color: 'var(--kc-text-3)' }}
+        >
           {t('staff.acceptSuccessBody')}
         </p>
+        {/* Countdown line. Uses the displayed counter clamped at 1 so
+            the user never sees a final "0 seconds" flash before the
+            navigation lands. */}
+        <p
+          className="text-sm mb-4"
+          aria-live="polite"
+          style={{ color: 'var(--kc-text-2)' }}
+        >
+          {t('staff.acceptCountdown').replace(
+            '{seconds}',
+            String(Math.max(countdown, 1)),
+          )}
+        </p>
+        <Button
+          onClick={() => {
+            setCountdown(0);
+            router.push('/profile/complete');
+          }}
+          className="h-11"
+        >
+          {t('staff.acceptGoNow')}
+        </Button>
       </div>
     );
   }
@@ -137,13 +189,23 @@ export function AcceptInvitationForm({
             <Label htmlFor="invitee-first" className="text-sm font-medium">
               {t('staff.firstName')}
             </Label>
-            <Input
-              id="invitee-first"
-              type="text"
-              autoComplete="given-name"
-              className="h-11"
-              aria-invalid={!!form.formState.errors.firstName}
-              {...form.register('firstName')}
+            {/* PO QA #55: NameInput auto-capitalizes on blur. */}
+            <Controller
+              control={form.control}
+              name="firstName"
+              render={({ field }) => (
+                <NameInput
+                  id="invitee-first"
+                  autoComplete="given-name"
+                  className="h-11"
+                  aria-invalid={!!form.formState.errors.firstName}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  ref={field.ref}
+                  name={field.name}
+                />
+              )}
             />
             {form.formState.errors.firstName && (
               <p className="text-xs" style={{ color: 'var(--kc-error)' }}>
@@ -155,13 +217,22 @@ export function AcceptInvitationForm({
             <Label htmlFor="invitee-last" className="text-sm font-medium">
               {t('staff.lastName')}
             </Label>
-            <Input
-              id="invitee-last"
-              type="text"
-              autoComplete="family-name"
-              className="h-11"
-              aria-invalid={!!form.formState.errors.lastName}
-              {...form.register('lastName')}
+            <Controller
+              control={form.control}
+              name="lastName"
+              render={({ field }) => (
+                <NameInput
+                  id="invitee-last"
+                  autoComplete="family-name"
+                  className="h-11"
+                  aria-invalid={!!form.formState.errors.lastName}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  ref={field.ref}
+                  name={field.name}
+                />
+              )}
             />
             {form.formState.errors.lastName && (
               <p className="text-xs" style={{ color: 'var(--kc-error)' }}>
@@ -175,34 +246,34 @@ export function AcceptInvitationForm({
           <Label htmlFor="invitee-phone" className="text-sm font-medium">
             {t('staff.phone')}
           </Label>
-          <Input
-            id="invitee-phone"
-            type="tel"
-            autoComplete="tel"
-            placeholder="+1 (415) 555-1234"
-            className="h-11"
-            aria-invalid={!!form.formState.errors.phone}
-            {...form.register('phone')}
+          <Controller
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <Input
+                id="invitee-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={14}
+                placeholder="(415) 555-1234"
+                className="h-11"
+                aria-invalid={!!form.formState.errors.phone}
+                value={field.value ?? ''}
+                onChange={(e) =>
+                  field.onChange(formatPhoneUS(e.target.value))
+                }
+                onBlur={field.onBlur}
+                ref={field.ref}
+                name={field.name}
+              />
+            )}
           />
           {form.formState.errors.phone && (
             <p className="text-xs" style={{ color: 'var(--kc-error)' }}>
               {form.formState.errors.phone.message}
             </p>
           )}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="invitee-position" className="text-sm font-medium">
-            {t('staff.position')}
-          </Label>
-          <Input
-            id="invitee-position"
-            type="text"
-            placeholder={t('staff.positionPlaceholder')}
-            className="h-11"
-            maxLength={50}
-            {...form.register('position')}
-          />
         </div>
 
         <div className="space-y-1.5">

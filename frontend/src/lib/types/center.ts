@@ -24,6 +24,9 @@ export interface Center {
   createdAt: string;
   updatedAt: string;
   owner?: CenterOwner;
+  // Present on the GET /centers/:id response (operating hours are included
+  // in the detail payload). Optional because list endpoints omit it.
+  centerHours?: CenterHours[];
 }
 
 export interface CenterHours {
@@ -42,6 +45,7 @@ export interface CentersQuery {
   page?: number;
   limit?: number;
   status?: CenterStatus;
+  search?: string;
 }
 
 export interface PaginationMeta {

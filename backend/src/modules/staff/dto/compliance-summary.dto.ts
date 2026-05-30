@@ -1,25 +1,25 @@
 // Response of GET /staff/compliance-summary. Nested by domain so the UI can
 // render two stacked widgets (Background Check + CPR) without re-aggregating
-// on the client. Status names match the BackgroundCheckStatus enum lowercase-
-// camelCased; CPR slices are derived (no enum) — see ComplianceSummary.cpr.
+// on the client.
+//
+// PO QA #46/#49: both compliance domains now follow the same shape — counts
+// per lifecycle state. BG: completedApproved / completedNotApproved /
+// pending / cancelled. CPR: pending / active / expired / cancelled. The
+// older "expiring within 60 days" CPR bucket was dropped along with the
+// boolean `cprCertified` — admins move records to ACTIVE / EXPIRED
+// explicitly now, no derived-from-date bucket.
 export class BackgroundCheckSummaryDto {
-  approved: number;
+  completedApproved: number;
+  completedNotApproved: number;
   pending: number;
-  notStarted: number;
-  rejected: number;
-  expired: number;
+  cancelled: number;
 }
 
 export class CprSummaryDto {
-  // certified && (no expiry OR expiry > now + 60d). "Valid right now."
-  valid: number;
-  // certified && expiry in [now, now+60d]. "Action needed soon."
-  expiring: number;
-  // certified && expiry <= now. "Action needed yesterday."
+  pending: number;
+  active: number;
   expired: number;
-  // !certified. Treated as a category rather than rolled into 'expired' so
-  // the UI can show distinct copy ("Get certified" vs "Renew certification").
-  missing: number;
+  cancelled: number;
 }
 
 export class ComplianceSummaryDto {

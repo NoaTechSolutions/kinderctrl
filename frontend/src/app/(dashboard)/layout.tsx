@@ -6,6 +6,8 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { MobileNav } from '@/components/layout/mobile-nav';
 import { SetupIncompleteBanner } from '@/components/dashboard/setup-incomplete-banner';
+import { ContentSkeleton } from '@/components/skeletons/content-skeleton';
+import { SidebarSkeleton, TopbarSkeleton } from '@/components/skeletons/chrome-skeleton';
 import { useAuthStore } from '@/store/auth';
 import { useCenters } from '@/lib/hooks/use-centers';
 
@@ -65,50 +67,62 @@ export default function DashboardGroupLayout({
     }
   }, [isDirectorOnDashboard, centersFetched, centers, router]);
 
-  if (!hasHydrated) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ color: 'var(--kc-text-3)' }}
-      >
-        Loading…
-      </div>
-    );
-  }
-
-  if (!accessToken && !refreshToken) {
+  // Once hydrated, an unauthenticated user is redirected to /login by the
+  // effect above — render nothing while that happens.
+  if (hasHydrated && !accessToken && !refreshToken) {
     return null;
   }
 
-  if (isCheckingFirstTime) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ color: 'var(--kc-text-3)' }}
-      >
-        Loading…
-      </div>
-    );
-  }
+  // Until auth hydrates, every chrome element (sidebar, topbar) shows a
+  // structured skeleton instead of rendering empty/with a null user. The
+  // central content also skeletons during hydration or the first-time-director
+  // check; per-page skeletons take over once children mount.
+  const showContentSkeleton = !hasHydrated || isCheckingFirstTime;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    // PO QA #35: was `flex h-screen overflow-hidden`. That worked in
+    // principle (h-screen=100vh, overflow-hidden clips overflow) but
+    // some browsers ended up reporting documentElement.scrollHeight
+    // higher than body.scrollHeight, which triggered a phantom browser
+    // scrollbar on top of the legitimate `<main>` scroll — "double
+    // scroll" UX even though the form content was correctly contained.
+    //
+    // `fixed inset-0` takes this whole container OUT of the document
+    // flow. Body becomes effectively empty (Providers + a fixed child
+    // that contributes zero layout height). documentElement.scrollHeight
+    // ≈ 0. No body scroll possible. The dashboard fills the viewport
+    // exactly and the `<main>` below stays the single scrolling surface.
+    //
+    // Non-dashboard pages (login, accept-invitation) are untouched —
+    // they don't use this layout, so body remains its natural
+    // `overflow: visible` and scrolls normally.
+    <div className="fixed inset-0 flex bg-background">
       <aside className="hidden lg:block flex-none">
-        <Sidebar />
+        {hasHydrated ? <Sidebar /> : <SidebarSkeleton />}
       </aside>
 
       <MobileNav open={mobileNavOpen} onOpenChange={setMobileNavOpen} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar onMenuClick={() => setMobileNavOpen(true)} />
+        {hasHydrated ? (
+          <Topbar onMenuClick={() => setMobileNavOpen(true)} />
+        ) : (
+          <TopbarSkeleton />
+        )}
 
         <main
           className="flex-1 overflow-y-auto"
           style={{ background: 'var(--kc-bg)' }}
         >
           <div className="container mx-auto p-6 max-w-7xl space-y-4">
-            <SetupIncompleteBanner />
-            {children}
+            {showContentSkeleton ? (
+              <ContentSkeleton />
+            ) : (
+              <>
+                <SetupIncompleteBanner />
+                {children}
+              </>
+            )}
           </div>
         </main>
       </div>

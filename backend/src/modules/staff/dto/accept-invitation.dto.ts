@@ -28,12 +28,9 @@ export class AcceptInvitationDto {
   })
   phone: string;
 
-  // Free-text job title (e.g. "Lead Toddler Teacher"). 50 chars matches
-  // schema.prisma Staff.position VarChar(50).
-  @IsOptional()
-  @IsString()
-  @Length(0, 50)
-  position?: string;
+  // Position field removed per PO QA #8 (Opción C) — invitee skips it.
+  // Director can set it later via PATCH /staff/:id if needed. Field is
+  // still present on the Staff DB column (not destructive to drop yet).
 
   // Same minimum as auth/register. Bcrypt-hashed in the service.
   @IsString()

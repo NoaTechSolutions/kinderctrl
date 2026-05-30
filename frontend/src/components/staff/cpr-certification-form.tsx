@@ -1,14 +1,20 @@
 'use client';
 
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
 import { useUpdateCpr } from '@/lib/hooks/use-staff';
@@ -16,7 +22,13 @@ import {
   updateCprSchema,
   type UpdateCprFormData,
 } from '@/lib/schemas/staff';
-import type { Staff } from '@/lib/types/staff';
+import type { CprStatus, Staff } from '@/lib/types/staff';
+
+// PO QA #49: dialog-form for the CPR sub-tab of the Employment-card
+// modal (#44). Mirror of BackgroundCheckForm (#46) — Status dropdown
+// drives the lifecycle, expiryDate is conditional on ACTIVE/EXPIRED.
+// Aux fields (certificationDate, provider, notes) are kept per PO and
+// stay always-visible (they're optional history columns).
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -28,6 +40,13 @@ interface CprCertificationFormProps {
   onClose?: () => void;
 }
 
+const STATUS_KEY: Record<CprStatus, string> = {
+  PENDING: 'staff.cprStatusPending',
+  ACTIVE: 'staff.cprStatusActive',
+  EXPIRED: 'staff.cprStatusExpired',
+  CANCELLED: 'staff.cprStatusCancelled',
+};
+
 export function CprCertificationForm({
   staff,
   onClose,
@@ -38,13 +57,19 @@ export function CprCertificationForm({
   const form = useForm<UpdateCprFormData>({
     resolver: zodResolver(updateCprSchema),
     defaultValues: {
-      certified: staff.cprCertified,
+      status: staff.cprStatus,
       certificationDate: isoToDateInput(staff.cprCertificationDate),
       expiryDate: isoToDateInput(staff.cprExpiryDate),
       provider: staff.cprCertificationProvider ?? '',
       notes: staff.cprNotes ?? '',
     },
   });
+
+  const status = form.watch('status');
+  // Expiry is required when status is ACTIVE or EXPIRED — surface a
+  // hint to the user inline so they don't get the 400 server-side.
+  // Display-only marker; actual enforcement happens at the backend.
+  const expiryRequired = status === 'ACTIVE' || status === 'EXPIRED';
 
   const onSubmit = (data: UpdateCprFormData) => {
     form.clearErrors('root');
@@ -71,24 +96,30 @@ export function CprCertificationForm({
       noValidate
       aria-busy={mutation.isPending}
     >
-      <div className="flex items-center gap-2">
-        <Controller
-          control={form.control}
-          name="certified"
-          render={({ field }) => (
-            <Checkbox
-              id="cpr-certified"
-              checked={!!field.value}
-              onCheckedChange={(v) => field.onChange(v === true)}
-            />
-          )}
-        />
-        <Label
-          htmlFor="cpr-certified"
-          className="text-sm font-normal cursor-pointer"
-        >
-          {t('staff.cprCertified')}
+      <div className="space-y-1.5">
+        <Label htmlFor="cpr-status" className="text-sm font-medium">
+          {t('staff.cprStatus')}
         </Label>
+        <Select
+          value={status}
+          onValueChange={(v) =>
+            form.setValue('status', v as CprStatus, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+        >
+          <SelectTrigger id="cpr-status" className="h-10">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(STATUS_KEY) as CprStatus[]).map((s) => (
+              <SelectItem key={s} value={s}>
+                {t(STATUS_KEY[s])}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -104,8 +135,19 @@ export function CprCertificationForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="cpr-expiry" className="text-sm font-medium">
+          <Label
+            htmlFor="cpr-expiry"
+            className="text-sm font-medium inline-flex items-center gap-1"
+          >
             {t('staff.cprExpiryDate')}
+            {expiryRequired && (
+              <span
+                aria-label={t('staff.fieldRequired')}
+                style={{ color: 'var(--kc-error)' }}
+              >
+                *
+              </span>
+            )}
           </Label>
           <Input
             id="cpr-expiry"
@@ -113,6 +155,16 @@ export function CprCertificationForm({
             className="h-10"
             {...form.register('expiryDate')}
           />
+          {expiryRequired && (
+            <p
+              className="text-xs"
+              style={{ color: 'var(--kc-text-3)' }}
+            >
+              {status === 'ACTIVE'
+                ? t('staff.cprExpiryHintActive')
+                : t('staff.cprExpiryHintExpired')}
+            </p>
+          )}
         </div>
       </div>
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3003",
+    "dev": "next dev --turbopack -p 3003",
     "build": "next build",
     "start": "next start -p 3003",
     "lint": "eslint"
@@ -13,6 +13,7 @@
     "@tanstack/react-query": "^5.100.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dexie": "^4.4.3",
     "lucide-react": "^1.14.0",
     "next": "15.5.18",
     "radix-ui": "^1.4.3",

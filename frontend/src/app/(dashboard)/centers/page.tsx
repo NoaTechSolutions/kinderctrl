@@ -7,13 +7,14 @@ import {
   useRouter,
   useSearchParams,
 } from 'next/navigation';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useCenters } from '@/lib/hooks/use-centers';
 import { useMediaQuery } from '@/lib/hooks/use-media-query';
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 import { useTranslation } from '@/lib/i18n';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Pagination } from '@/components/ui/pagination';
 import { FilterTabs, type FilterTab } from '@/components/ui/filter-tabs';
@@ -21,6 +22,7 @@ import { FilterDropdown } from '@/components/ui/filter-dropdown';
 import { CenterCard } from '@/components/centers/center-card';
 import { CenterTable } from '@/components/centers/center-table';
 import { EmptyState } from '@/components/centers/empty-state';
+import { CriticalAlerts } from '@/components/admin/critical-alerts';
 import type { CenterStatus, CentersQuery } from '@/lib/types/center';
 
 type StatusFilter = 'ALL' | CenterStatus;
@@ -62,6 +64,9 @@ export default function CentersPage() {
   const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [query, setQuery] = useState('');
+  // 300ms debounce keeps every keystroke from firing a backend request;
+  // the URL gets the committed value too so refresh / shareable links work.
+  const debouncedQuery = useDebouncedValue(query, 300);
 
   const page = parsePage(searchParams.get('page'));
   const status = parseStatus(searchParams.get('status'));
@@ -83,6 +88,7 @@ export default function CentersPage() {
     page,
     limit,
     ...(status !== 'ALL' && { status: status as CenterStatus }),
+    ...(debouncedQuery.trim() && { search: debouncedQuery.trim() }),
   };
   const { data: centers, isLoading, error } = useCenters(centersQuery);
 
@@ -128,20 +134,18 @@ export default function CentersPage() {
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
-  // Client-side search filters the CURRENT page only. With server-side
-  // pagination a global search would need backend support; flagged as a
-  // follow-up. For now the input narrows what's visible on screen.
-  const filtered = useMemo(() => {
-    if (!centers) return [];
-    if (!query.trim()) return centers.data;
-    const q = query.trim().toLowerCase();
-    return centers.data.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.city.toLowerCase().includes(q) ||
-        c.state.toLowerCase().includes(q),
-    );
-  }, [centers, query]);
+  // Search now happens server-side via the `search` query param —
+  // useDebouncedValue throttles input + useCenters wires it into the request.
+  // The visible list is just `centers.data`; no client-side filtering.
+  const visible = centers?.data ?? [];
+
+  // Typing in the search box must reset pagination — the page the user was
+  // on may no longer exist once the result set shrinks. Wrap setQuery so
+  // the page reset happens in one place.
+  const onSearchChange = (next: string) => {
+    setQuery(next);
+    if (page > 1) setSearchParam({ page: 1 });
+  };
 
   // Suppress the admin list flash while replace() runs.
   if (
@@ -168,18 +172,14 @@ export default function CentersPage() {
     (user?.role === 'DIRECTOR' && centers?.pagination.total === 1);
 
   const total = centers?.pagination.total ?? 0;
+  const hasSearch = debouncedQuery.trim().length > 0;
   const filterActive = status !== 'ALL';
   // Show the tabs whenever there's any data scoped to the role OR a
-  // filter is active (so the user can clear it from an empty result).
-  const showFilterTabs = total > 0 || filterActive;
-  const showEmptyAll = !isLoading && total === 0 && !filterActive;
+  // filter / search is active (so the user can clear it from an empty result).
+  const showFilterTabs = total > 0 || filterActive || hasSearch;
+  const showEmptyAll = !isLoading && total === 0 && !filterActive && !hasSearch;
   const showEmptyFiltered =
-    !isLoading && total === 0 && filterActive;
-  const showNoQueryMatch =
-    !isLoading &&
-    centers &&
-    centers.data.length > 0 &&
-    filtered.length === 0;
+    !isLoading && total === 0 && (filterActive || hasSearch);
 
   return (
     <div className="space-y-6">
@@ -190,14 +190,6 @@ export default function CentersPage() {
               ? t('centers.titleSingular')
               : t('centers.title')}
           </h1>
-          {!isSingleCenterRole && (
-            <p
-              className="mt-1.5 text-sm"
-              style={{ color: 'var(--kc-text-3)' }}
-            >
-              {t('centers.list')}
-            </p>
-          )}
         </div>
 
         {canCreateCenter && (
@@ -227,6 +219,10 @@ export default function CentersPage() {
         </div>
       )}
 
+      {/* SUPER_ADMIN-only critical alerts banner. The component renders null
+          for other roles, so it's safe to mount unconditionally. */}
+      <CriticalAlerts />
+
       {/* Desktop status tabs (BUG-015: hidden on mobile because 5 tabs
           overflow at 375px — mobile uses the dropdown below). */}
       {showFilterTabs && (
@@ -246,22 +242,15 @@ export default function CentersPage() {
           fallback. When there IS data we keep the BUG-015 inline layout
           (search + dropdown on the same row); when there isn't, the
           dropdown sits alone aligned right. */}
-      {showFilterTabs && centers && centers.data.length > 0 && (
+      {showFilterTabs && (centers?.data.length || hasSearch) ? (
         <div className="md:hidden flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-              style={{ color: 'var(--kc-text-3)' }}
-              aria-hidden
-            />
-            <Input
-              placeholder="Search by name, city, or state…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-9 h-10"
-              aria-label="Search centers"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onChange={onSearchChange}
+            placeholder="Search by name, city, or state…"
+            ariaLabel="Search centers"
+            className="flex-1"
+          />
           <FilterDropdown
             options={statusTabs}
             value={status}
@@ -269,9 +258,9 @@ export default function CentersPage() {
             ariaLabel="Filter centers by status"
           />
         </div>
-      )}
+      ) : null}
 
-      {showFilterTabs && (!centers || centers.data.length === 0) && (
+      {showFilterTabs && !hasSearch && (!centers || centers.data.length === 0) && (
         <div className="md:hidden flex justify-end">
           <FilterDropdown
             options={statusTabs}
@@ -282,24 +271,18 @@ export default function CentersPage() {
         </div>
       )}
 
-      {/* Desktop search (mobile search lives inside the inline-with-dropdown
-          block above). Both Inputs are bound to the same `query` state. */}
-      {!isLoading && centers && centers.data.length > 0 && (
-        <div className="hidden md:block relative max-w-md">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-            style={{ color: 'var(--kc-text-3)' }}
-            aria-hidden
-          />
-          <Input
-            placeholder="Search by name, city, or state…"
+      {/* Desktop search — always visible alongside the table so users can keep
+          refining the result set even when the current query returns nothing. */}
+      {!isLoading && (centers?.data.length || hasSearch) ? (
+        <div className="hidden md:block max-w-md">
+          <SearchInput
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9 h-10"
-            aria-label="Search centers"
+            onChange={onSearchChange}
+            placeholder="Search by name, city, or state…"
+            ariaLabel="Search centers"
           />
         </div>
-      )}
+      ) : null}
 
       {isLoading && (
         <>
@@ -323,36 +306,35 @@ export default function CentersPage() {
           className="text-center py-12 space-y-3"
           style={{ color: 'var(--kc-text-3)' }}
         >
-          <p className="text-sm">No centers match the selected status.</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSearchParam({ status: 'ALL' })}
-          >
-            Clear filter
-          </Button>
-        </div>
-      )}
-
-      {showNoQueryMatch && (
-        <div
-          className="text-center py-12"
-          style={{ color: 'var(--kc-text-3)' }}
-        >
           <p className="text-sm">
-            No centers match{' '}
-            <span className="font-mono">&quot;{query}&quot;</span> on this page.
+            {hasSearch && filterActive
+              ? `No centers match "${debouncedQuery}" with the selected status.`
+              : hasSearch
+                ? `No centers match "${debouncedQuery}".`
+                : 'No centers match the selected status.'}
           </p>
+          <div className="flex gap-2 justify-center">
+            {hasSearch && (
+              <Button variant="outline" size="sm" onClick={() => setQuery('')}>
+                Clear search
+              </Button>
+            )}
+            {filterActive && (
+              <Button variant="outline" size="sm" onClick={() => setSearchParam({ status: 'ALL' })}>
+                Clear filter
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
-      {!isLoading && filtered.length > 0 && (
+      {!isLoading && visible.length > 0 && (
         <>
           <div className="hidden md:block">
-            <CenterTable centers={filtered} />
+            <CenterTable centers={visible} />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:hidden">
-            {filtered.map((c) => (
+            {visible.map((c) => (
               <CenterCard key={c.id} center={c} />
             ))}
           </div>

@@ -5,13 +5,22 @@ import {
   deleteStaff,
   getComplianceSummary,
   getInvitation,
+  getInvitations,
+  getMyProfile,
   getStaff,
   getStaffMember,
   inviteStaff,
+  resendInvitation,
+  revokeInvitation,
+  sendStaffPasswordReset,
   updateBackgroundCheck,
   updateCpr,
+  updateMyProfile,
   updateStaff,
 } from '@/lib/api/staff';
+import { apiRequest } from '@/lib/api/client';
+import { useAuthStore, type AuthUser } from '@/store/auth';
+import type { InvitationsQuery, StaffQuery } from '@/lib/types/staff';
 import type {
   AcceptInvitationFormData,
   InviteStaffFormData,
@@ -19,20 +28,30 @@ import type {
   StaffUpdateFormData,
   UpdateBackgroundCheckFormData,
   UpdateCprFormData,
+  UpdateProfileFormData,
 } from '@/lib/schemas/staff';
 
 export const staffQueryKeys = {
+  // Parent prefix for all staff-list queries. Invalidate this to refresh
+  // every paginated/filtered slice (cache keys live underneath).
   all: ['staff'] as const,
+  list: (query: StaffQuery) =>
+    [
+      'staff',
+      'list',
+      query.page ?? 1,
+      query.limit ?? 25,
+    ] as const,
   detail: (id: string) => ['staff', id] as const,
   invitation: (token: string) => ['staff', 'invitation', token] as const,
   complianceSummary: (centerId: string | undefined) =>
     ['staff', 'compliance-summary', centerId ?? 'default'] as const,
 };
 
-export function useStaff() {
+export function useStaff(query: StaffQuery = {}) {
   return useQuery({
-    queryKey: staffQueryKeys.all,
-    queryFn: getStaff,
+    queryKey: staffQueryKeys.list(query),
+    queryFn: () => getStaff(query),
   });
 }
 
@@ -44,6 +63,10 @@ export function useStaffMember(id: string | undefined) {
   });
 }
 
+// PO QA #30 Opción E: useCreateStaff restored for SUPER_ADMIN manual
+// create surface. Backend creates Staff (ACTIVE) + User (password=null)
+// + sends welcome email. The mutation invalidates staffQueryKeys.all so
+// the new row appears on /staff list immediately.
 export function useCreateStaff() {
   const qc = useQueryClient();
   return useMutation({
@@ -89,10 +112,66 @@ export function useDeleteStaff() {
 // ─── Invitation flow hooks ──────────────────────────────────────
 
 export function useInviteStaff() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: InviteStaffFormData) => inviteStaff(data),
-    // No cache invalidation — the invited staff doesn't show up in
-    // /staff until they accept (no row exists yet).
+    onSuccess: () => {
+      // PO QA #13: refresh the invitations list so the new invite shows up
+      // immediately. Includes the old pending-list invalidation for any
+      // stale subscribers that haven't refreshed yet.
+      qc.invalidateQueries({ queryKey: ['staff', 'invitations'] });
+    },
+  });
+}
+
+// PO QA #13/#22 — list of invitations with computed lifecycle status,
+// paginated. Status filter + pagination are part of the cache key so
+// different tabs/pages cache independently.
+const invitationsKey = (query: InvitationsQuery) =>
+  [
+    'staff',
+    'invitations',
+    query.status ?? 'ALL',
+    query.centerId ?? 'default',
+    query.page ?? 1,
+    query.limit ?? 15,
+  ] as const;
+
+export function useInvitations(query: InvitationsQuery = {}) {
+  return useQuery({
+    queryKey: invitationsKey(query),
+    queryFn: () => getInvitations(query),
+  });
+}
+
+export function useResendInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => resendInvitation(id),
+    onSuccess: () => {
+      // Resend rotates the token — the row id changes, so invalidate the
+      // whole invitations list to pick up the new entry.
+      qc.invalidateQueries({ queryKey: ['staff', 'invitations'] });
+    },
+  });
+}
+
+// PO QA #28 Opción F: admin-triggered password reset for a staff member.
+// Invalidates the staff detail cache so any session-related UI cues
+// refresh (currently none, but the hook is the right place for it).
+export function useSendStaffPasswordReset() {
+  return useMutation({
+    mutationFn: (staffId: string) => sendStaffPasswordReset(staffId),
+  });
+}
+
+export function useRevokeInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => revokeInvitation(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['staff', 'invitations'] });
+    },
   });
 }
 
@@ -153,5 +232,38 @@ export function useComplianceSummary(centerId?: string) {
     queryKey: staffQueryKeys.complianceSummary(centerId),
     queryFn: () => getComplianceSummary(centerId),
     // SUPER_ADMIN passes centerId; DIRECTOR can omit. Both paths are valid.
+  });
+}
+
+// ─── Staff self-service (PO QA #8 Opción C) ────────────────────
+
+const meProfileQueryKey = ['staff', 'me', 'profile'] as const;
+
+export function useMyProfile() {
+  return useQuery({
+    queryKey: meProfileQueryKey,
+    queryFn: () => getMyProfile(),
+  });
+}
+
+export function useUpdateMyProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: UpdateProfileFormData) => updateMyProfile(data),
+    onSuccess: async (updated) => {
+      qc.setQueryData(meProfileQueryKey, updated);
+      // Refresh auth store so user.staff.profileComplete reflects the new
+      // server-side state — otherwise the dashboard banner stays stale
+      // until the next full page load. Non-fatal if the refetch fails.
+      try {
+        const fresh = await apiRequest<AuthUser>('/auth/me');
+        const state = useAuthStore.getState();
+        if (state.accessToken && state.refreshToken) {
+          state.setTokens(state.accessToken, state.refreshToken, fresh);
+        }
+      } catch {
+        /* swallow — banner will refresh on next /auth/me cycle */
+      }
+    },
   });
 }

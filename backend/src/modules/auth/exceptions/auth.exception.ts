@@ -70,4 +70,15 @@ export class AuthException extends HttpException {
       HttpStatus.BAD_REQUEST,
     );
   }
+
+  // 400 (not 401) because the session itself is valid — the user IS
+  // authenticated. The current-password gate is an additional freshness
+  // check on destructive self-actions (Change Email / Change Password).
+  static currentPasswordInvalid(): AuthException {
+    return new AuthException(
+      AuthErrorCode.CURRENT_PASSWORD_INVALID,
+      'Current password is incorrect',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
 }
