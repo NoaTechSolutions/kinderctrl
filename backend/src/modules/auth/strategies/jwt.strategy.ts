@@ -19,7 +19,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     private prisma: PrismaService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // Header Bearer is the primary path (all apiRequest calls). The
+      // `?token=` query fallback is required for binary file downloads
+      // (window.open can't set an Authorization header) — used by the
+      // payroll exports (period, staff PDF, custom range). The access
+      // token is short-lived; accept it from the query as a fallback only.
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        ExtractJwt.fromUrlQueryParameter('token'),
+      ]),
       ignoreExpiration: false,
       secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
     });

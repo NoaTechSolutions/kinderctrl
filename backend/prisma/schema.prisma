@@ -93,6 +93,7 @@ model User {
 
   // Reverse relations
   ownedCenters        Center[]             @relation("CenterOwner")
+  payrollAdjustments  PayrollAdjustment[]  @relation("PayrollAdjuster")
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
 
@@ -218,6 +219,11 @@ model Center {
   // Status
   status CenterStatus @default(SETUP_PENDING)
 
+  // KinderCtrl Admin center: a single special center used as a holding area
+  // (e.g. a director "in transit" after being removed). Undeletable,
+  // unrenamable, status-locked, and hidden from DIRECTOR/STAFF lists.
+  isAdminCenter Boolean @default(false) @map("is_admin_center")
+
   // Relations
   ownerId String @map("owner_id") @db.Uuid
   owner   User   @relation("CenterOwner", fields: [ownerId], references: [id])
@@ -241,6 +247,7 @@ model Center {
   attendanceApprovals AttendanceApproval[]
   payrollSettings     PayrollSettings?
   payrollPeriods      PayrollPeriod[]
+  payrollAdjustments  PayrollAdjustment[]
   kioskSettings       KioskSettings?
 
   // Timestamps
@@ -384,6 +391,14 @@ model Staff {
 
   status StaffStatus @default(INVITED)
 
+  // Kiosk PIN — per-staff 4-digit PIN for clock-in/out at the shared kiosk.
+  // Hashed with bcrypt. Locks after 3 failed attempts; the director
+  // unlocks/resets. Used ONLY for the kiosk (never for app login).
+  kioskPin          String?   @map("kiosk_pin")
+  kioskPinFailCount Int       @default(0) @map("kiosk_pin_fail_count")
+  kioskPinLocked    Boolean   @default(false) @map("kiosk_pin_locked")
+  kioskPinSetAt     DateTime? @map("kiosk_pin_set_at")
+
   // Background Check compliance — PO QA #46 simplification.
   // `status` models the *process phase* (where the check is in its
   // lifecycle); `approved` carries the *outcome* and only matters when
@@ -415,6 +430,7 @@ model Staff {
   classroomStaff ClassroomStaff[]
   // Attendance module
   timeEntries         StaffTimeEntry[]
+  payrollAdjustments  PayrollAdjustment[]
   correctionRequests  CorrectionRequest[]
   schedules           Schedule[]
   attendanceApprovals AttendanceApproval[]
@@ -1169,6 +1185,10 @@ model PayrollPeriod {
   startDate   DateTime     @map("start_date") @db.Date
   endDate     DateTime     @map("end_date") @db.Date
   status      PeriodStatus @default(OPEN)
+  // The pay-frequency this period was created under — lets the history be
+  // filtered by type (Weekly/Biweekly/Monthly). Set from PayrollSettings at
+  // creation; defaults to WEEKLY for any pre-existing rows.
+  frequency   PayFrequency @default(WEEKLY)
   approvedBy  String?      @map("approved_by") @db.Uuid
   approvedAt  DateTime?    @map("approved_at")
 
@@ -1176,6 +1196,37 @@ model PayrollPeriod {
 
   @@index([centerId, startDate])
   @@map("payroll_periods")
+}
+
+model PayrollAdjustment {
+  id       String   @id @default(uuid()) @db.Uuid
+  staffId  String   @map("staff_id") @db.Uuid
+  staff    Staff    @relation(fields: [staffId], references: [id])
+  centerId String   @map("center_id") @db.Uuid
+  center   Center   @relation(fields: [centerId], references: [id])
+  date     DateTime @db.Date
+
+  // Snapshot of the original punches at edit time (audit trail).
+  originalClockIn  DateTime? @map("original_clock_in")
+  originalClockOut DateTime? @map("original_clock_out")
+  originalBreakIn  DateTime? @map("original_break_in")
+  originalBreakOut DateTime? @map("original_break_out")
+
+  // Director-adjusted values applied to the payroll calculation.
+  adjustedClockIn  DateTime? @map("adjusted_clock_in")
+  adjustedClockOut DateTime? @map("adjusted_clock_out")
+  adjustedBreakIn  DateTime? @map("adjusted_break_in")
+  adjustedBreakOut DateTime? @map("adjusted_break_out")
+
+  reason     String
+  adjustedBy String   @map("adjusted_by") @db.Uuid
+  adjuster   User     @relation("PayrollAdjuster", fields: [adjustedBy], references: [id])
+  adjustedAt DateTime @default(now()) @map("adjusted_at")
+
+  // One active adjustment per staff per day (latest edit wins via upsert).
+  @@unique([staffId, date])
+  @@index([centerId, date])
+  @@map("payroll_adjustments")
 }
 
 model KioskSettings {

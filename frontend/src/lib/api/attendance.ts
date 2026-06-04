@@ -105,10 +105,15 @@ export interface ScheduleWithStaff extends Schedule {
   staff: { id: string; firstName: string; lastName: string };
 }
 
-export function getSchedules(query?: { staffId?: string; status?: string }) {
+export function getSchedules(query?: {
+  staffId?: string;
+  status?: string;
+  centerId?: string;
+}) {
   const params = new URLSearchParams();
   if (query?.staffId) params.set('staffId', query.staffId);
   if (query?.status) params.set('status', query.status);
+  if (query?.centerId) params.set('centerId', query.centerId);
   const qs = params.toString();
   return apiRequest<ScheduleWithStaff[]>(`/attendance/schedules${qs ? `?${qs}` : ''}`);
 }
@@ -128,8 +133,9 @@ export interface CreateScheduleData {
   }>;
 }
 
-export function createSchedule(data: CreateScheduleData) {
-  return apiRequest<Schedule>('/attendance/schedules', { method: 'POST', body: data });
+export function createSchedule(data: CreateScheduleData, centerId?: string) {
+  const qs = centerId ? `?centerId=${centerId}` : '';
+  return apiRequest<Schedule>(`/attendance/schedules${qs}`, { method: 'POST', body: data });
 }
 
 export function updateSchedule(id: string, data: { days: CreateScheduleData['days'] }) {
@@ -192,8 +198,9 @@ export function getMyCorrections() {
   return apiRequest<CorrectionRequest[]>('/attendance/corrections/my');
 }
 
-export function getCenterCorrections() {
-  return apiRequest<CorrectionRequest[]>('/attendance/corrections');
+export function getCenterCorrections(centerId?: string) {
+  const qs = centerId ? `?centerId=${centerId}` : '';
+  return apiRequest<CorrectionRequest[]>(`/attendance/corrections${qs}`);
 }
 
 export function approveCorrection(id: string, data?: {
@@ -322,6 +329,7 @@ export interface PayrollPeriod {
   startDate: string;
   endDate: string;
   status: 'OPEN' | 'APPROVED' | 'EXPORTED';
+  frequency: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
   approvedBy: string | null;
   approvedAt: string | null;
 }
@@ -334,6 +342,10 @@ export interface DayCalc {
   breakOut: string | null;
   regularHours: number;
   overtimeHours: number;
+  /** True when a PayrollAdjustment exists for this (staffId, date). */
+  adjusted: boolean;
+  /** Director's attendance-approval status for this day (null when not reviewed). */
+  approvalStatus?: 'APPROVED' | 'PENDING' | 'REJECTED' | null;
 }
 
 export interface StaffPayroll {
@@ -351,12 +363,17 @@ export interface PayrollReport {
   totals: { regularHours: number; overtimeHours: number; totalPay: number };
 }
 
-export function getPayrollSettings() {
-  return apiRequest<PayrollSettings | null>('/attendance/payroll/settings');
+export function getPayrollSettings(centerId?: string) {
+  const qs = centerId ? `?centerId=${centerId}` : '';
+  return apiRequest<PayrollSettings | null>(`/attendance/payroll/settings${qs}`);
 }
 
-export function upsertPayrollSettings(data: Omit<PayrollSettings, 'id' | 'centerId'>) {
-  return apiRequest<PayrollSettings>('/attendance/payroll/settings', {
+export function upsertPayrollSettings(
+  data: Omit<PayrollSettings, 'id' | 'centerId'>,
+  centerId?: string,
+) {
+  const qs = centerId ? `?centerId=${centerId}` : '';
+  return apiRequest<PayrollSettings>(`/attendance/payroll/settings${qs}`, {
     method: 'PATCH',
     body: data,
   });
@@ -384,7 +401,196 @@ export function getPayrollReport(periodId: string) {
   return apiRequest<PayrollReport>(`/attendance/payroll/periods/${periodId}/report`);
 }
 
+/** Payroll report (view) over an arbitrary date range — powers "View Full Report". */
+export function getRangeReport(from: string, to: string, centerId?: string) {
+  const params = new URLSearchParams({ from, to });
+  if (centerId) params.set('centerId', centerId);
+  return apiRequest<PayrollReport>(`/attendance/payroll/report/range?${params.toString()}`);
+}
+
+export function setPeriodFrequency(
+  frequency: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY',
+  centerId?: string,
+) {
+  const qs = centerId ? `?centerId=${centerId}` : '';
+  return apiRequest<PayrollPeriod>(`/attendance/payroll/period/set-frequency${qs}`, {
+    method: 'POST',
+    body: { frequency },
+  });
+}
+
 export function getExportUrl(periodId: string, format: 'xlsx' | 'pdf') {
   const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002';
   return `${API_URL}/attendance/payroll/periods/${periodId}/export/${format}`;
+}
+
+// ======================================================== payroll v2 (Hito 2)
+
+export interface PayrollSummary {
+  month: string;
+  totalRegularHours: number;
+  totalOvertimeHours: number;
+  totalCost: number;
+  activeStaff: number;
+}
+
+export interface PayrollMonthlyPoint {
+  month: string;
+  totalCost: number;
+  totalHours: number;
+}
+
+export interface PayrollWeeklyPoint {
+  weekStart: string;
+  regularHours: number;
+  overtimeHours: number;
+}
+
+export interface PayrollTeamRow {
+  staffId: string;
+  firstName: string;
+  lastName: string;
+  regularHours: number;
+  overtimeHours: number;
+  totalPay: number;
+  approvalState: string;
+  /** Scheduled hours for the month (from approved Schedule). */
+  scheduledHours: number;
+  /** True when at least one PayrollAdjustment exists for this staff in the month. */
+  correctionsPending: boolean;
+}
+
+/** DayCalc is already defined above — reused here for StaffPayrollDetail */
+export interface StaffPayrollDetail {
+  staff: { id: string; firstName: string; lastName: string; hourlyRate: number | null };
+  days: DayCalc[];
+  totalRegular: number;
+  totalOvertime: number;
+  totalPay: number;
+  /** Scheduled hours for the month (from approved Schedule). */
+  scheduledHours: number;
+}
+
+/** A single manual-adjustment audit record returned by GET /attendance/payroll/staff/:id/adjustments */
+export interface PayrollAdjustment {
+  id: string;
+  date: string;
+  reason: string;
+  adjustedAt: string;
+  original: {
+    ClockIn: string | null;
+    ClockOut: string | null;
+    BreakIn: string | null;
+    BreakOut: string | null;
+  };
+  adjusted: {
+    ClockIn: string | null;
+    ClockOut: string | null;
+    BreakIn: string | null;
+    BreakOut: string | null;
+  };
+  adjuster: { firstName: string; lastName: string };
+}
+
+/** Response from POST /attendance/payroll/approve-all */
+export interface ApproveAllResult {
+  approved: number;
+  skipped: number;
+}
+
+export interface AdjustPayrollHoursBody {
+  staffId: string;
+  date: string;
+  adjustedClockIn?: string;
+  adjustedClockOut?: string;
+  adjustedBreakIn?: string;
+  adjustedBreakOut?: string;
+  reason: string;
+}
+
+export function getPayrollSummary(month: string, centerId?: string) {
+  const params = new URLSearchParams({ month });
+  if (centerId) params.set('centerId', centerId);
+  return apiRequest<PayrollSummary>(`/attendance/payroll/summary?${params.toString()}`);
+}
+
+export function getPayrollMonthlyChart(months: number, centerId?: string) {
+  const params = new URLSearchParams({ months: String(months) });
+  if (centerId) params.set('centerId', centerId);
+  return apiRequest<PayrollMonthlyPoint[]>(`/attendance/payroll/chart/monthly?${params.toString()}`);
+}
+
+export function getPayrollWeeklyChart(month: string, centerId?: string) {
+  const params = new URLSearchParams({ month });
+  if (centerId) params.set('centerId', centerId);
+  return apiRequest<PayrollWeeklyPoint[]>(`/attendance/payroll/chart/weekly?${params.toString()}`);
+}
+
+export function getPayrollTeam(month: string, centerId?: string) {
+  const params = new URLSearchParams({ month });
+  if (centerId) params.set('centerId', centerId);
+  return apiRequest<PayrollTeamRow[]>(`/attendance/payroll/team?${params.toString()}`);
+}
+
+export function getPayrollStaff(staffId: string, month: string, centerId?: string) {
+  const params = new URLSearchParams({ month });
+  if (centerId) params.set('centerId', centerId);
+  return apiRequest<StaffPayrollDetail>(`/attendance/payroll/staff/${staffId}?${params.toString()}`);
+}
+
+export function getMyPayroll(month: string) {
+  return apiRequest<StaffPayrollDetail>(`/attendance/payroll/my?month=${month}`);
+}
+
+export function adjustPayrollHours(data: AdjustPayrollHoursBody, centerId?: string) {
+  const qs = centerId ? `?centerId=${centerId}` : '';
+  return apiRequest<{ adjustment: unknown; day: DayCalc }>(
+    `/attendance/payroll/hours${qs}`,
+    { method: 'PATCH', body: data },
+  );
+}
+
+/**
+ * Returns the URL for a staff member's personal PDF export.
+ * The JWT token must be appended as ?token=<accessToken> by the caller
+ * (mirrors the existing getExportUrl pattern).
+ */
+export function getMyPayrollPdfUrl(month: string): string {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002';
+  return `${API_URL}/attendance/payroll/my/export/pdf?month=${month}`;
+}
+
+/** GET /attendance/payroll/staff/:staffId/adjustments?month=YYYY-MM&centerId= */
+export function getStaffAdjustments(staffId: string, month: string, centerId?: string) {
+  const params = new URLSearchParams({ month });
+  if (centerId) params.set('centerId', centerId);
+  return apiRequest<PayrollAdjustment[]>(
+    `/attendance/payroll/staff/${staffId}/adjustments?${params.toString()}`,
+  );
+}
+
+/** POST /attendance/payroll/approve-all?month=YYYY-MM&centerId= */
+export function approveAllPayroll(month: string, centerId?: string) {
+  const params = new URLSearchParams({ month });
+  if (centerId) params.set('centerId', centerId);
+  return apiRequest<ApproveAllResult>(
+    `/attendance/payroll/approve-all?${params.toString()}`,
+    { method: 'POST', body: {} },
+  );
+}
+
+/**
+ * Returns the URL for a director's custom-range export.
+ * The JWT token must be appended as ?token=<accessToken> by the caller.
+ */
+export function getRangeExportUrl(
+  from: string,
+  to: string,
+  format: 'xlsx' | 'pdf',
+  centerId?: string,
+): string {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002';
+  const params = new URLSearchParams({ from, to, format });
+  if (centerId) params.set('centerId', centerId);
+  return `${API_URL}/attendance/payroll/export/range?${params.toString()}`;
 }

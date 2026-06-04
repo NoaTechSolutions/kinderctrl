@@ -69,11 +69,16 @@ import {
 
 export const scheduleKeys = {
   all: ['schedules'] as const,
-  list: (q?: { staffId?: string; status?: string }) => ['schedules', 'list', q] as const,
+  list: (q?: { staffId?: string; status?: string; centerId?: string }) =>
+    ['schedules', 'list', q] as const,
   detail: (id: string) => ['schedules', id] as const,
 };
 
-export function useSchedules(query?: { staffId?: string; status?: string }) {
+export function useSchedules(query?: {
+  staffId?: string;
+  status?: string;
+  centerId?: string;
+}) {
   return useQuery({
     queryKey: scheduleKeys.list(query),
     queryFn: () => getSchedules(query),
@@ -88,10 +93,12 @@ export function useScheduleById(id: string) {
   });
 }
 
-export function useCreateSchedule() {
+// centerId is bound at hook level (SUPER_ADMIN center detail). Omitting it
+// keeps the director's /attendance/schedules/new flow unchanged.
+export function useCreateSchedule(centerId?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: CreateScheduleData) => apiCreateSchedule(data),
+    mutationFn: (data: CreateScheduleData) => apiCreateSchedule(data, centerId),
     onSuccess: () => qc.invalidateQueries({ queryKey: scheduleKeys.all }),
   });
 }
@@ -140,7 +147,7 @@ export function useTeamToday(centerId?: string) {
 // corrections
 export const correctionKeys = {
   my: ['corrections', 'my'] as const,
-  center: ['corrections', 'center'] as const,
+  center: (centerId?: string) => ['corrections', 'center', centerId] as const,
 };
 
 export function useMyCorrections() {
@@ -151,8 +158,11 @@ export function useMyCorrections() {
   });
 }
 
-export function useCenterCorrections() {
-  return useQuery({ queryKey: correctionKeys.center, queryFn: getCenterCorrections });
+export function useCenterCorrections(centerId?: string) {
+  return useQuery({
+    queryKey: correctionKeys.center(centerId),
+    queryFn: () => getCenterCorrections(centerId),
+  });
 }
 
 export function useCreateCorrection() {
@@ -168,7 +178,8 @@ export function useApproveCorrection() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; directorComment?: string }) =>
       approveCorrection(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: correctionKeys.center }),
+    // Prefix invalidation covers every centerId-scoped corrections query.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['corrections', 'center'] }),
   });
 }
 
@@ -177,7 +188,8 @@ export function useRejectCorrection() {
   return useMutation({
     mutationFn: ({ id, directorComment }: { id: string; directorComment: string }) =>
       rejectCorrection(id, { directorComment }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: correctionKeys.center }),
+    // Prefix invalidation covers every centerId-scoped corrections query.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['corrections', 'center'] }),
   });
 }
 
@@ -190,14 +202,15 @@ import {
 } from '@/lib/api/attendance';
 
 export const approvalKeys = {
-  teamWeek: (weekStart: string) => ['attendance', 'team-week', weekStart] as const,
+  teamWeek: (weekStart: string, centerId?: string) =>
+    ['attendance', 'team-week', weekStart, centerId] as const,
   myApprovals: (weekStart?: string) => ['attendance', 'my-approvals', weekStart] as const,
 };
 
-export function useTeamWeek(weekStart: string) {
+export function useTeamWeek(weekStart: string, centerId?: string) {
   return useQuery({
-    queryKey: approvalKeys.teamWeek(weekStart),
-    queryFn: () => getTeamWeek(weekStart),
+    queryKey: approvalKeys.teamWeek(weekStart, centerId),
+    queryFn: () => getTeamWeek(weekStart, centerId),
     enabled: !!weekStart,
   });
 }
@@ -247,23 +260,42 @@ import {
   createPayrollPeriod,
   approvePayrollPeriod,
   getPayrollReport,
+  getRangeReport,
+  setPeriodFrequency,
 } from '@/lib/api/attendance';
 
 export const payrollKeys = {
+  // Default (no centerId) key — used by /reports/payroll director flow.
   settings: ['payroll', 'settings'] as const,
+  // Scoped key — used by SUPER_ADMIN center-detail tab to avoid collisions.
+  settingsForCenter: (centerId: string) => ['payroll', 'settings', centerId] as const,
   periods: ['payroll', 'periods'] as const,
   report: (id: string) => ['payroll', 'report', id] as const,
 };
 
-export function usePayrollSettings() {
-  return useQuery({ queryKey: payrollKeys.settings, queryFn: getPayrollSettings });
+// centerId is optional — omitting it keeps the /reports/payroll director flow
+// identical to before (same query key, same API call, no centerId param).
+export function usePayrollSettings(centerId?: string) {
+  return useQuery({
+    queryKey: centerId ? payrollKeys.settingsForCenter(centerId) : payrollKeys.settings,
+    queryFn: () => getPayrollSettings(centerId),
+  });
 }
 
-export function useUpsertPayrollSettings() {
+// centerId is bound at hook level (same pattern as useCreateSchedule).
+// Omitting it keeps the existing /reports/payroll director flow unchanged.
+export function useUpsertPayrollSettings(centerId?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: upsertPayrollSettings,
-    onSuccess: () => qc.invalidateQueries({ queryKey: payrollKeys.settings }),
+    mutationFn: (data: Parameters<typeof upsertPayrollSettings>[0]) =>
+      upsertPayrollSettings(data, centerId),
+    onSuccess: () => {
+      if (centerId) {
+        qc.invalidateQueries({ queryKey: payrollKeys.settingsForCenter(centerId) });
+      } else {
+        qc.invalidateQueries({ queryKey: payrollKeys.settings });
+      }
+    },
   });
 }
 
@@ -294,5 +326,153 @@ export function usePayrollReport(periodId: string) {
     queryKey: payrollKeys.report(periodId),
     queryFn: () => getPayrollReport(periodId),
     enabled: !!periodId,
+  });
+}
+
+export function usePayrollRangeReport(from: string, to: string, centerId?: string) {
+  return useQuery({
+    queryKey: ['payroll', 'report', 'range', from, to, centerId ?? null] as const,
+    queryFn: () => getRangeReport(from, to, centerId),
+    enabled: !!from && !!to,
+  });
+}
+
+/**
+ * Mutation: POST /attendance/payroll/period/set-frequency
+ * Upserts PayrollSettings.frequency, replaces the OPEN period with a new one
+ * whose range matches the requested frequency around today.
+ * Invalidates periods + settings so the UI refreshes automatically.
+ */
+export function useSetPeriodFrequency(centerId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (frequency: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY') =>
+      setPeriodFrequency(frequency, centerId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: payrollKeys.periods });
+      if (centerId) {
+        qc.invalidateQueries({ queryKey: payrollKeys.settingsForCenter(centerId) });
+      } else {
+        qc.invalidateQueries({ queryKey: payrollKeys.settings });
+      }
+    },
+  });
+}
+
+// ====================================================== payroll v2 hooks
+
+import {
+  getPayrollSummary,
+  getPayrollMonthlyChart,
+  getPayrollWeeklyChart,
+  getPayrollTeam,
+  getPayrollStaff,
+  getMyPayroll,
+  adjustPayrollHours,
+  getStaffAdjustments,
+  approveAllPayroll,
+  type AdjustPayrollHoursBody,
+} from '@/lib/api/attendance';
+
+export const payrollV2Keys = {
+  summary: (month: string, centerId?: string) =>
+    ['payroll', 'summary', month, centerId] as const,
+  monthlyChart: (months: number, centerId?: string) =>
+    ['payroll', 'chart', 'monthly', months, centerId] as const,
+  weeklyChart: (month: string, centerId?: string) =>
+    ['payroll', 'chart', 'weekly', month, centerId] as const,
+  team: (month: string, centerId?: string) =>
+    ['payroll', 'team', month, centerId] as const,
+  staff: (staffId: string, month: string, centerId?: string) =>
+    ['payroll', 'staff', staffId, month, centerId] as const,
+  staffAdjustments: (staffId: string, month: string, centerId?: string) =>
+    ['payroll', 'staff', staffId, 'adjustments', month, centerId] as const,
+  myPayroll: (month: string) =>
+    ['payroll', 'my', month] as const,
+};
+
+export function usePayrollSummary(month: string, centerId?: string) {
+  return useQuery({
+    queryKey: payrollV2Keys.summary(month, centerId),
+    queryFn: () => getPayrollSummary(month, centerId),
+    enabled: !!month,
+  });
+}
+
+export function usePayrollMonthlyChart(months: number, centerId?: string) {
+  return useQuery({
+    queryKey: payrollV2Keys.monthlyChart(months, centerId),
+    queryFn: () => getPayrollMonthlyChart(months, centerId),
+  });
+}
+
+export function usePayrollWeeklyChart(month: string, centerId?: string) {
+  return useQuery({
+    queryKey: payrollV2Keys.weeklyChart(month, centerId),
+    queryFn: () => getPayrollWeeklyChart(month, centerId),
+    enabled: !!month,
+  });
+}
+
+export function usePayrollTeam(month: string, centerId?: string) {
+  return useQuery({
+    queryKey: payrollV2Keys.team(month, centerId),
+    queryFn: () => getPayrollTeam(month, centerId),
+    enabled: !!month,
+  });
+}
+
+export function usePayrollStaff(staffId: string, month: string, centerId?: string) {
+  return useQuery({
+    queryKey: payrollV2Keys.staff(staffId, month, centerId),
+    queryFn: () => getPayrollStaff(staffId, month, centerId),
+    enabled: !!staffId && !!month,
+  });
+}
+
+export function useMyPayroll(month: string) {
+  return useQuery({
+    queryKey: payrollV2Keys.myPayroll(month),
+    queryFn: () => getMyPayroll(month),
+    enabled: !!month,
+  });
+}
+
+export function useAdjustPayrollHours(centerId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: AdjustPayrollHoursBody) => adjustPayrollHours(data, centerId),
+    onSuccess: () => {
+      // Invalidate all payroll v2 queries for this center scope.
+      qc.invalidateQueries({ queryKey: ['payroll', 'summary'] });
+      qc.invalidateQueries({ queryKey: ['payroll', 'chart'] });
+      qc.invalidateQueries({ queryKey: ['payroll', 'team'] });
+      qc.invalidateQueries({ queryKey: ['payroll', 'staff'] });
+    },
+  });
+}
+
+/** Query: GET /attendance/payroll/staff/:staffId/adjustments */
+export function useStaffAdjustments(staffId: string, month: string, centerId?: string) {
+  return useQuery({
+    queryKey: payrollV2Keys.staffAdjustments(staffId, month, centerId),
+    queryFn: () => getStaffAdjustments(staffId, month, centerId),
+    enabled: !!staffId && !!month,
+  });
+}
+
+/**
+ * Mutation: POST /attendance/payroll/approve-all
+ * Bulk-approves all pending payroll days for the given month.
+ * Invalidates team + staff payroll queries so the table refreshes.
+ */
+export function useApproveAllPayroll(centerId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (month: string) => approveAllPayroll(month, centerId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payroll', 'team'] });
+      qc.invalidateQueries({ queryKey: ['payroll', 'staff'] });
+    },
   });
 }

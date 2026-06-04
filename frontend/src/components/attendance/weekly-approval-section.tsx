@@ -107,10 +107,12 @@ type RejectTarget =
   | { kind: 'day'; staffId: string; staffName: string; date: string }
   | { kind: 'week'; staffId: string; staffName: string; weekStart: string };
 
-export function WeeklyApprovalSection() {
+export function WeeklyApprovalSection({ centerId }: { centerId?: string } = {}) {
   const [offset, setOffset] = useState(0);
   const week = useMemo(() => getWeek(offset), [offset]);
-  const { data, isLoading } = useTeamWeek(week.from);
+  // centerId is passed when embedded in the center detail (SUPER_ADMIN);
+  // undefined on the director's own /attendance/team page (their center).
+  const { data, isLoading } = useTeamWeek(week.from, centerId);
   const { timeFormat: tf } = useTimeFormat();
 
   const [dayDetail, setDayDetail] = useState<{ staff: TeamWeekStaff; day: TeamWeekDay } | null>(null);

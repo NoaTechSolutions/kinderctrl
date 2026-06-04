@@ -13,6 +13,10 @@ interface CardWithHeaderProps {
   action?: React.ReactNode;
   className?: string;
   contentClassName?: string;
+  /** Override the badge icon color (e.g. "text-green-500"). */
+  iconClassName?: string;
+  /** Override the badge title color (e.g. "text-green-500"). */
+  titleClassName?: string;
   children: React.ReactNode;
 }
 
@@ -22,14 +26,16 @@ export function CardWithHeader({
   action,
   className,
   contentClassName,
+  iconClassName,
+  titleClassName,
   children,
 }: CardWithHeaderProps) {
   return (
     <div className={cn('card-legend relative rounded-lg border border-border bg-card p-4 pt-6', className)}>
       {/* Title badge — notches the top border */}
       <div className="absolute -top-3 left-3 z-10 flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5">
-        {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />}
-        <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+        {Icon && <Icon className={cn('h-3.5 w-3.5 text-muted-foreground', iconClassName)} aria-hidden />}
+        <span className={cn('text-xs font-semibold uppercase tracking-wide text-foreground', titleClassName)}>
           {title}
         </span>
       </div>

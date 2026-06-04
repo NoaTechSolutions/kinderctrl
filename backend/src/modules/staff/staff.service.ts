@@ -170,6 +170,8 @@ const STAFF_SELECT = {
   activatedAt: true,
   center: { select: { id: true, name: true } },
   user: { select: { email: true } },
+  kioskPin: true,
+  kioskPinLocked: true,
 } satisfies Prisma.StaffSelect;
 
 type StaffWithCenter = Prisma.StaffGetPayload<{ select: typeof STAFF_SELECT }>;
@@ -436,7 +438,12 @@ export class StaffService {
   async findAll(
     userId: string,
     userRole: UserRole,
-    query: { page?: number; limit?: number; search?: string } = {},
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      centerId?: string;
+    } = {},
   ): Promise<{
     data: StaffResponseDto[];
     pagination: {
@@ -449,7 +456,10 @@ export class StaffService {
     let where: Prisma.StaffWhereInput;
 
     if (userRole === UserRole.SUPER_ADMIN) {
-      where = {};
+      // SUPER_ADMIN sees all staff, or a single center's when the detail
+      // page passes ?centerId. DIRECTOR/STAFF can't scope this way — their
+      // where is pinned to their own center below.
+      where = query.centerId ? { centerId: query.centerId } : {};
     } else if (userRole === UserRole.DIRECTOR) {
       const director = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -1744,6 +1754,103 @@ export class StaffService {
     throw new ForbiddenException('Insufficient permissions to invite staff');
   }
 
+  // ─── Kiosk PIN (per-staff, 4-digit, kiosk-only) ──────────────────────────
+
+  /** Director/SA sets (or replaces) a staff member's kiosk PIN. Resets the
+   *  fail counter / lock. */
+  async setKioskPin(
+    staffId: string,
+    pin: string,
+    actorId: string,
+    actorRole: UserRole,
+  ): Promise<{ success: true }> {
+    const staff = await this.prisma.staff.findUnique({
+      where: { id: staffId },
+      select: { id: true, centerId: true },
+    });
+    if (!staff) throw new NotFoundException('Staff not found');
+    await this.assertCanAccess(staff.centerId, staff.id, actorId, actorRole);
+
+    const hash = await bcrypt.hash(pin, 10);
+    await this.prisma.staff.update({
+      where: { id: staffId },
+      data: {
+        kioskPin: hash,
+        kioskPinSetAt: new Date(),
+        kioskPinFailCount: 0,
+        kioskPinLocked: false,
+      },
+    });
+    return { success: true };
+  }
+
+  /** Director/SA removes a staff member's kiosk PIN. */
+  async removeKioskPin(
+    staffId: string,
+    actorId: string,
+    actorRole: UserRole,
+  ): Promise<{ success: true }> {
+    const staff = await this.prisma.staff.findUnique({
+      where: { id: staffId },
+      select: { id: true, centerId: true },
+    });
+    if (!staff) throw new NotFoundException('Staff not found');
+    await this.assertCanAccess(staff.centerId, staff.id, actorId, actorRole);
+
+    await this.prisma.staff.update({
+      where: { id: staffId },
+      data: {
+        kioskPin: null,
+        kioskPinSetAt: null,
+        kioskPinFailCount: 0,
+        kioskPinLocked: false,
+      },
+    });
+    return { success: true };
+  }
+
+  /** Director/SA clears a kiosk PIN lockout (after 3 failed attempts). */
+  async unlockKioskPin(
+    staffId: string,
+    actorId: string,
+    actorRole: UserRole,
+  ): Promise<{ success: true }> {
+    const staff = await this.prisma.staff.findUnique({
+      where: { id: staffId },
+      select: { id: true, centerId: true },
+    });
+    if (!staff) throw new NotFoundException('Staff not found');
+    await this.assertCanAccess(staff.centerId, staff.id, actorId, actorRole);
+
+    await this.prisma.staff.update({
+      where: { id: staffId },
+      data: { kioskPinFailCount: 0, kioskPinLocked: false },
+    });
+    return { success: true };
+  }
+
+  /** Staff with a currently-locked kiosk PIN. DIRECTOR → own center; SA → all.
+   *  Powers the director dashboard "PIN locked" alert. */
+  async getLockedKioskPins(
+    userId: string,
+    userRole: UserRole,
+  ): Promise<Array<{ id: string; firstName: string; lastName: string }>> {
+    let centerId: string | undefined;
+    if (userRole === UserRole.DIRECTOR) {
+      const director = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { centerId: true },
+      });
+      if (!director?.centerId) return [];
+      centerId = director.centerId;
+    }
+    return this.prisma.staff.findMany({
+      where: { kioskPinLocked: true, ...(centerId ? { centerId } : {}) },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: { firstName: 'asc' },
+    });
+  }
+
   private async assertCanAccess(
     staffCenterId: string,
     staffId: string,
@@ -1804,6 +1911,9 @@ export class StaffService {
       emergencyContact2Phone: staff.emergencyContact2Phone,
       emergencyContact2Relationship: staff.emergencyContact2Relationship,
       profileComplete: staff.profileComplete,
+      // Kiosk PIN — never expose the hash, only the derived status.
+      kioskPinSet: staff.kioskPin != null,
+      kioskPinLocked: staff.kioskPinLocked,
       hourlyRate: staff.hourlyRate ? Number(staff.hourlyRate) : null,
       employmentType: staff.employmentType,
       phone: staff.phone,
