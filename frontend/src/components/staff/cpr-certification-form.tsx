@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 
 import { Button } from '@/components/ui/button';
+import { DateField } from '@/components/ui/date-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -127,7 +128,7 @@ export function CprCertificationForm({
           <Label htmlFor="cpr-cert-date" className="text-sm font-medium">
             {t('staff.cprCertificationDate')}
           </Label>
-          <Input
+          <DateField
             id="cpr-cert-date"
             type="date"
             className="h-10"
@@ -149,7 +150,7 @@ export function CprCertificationForm({
               </span>
             )}
           </Label>
-          <Input
+          <DateField
             id="cpr-expiry"
             type="date"
             className="h-10"

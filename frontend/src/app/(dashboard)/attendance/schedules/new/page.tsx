@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { ScheduleForm } from '@/components/attendance/schedule-form';
 import { useStaff } from '@/lib/hooks/use-staff';
 import { useCreateSchedule } from '@/lib/hooks/use-attendance';
+import { DateField } from '@/components/ui/date-field';
 
 type CreationType = 'specific' | 'single' | 'range' | 'month';
 
@@ -333,11 +334,11 @@ export default function NewSchedulePage() {
           </div>
           <div>
             <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>From Week (Monday)</label>
-            <input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} className={inputCls} style={inputStyle} />
+            <DateField value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} />
           </div>
           <div>
             <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>To Week (Monday)</label>
-            <input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className={inputCls} style={inputStyle} />
+            <DateField value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} />
           </div>
         </div>
       ) : (
@@ -355,7 +356,7 @@ export default function NewSchedulePage() {
             <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
               {creationType === 'month' ? 'Month (pick any date)' : 'Week Starting (Monday)'}
             </label>
-            <input type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} className={inputCls} style={inputStyle} />
+            <DateField value={weekStart} onChange={(e) => setWeekStart(e.target.value)} />
           </div>
         </div>
       )}

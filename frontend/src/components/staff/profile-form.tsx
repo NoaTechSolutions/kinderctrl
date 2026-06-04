@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 
 import { Button } from '@/components/ui/button';
+import { DateField } from '@/components/ui/date-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NumericInput } from '@/components/ui/numeric-input';
@@ -90,7 +91,7 @@ export function ProfileForm({
           <Label htmlFor="profile-dob" className="text-sm font-medium">
             {t('staff.dateOfBirth')}
           </Label>
-          <Input
+          <DateField
             id="profile-dob"
             type="date"
             disabled={mutation.isPending}

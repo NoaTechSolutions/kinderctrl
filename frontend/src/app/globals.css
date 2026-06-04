@@ -258,22 +258,12 @@
     outline: none;
   }
 
-  /* Date picker icon in dark mode (PO QA #10 BUG 2). The native calendar
-     icon ships as a dark glyph that's invisible on dark backgrounds —
-     invert it so it reads as light. Applies to every <input type="date">
-     in the app (DOB, hire date, bg-check date, cpr date, etc.). */
-  .dark input[type="date"]::-webkit-calendar-picker-indicator,
-  .dark input[type="time"]::-webkit-calendar-picker-indicator,
-  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-    filter: invert(1) brightness(1.2);
-    opacity: 0.7;
-    cursor: pointer;
-  }
-  .dark input[type="date"]::-webkit-calendar-picker-indicator:hover,
-  .dark input[type="time"]::-webkit-calendar-picker-indicator:hover,
-  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
-  }
+  /* Native date/time picker icons follow the element's `color-scheme`.
+     layout.tsx sets `color-scheme: dark` on <html>, so in dark mode the UA
+     already renders the calendar/clock glyph LIGHT — no filter needed. A
+     previous `filter: invert(1)` here DOUBLE-inverted that already-light glyph
+     back to black (reported app-wide, not just Payroll). Removed; color-scheme
+     handles it. The width reset below stays — it's unrelated (PO QA #61). */
 
   /* PO QA #61: native <input type="date"> on iOS Safari (and some
      WebKit/Android builds) has an *intrinsic* width derived from the
@@ -375,4 +365,23 @@
     margin-top: 1.5rem; /* 24px */
   }
 }
+
+/* DateField (components/ui/date-field.tsx) renders its OWN Lucide calendar icon
+   and opens the picker via showPicker(), so the native indicator must be hidden
+   in every viewport and theme (with appearance:none it renders a dark glyph that
+   shows up on light backgrounds → a duplicate icon). Scoped to .kc-date-field so
+   native <input type="time"> pickers (schedules, corrections, hours) keep theirs.
+   Plain CSS instead of a Tailwind arbitrary variant — more reliable than relying
+   on the JIT generating `[&::-webkit-calendar-picker-indicator]`. */
+.kc-date-field::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
+/* Shake animation — used by the kiosk staff-PIN screen on an incorrect PIN. */
+@keyframes kc-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
 

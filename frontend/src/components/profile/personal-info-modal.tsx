@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DateField } from '@/components/ui/date-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NameInput } from '@/components/ui/name-input';
@@ -377,7 +378,7 @@ export function PersonalInfoModal({
                 <Label htmlFor="profile-dob" className="text-sm font-medium">
                   {t('profile.dateOfBirth')}
                 </Label>
-                <Input
+                <DateField
                   id="profile-dob"
                   type="date"
                   disabled={mutation.isPending}
