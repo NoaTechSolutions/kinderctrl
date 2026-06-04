@@ -3,9 +3,11 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
-import { CenterStatus, Prisma } from '@prisma/client';
+import { CenterStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { CreateCenterDto } from './dto/create-center.dto';
 import { UpdateCenterDto } from './dto/update-center.dto';
 import { SetCenterHoursDto } from './dto/center-hours.dto';
@@ -17,7 +19,10 @@ const DEFAULT_LIMIT = 15;
 
 @Injectable()
 export class CentersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private email: EmailService,
+  ) {}
 
   /**
    * ARQUITECTURA DIRECTOR-CENTER (BUG-018, 2026-05-18):
@@ -73,9 +78,11 @@ export class CentersService {
     if (userRole === 'SUPER_ADMIN') {
       where = {};
     } else if (userRole === 'DIRECTOR') {
-      where = { ownerId: userId };
+      // isAdminCenter is hidden from everyone but SUPER_ADMIN (a director
+      // "in transit" is parked there but must not see it as a center).
+      where = { ownerId: userId, isAdminCenter: false };
     } else {
-      where = { users: { some: { id: userId } } };
+      where = { users: { some: { id: userId } }, isAdminCenter: false };
     }
 
     if (query.status) {
@@ -94,7 +101,9 @@ export class CentersService {
       this.prisma.center.findMany({
         where,
         include: { owner: { select: { id: true, email: true } } },
-        orderBy: { createdAt: 'desc' },
+        // Admin center always pinned first for SUPER_ADMIN; for other roles
+        // it's filtered out above so this is a no-op for them.
+        orderBy: [{ isAdminCenter: 'desc' }, { createdAt: 'desc' }],
         skip,
         take: limit,
       }),
@@ -117,7 +126,10 @@ export class CentersService {
     const center = await this.prisma.center.findUnique({
       where: { id },
       include: {
-        owner: { select: { id: true, email: true } },
+        // firstName/lastName power the Director card + Change Director dialog.
+        owner: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
         centerHours: { orderBy: { dayOfWeek: 'asc' } },
       },
     });
@@ -146,6 +158,12 @@ export class CentersService {
       throw new NotFoundException('Center not found');
     }
 
+    if (existing.isAdminCenter) {
+      throw new ForbiddenException(
+        'The KinderCtrl Admin center cannot be modified',
+      );
+    }
+
     if (updateCenterDto.status) {
       this.validateStatusTransition(existing.status, updateCenterDto.status);
     }
@@ -159,7 +177,117 @@ export class CentersService {
     });
   }
 
+  // SUPER_ADMIN transfers Director access of a center to another system
+  // user. Atomic: the old owner is demoted to STAFF, the new user is
+  // promoted to DIRECTOR and linked to this center, and ownership is
+  // reassigned — so the center is never left without a valid owner.
+  async changeDirector(centerId: string, newDirectorUserId: string) {
+    const center = await this.prisma.center.findUnique({
+      where: { id: centerId },
+      include: {
+        owner: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+    });
+    if (!center) {
+      throw new NotFoundException('Center not found');
+    }
+    if (center.isAdminCenter) {
+      throw new ForbiddenException(
+        'The KinderCtrl Admin center has no Director to change',
+      );
+    }
+
+    const newDirector = await this.prisma.user.findUnique({
+      where: { id: newDirectorUserId },
+      select: { id: true, email: true, firstName: true, lastName: true },
+    });
+    if (!newDirector) {
+      throw new NotFoundException('Selected user not found');
+    }
+    if (center.ownerId === newDirectorUserId) {
+      throw new ConflictException(
+        'That user is already the Director of this center',
+      );
+    }
+
+    // CAMBIO 3: the outgoing director is parked in the KinderCtrl Admin
+    // center "in transit" until a SUPER_ADMIN reassigns them.
+    const adminCenter = await this.prisma.center.findFirst({
+      where: { isAdminCenter: true },
+      select: { id: true },
+    });
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Demote the outgoing director → STAFF and move them to the Admin
+      // center (in transit). If the Admin center isn't seeded yet, leave
+      // their centerId untouched rather than fail the transfer. No Staff
+      // record is created here — out of scope for this transfer.
+      await tx.user.update({
+        where: { id: center.ownerId },
+        data: {
+          role: UserRole.STAFF,
+          ...(adminCenter ? { centerId: adminCenter.id } : {}),
+        },
+      });
+      await tx.user.update({
+        where: { id: newDirectorUserId },
+        data: { role: UserRole.DIRECTOR, centerId },
+      });
+      return tx.center.update({
+        where: { id: centerId },
+        data: { ownerId: newDirectorUserId },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          centerHours: { orderBy: { dayOfWeek: 'asc' } },
+        },
+      });
+    });
+
+    // Courtesy notifications — sent AFTER the transaction commits so an
+    // email outage can't roll back the transfer. EmailService logs failures.
+    const nameOf = (u: {
+      firstName: string | null;
+      lastName: string | null;
+    }) => [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || 'there';
+
+    void this.email
+      .send({
+        to: center.owner.email,
+        subject: 'Your Director access has been transferred',
+        html: `<p>Hi ${nameOf(center.owner)},</p><p>Your Director access for <strong>${center.name}</strong> has been transferred to another user by an administrator. Your account remains a Staff member of this center.</p>`,
+      })
+      .catch(() => undefined);
+    void this.email
+      .send({
+        to: newDirector.email,
+        subject: `You have been assigned as Director of ${center.name}`,
+        html: `<p>Hi ${nameOf(newDirector)},</p><p>You have been assigned as the Director of <strong>${center.name}</strong>. You now have full management access to this center.</p>`,
+      })
+      .catch(() => undefined);
+
+    return updated;
+  }
+
   async remove(id: string) {
+    const target = await this.prisma.center.findUnique({
+      where: { id },
+      select: { isAdminCenter: true },
+    });
+    if (target?.isAdminCenter) {
+      throw new ForbiddenException(
+        'The KinderCtrl Admin center cannot be deleted',
+      );
+    }
+
     const childrenCount = await this.prisma.child.count({
       where: {
         centerId: id,
@@ -184,6 +312,12 @@ export class CentersService {
 
     if (!center) {
       throw new NotFoundException('Center not found');
+    }
+
+    if (center.isAdminCenter) {
+      throw new ForbiddenException(
+        'The KinderCtrl Admin center cannot be modified',
+      );
     }
 
     for (const hour of setCenterHoursDto.hours) {

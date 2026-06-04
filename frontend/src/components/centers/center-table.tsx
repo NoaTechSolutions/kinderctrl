@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n';
 import { useAuthStore } from '@/store/auth';
 import { StatusBadge } from './status-badge';
+import { AdminCenterBadge } from './admin-center-badge';
 import { AdminActionsMenu } from './admin-actions-menu';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import type { Center } from '@/lib/types/center';
@@ -70,6 +71,9 @@ export function CenterTable({ centers }: CenterTableProps) {
                   <span className="block max-w-[200px] truncate">
                     {center.name}
                   </span>
+                  {center.isAdminCenter && (
+                    <AdminCenterBadge className="mt-1" />
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="text-sm">
@@ -102,8 +106,21 @@ export function CenterTable({ centers }: CenterTableProps) {
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => e.stopPropagation()}
                   >
-                    {isSuperAdmin ? (
+                    {isSuperAdmin && !center.isAdminCenter ? (
+                      // Normal centers: full kebab (view, edit, status, delete).
                       <AdminActionsMenu center={center} showView showEdit />
+                    ) : isSuperAdmin && center.isAdminCenter ? (
+                      // Admin center is system-managed — view only, no mutations.
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t('centers.view')}
+                      >
+                        <Link href={detailHref}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
                     ) : (
                       <>
                         <Button

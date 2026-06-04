@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { accountUnlockedTemplate } from '../email/templates/account-unlocked.template';
@@ -67,6 +67,42 @@ export class AdminService {
       lastLoginAt: u.lastLoginAt,
       center: u.center,
     }));
+  }
+
+  // System-wide user search for the Change Director picker. Returns a
+  // compact shape (id/name/email/role + current center) capped at 25 rows.
+  // SUPER_ADMIN only. A blank search returns the first 25 users.
+  async listUsers(actorRole: UserRole, search?: string, roles?: UserRole[]) {
+    this.assertSuperAdmin(actorRole);
+
+    const term = search?.trim();
+    const where: Prisma.UserWhereInput = {};
+    if (term) {
+      where.OR = [
+        { firstName: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { lastName: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { email: { contains: term, mode: Prisma.QueryMode.insensitive } },
+      ];
+    }
+    // Optional role filter (e.g. the Change Director picker passes
+    // [STAFF, DIRECTOR] to exclude PARENT/SUPER_ADMIN).
+    if (roles && roles.length > 0) {
+      where.role = { in: roles };
+    }
+
+    return this.prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        center: { select: { id: true, name: true } },
+      },
+      orderBy: [{ firstName: 'asc' }, { email: 'asc' }],
+      take: 25,
+    });
   }
 
   async unlockUser(

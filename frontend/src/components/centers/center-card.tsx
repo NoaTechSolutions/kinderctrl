@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from './status-badge';
+import { AdminCenterBadge } from './admin-center-badge';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import type { Center } from '@/lib/types/center';
 
@@ -86,8 +87,9 @@ export function CenterCard({ center }: CenterCardProps) {
                 >
                   {center.name}
                 </h3>
-                <div className="mt-1.5">
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   <StatusBadge status={center.status} />
+                  {center.isAdminCenter && <AdminCenterBadge />}
                 </div>
               </div>
               <ChevronDown
@@ -121,7 +123,8 @@ export function CenterCard({ center }: CenterCardProps) {
               <Button asChild className="flex-1">
                 <Link href={`/centers/${center.id}`}>{t('centers.view')}</Link>
               </Button>
-              {center.status !== 'CLOSED' && (
+              {/* Admin center is system-managed — edit is not permitted. */}
+              {!center.isAdminCenter && center.status !== 'CLOSED' && (
                 <Button asChild variant="outline" className="flex-1">
                   <Link href={`/centers/${center.id}/edit`}>
                     {t('centers.edit')}

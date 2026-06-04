@@ -14,6 +14,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { DateField } from '@/components/ui/date-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NumericInput } from '@/components/ui/numeric-input';
@@ -58,6 +59,10 @@ interface StaffInvitationFormProps {
   // Pass `setIsFormDirty` directly (stable reference) so the bubble
   // effect only re-fires when the dirty flag actually flips.
   onDirtyChange?: (isDirty: boolean) => void;
+  // In-tab dialog mode: when set, the center is pre-selected and the
+  // CenterCombobox is hidden. Backward-compatible — existing callers
+  // that omit this prop behave exactly as before.
+  lockedCenterId?: string;
 }
 
 export function StaffInvitationForm({
@@ -65,6 +70,7 @@ export function StaffInvitationForm({
   onCancel,
   prefillOpenDefault = false,
   onDirtyChange,
+  lockedCenterId,
 }: StaffInvitationFormProps = {}) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -75,7 +81,13 @@ export function StaffInvitationForm({
 
   const form = useForm<InviteStaffFormData>({
     resolver: zodResolver(inviteStaffSchema),
-    defaultValues: { email: '', centerId: undefined, prefill: undefined },
+    defaultValues: {
+      email: '',
+      // lockedCenterId pre-seeds the field so the hidden picker still
+      // satisfies the SUPER_ADMIN centerId validation on submit.
+      centerId: lockedCenterId ?? undefined,
+      prefill: undefined,
+    },
   });
 
   // Issue #5 — mirror the dirty flag up to the dialog (if any) so it
@@ -173,7 +185,11 @@ export function StaffInvitationForm({
         )}
       </div>
 
-      {isSuperAdmin && (
+      {/* Show the center picker for SUPER_ADMIN only when the center is
+          not already locked by the in-tab dialog context. When locked,
+          centerId is pre-seeded in defaultValues and the field is hidden
+          — the picker is not needed and would confuse the UX. */}
+      {isSuperAdmin && !lockedCenterId && (
         <div className="space-y-1.5">
           <Label htmlFor="invite-center" className="text-sm font-medium">
             {t('staff.inviteCenter')}
@@ -295,7 +311,7 @@ export function StaffInvitationForm({
               >
                 {t('staff.hireDate')}
               </Label>
-              <Input
+              <DateField
                 id="invite-prefill-hireDate"
                 type="date"
                 {...form.register('prefill.hireDate')}

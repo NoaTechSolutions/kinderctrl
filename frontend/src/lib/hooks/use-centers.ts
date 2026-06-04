@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  changeDirector,
   createCenter,
   deleteCenter,
   getCenter,
@@ -9,10 +10,10 @@ import {
   setCenterHours,
   updateCenter,
   type CenterHourInput,
+  type CenterPatchPayload,
 } from '@/lib/api/centers';
 import type {
   CenterFormData,
-  CenterUpdateData,
 } from '@/lib/schemas/center';
 import type { CentersQuery } from '@/lib/types/center';
 
@@ -32,12 +33,14 @@ export function useGlobalStats() {
   });
 }
 
-// Per-center stats for the detail page Overview tab.
-export function useCenterStats(id: string | undefined) {
+// Per-center stats for the detail page Overview tab. `enabled` lets callers
+// skip the fetch when the viewer can't access stats (the endpoint is
+// DIRECTOR/SUPER_ADMIN-only — STAFF would get a 403).
+export function useCenterStats(id: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ['center', id, 'stats'],
     queryFn: () => getCenterStats(id!),
-    enabled: !!id,
+    enabled: !!id && enabled,
   });
 }
 
@@ -86,7 +89,7 @@ export function useUpdateCenter() {
       data,
     }: {
       id: string;
-      data: CenterUpdateData;
+      data: CenterPatchPayload;
     }) => updateCenter(id, data),
     onSuccess: (updated) => {
       qc.invalidateQueries({ queryKey: centersQueryKeys.all });
@@ -120,6 +123,28 @@ export function useSetCenterHours() {
     }) => setCenterHours(id, hours),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: centersQueryKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: centersQueryKeys.all });
+    },
+  });
+}
+
+/**
+ * Transfer Director access of a center to a different system user.
+ * On success: invalidates centersQueryKeys.detail(centerId) AND
+ * centersQueryKeys.all so the Overview card refetches the new owner.
+ */
+export function useChangeDirector() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      centerId,
+      newDirectorUserId,
+    }: {
+      centerId: string;
+      newDirectorUserId: string;
+    }) => changeDirector(centerId, newDirectorUserId),
+    onSuccess: (_, { centerId }) => {
+      qc.invalidateQueries({ queryKey: centersQueryKeys.detail(centerId) });
       qc.invalidateQueries({ queryKey: centersQueryKeys.all });
     },
   });

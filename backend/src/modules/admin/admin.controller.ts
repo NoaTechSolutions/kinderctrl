@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
@@ -32,6 +33,26 @@ export class AdminController {
   @Get('users/locked')
   listLocked(@CurrentUser() user: AuthUser) {
     return this.adminService.listLockedUsers(user.role);
+  }
+
+  // System-wide user search for the Change Director picker. Optional
+  // `roles` is a CSV (e.g. "STAFF,DIRECTOR") to restrict eligible users.
+  @Get('users')
+  listUsers(
+    @CurrentUser() user: AuthUser,
+    @Query('search') search?: string,
+    @Query('roles') roles?: string,
+  ) {
+    const valid = Object.values(UserRole);
+    const roleList = roles
+      ? (roles
+          .split(',')
+          .map((r) => r.trim())
+          .filter((r): r is UserRole =>
+            valid.includes(r as UserRole),
+          ))
+      : undefined;
+    return this.adminService.listUsers(user.role, search, roleList);
   }
 
   @Post('users/:id/unlock')

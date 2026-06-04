@@ -209,8 +209,14 @@ export class StaffAttendanceService {
 
   // ======================================================== SCHEDULES
 
-  async createSchedule(dto: CreateScheduleDto, userId: string) {
-    const centerId = await this.resolveDirectorCenter(userId);
+  async createSchedule(
+    dto: CreateScheduleDto,
+    userId: string,
+    queryCenterId?: string,
+  ) {
+    // SUPER_ADMIN passes the target center (center detail Schedules tab);
+    // DIRECTOR ignores it and uses their own center.
+    const centerId = await this.resolveDirectorCenter(userId, queryCenterId);
 
     await this.ensureStaffBelongsToCenter(dto.staffId, centerId);
 
@@ -779,15 +785,20 @@ export class StaffAttendanceService {
       throw new ForbiddenException('Staff does not belong to your center');
   }
 
+  // Returns the actor's role so callers can branch on SUPER_ADMIN without a
+  // second query (e.g. the approval flow lets SUPER_ADMIN bypass the
+  // pending-correction guard). Existing callers that `await` without using
+  // the result are unaffected.
   private async ensureAccessToCenter(userId: string, centerId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { role: true, centerId: true },
     });
     if (!user) throw new NotFoundException('User not found');
-    if (user.role === 'SUPER_ADMIN') return;
+    if (user.role === 'SUPER_ADMIN') return user.role;
     if (user.centerId !== centerId)
       throw new ForbiddenException('You do not have access to this center');
+    return user.role;
   }
 
   private validateDays(days: { dayOfWeek: number; startTime?: string; endTime?: string; isOff?: boolean }[]) {
@@ -814,14 +825,16 @@ export class StaffAttendanceService {
       select: { centerId: true },
     });
     if (!staff) throw new NotFoundException('Staff not found');
-    await this.ensureAccessToCenter(userId, staff.centerId);
+    const actorRole = await this.ensureAccessToCenter(userId, staff.centerId);
 
     const dateValue = new Date(dto.date + 'T00:00:00.000Z');
     const weekStart = mondayOf(dateValue);
 
     // Cannot approve a day while a correction request is still pending for it
     // — the director hasn't really had a chance to review the final numbers.
-    if (dto.action === ApprovalAction.APPROVE) {
+    // SUPER_ADMIN can force the approval (TANDA 2D): they're the escalation
+    // path when a director is unavailable, so they bypass this guard.
+    if (dto.action === ApprovalAction.APPROVE && actorRole !== 'SUPER_ADMIN') {
       const pending = await this.prisma.correctionRequest.count({
         where: { staffId: dto.staffId, date: dateValue, status: 'PENDING' },
       });
@@ -867,11 +880,13 @@ export class StaffAttendanceService {
       select: { centerId: true },
     });
     if (!staff) throw new NotFoundException('Staff not found');
-    await this.ensureAccessToCenter(userId, staff.centerId);
+    const actorRole = await this.ensureAccessToCenter(userId, staff.centerId);
 
     const { startDate, endDate } = weekBounds(dto.weekStart);
 
-    if (dto.action === ApprovalAction.APPROVE) {
+    // SUPER_ADMIN bypasses the pending-correction guard (TANDA 2D) — same
+    // rationale as the per-day approval above.
+    if (dto.action === ApprovalAction.APPROVE && actorRole !== 'SUPER_ADMIN') {
       const pending = await this.prisma.correctionRequest.count({
         where: {
           staffId: dto.staffId,

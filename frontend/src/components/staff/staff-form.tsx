@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -17,6 +17,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DateField } from '@/components/ui/date-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NameInput } from '@/components/ui/name-input';
@@ -72,6 +73,16 @@ interface StaffFormProps {
   // When provided, only those sections render. Compliance + status
   // sections are unaffected by this filter (see comment above the type).
   sections?: ReadonlyArray<StaffFormSectionKey>;
+  // In-tab dialog mode: when set, the center is pre-selected and the
+  // CenterCombobox is hidden. The locked value is always sent in the
+  // payload (SUPER_ADMIN path). Backward-compatible — existing page
+  // callers that omit this prop behave exactly as before.
+  lockedCenterId?: string;
+  // Bubbles the form's `isDirty` flag so a wrapping dialog can intercept
+  // X / ESC / outside-click closes and show the branded discard-changes
+  // ConfirmDialog — same pattern as StaffInvitationForm / Issue #5.
+  // Omitting this prop has no effect on existing behavior.
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 // Role is locked to TEACHER per PO post-QA-2 decision (CAMBIO 2). The
@@ -198,6 +209,8 @@ export function StaffForm({
   onSubmit,
   onCancel,
   sections,
+  lockedCenterId,
+  onDirtyChange,
 }: StaffFormProps) {
   // PO QA #36 — section filter helper. Undefined sections means show
   // everything (preserves /staff/new + /staff/[id]/edit page behavior).
@@ -219,12 +232,25 @@ export function StaffForm({
 
   const form = useForm<StaffFormData>({
     resolver: zodResolver(staffCreateSchema),
-    defaultValues: toFormDefaults(initialData),
+    defaultValues: {
+      ...toFormDefaults(initialData),
+      // lockedCenterId overrides any value from initialData — the dialog
+      // always binds to the center it was opened from.
+      ...(lockedCenterId !== undefined ? { centerId: lockedCenterId } : {}),
+    },
   });
 
   const { rootMessage, fieldMessages } = extractFieldErrors(serverError);
   const requiredLabel = t('staff.fieldRequired');
   const unsavedMessage = t('staff.unsavedChangesPrompt');
+
+  // Bubble dirty flag to wrapping dialog (if any) so it can intercept
+  // X / ESC / outside-click closes with the same branded confirm flow
+  // as SendInvitationDialog (Issue #5 pattern).
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   useUnsavedChangesPrompt(
     form.formState.isDirty && !isSubmitting,
@@ -262,7 +288,9 @@ export function StaffForm({
   const isDirector = user?.role === 'DIRECTOR';
   // PO QA #45: Center is editable in edit mode too — SUPER_ADMIN-only.
   // DIRECTOR can't reassign staff between centers (cross-center op).
-  const showCenterSelect = isSuperAdmin;
+  // When lockedCenterId is supplied the picker is intentionally hidden —
+  // the center is already fixed to the tab's context.
+  const showCenterSelect = isSuperAdmin && lockedCenterId === undefined;
   // PO QA #55 (FEATURE 2): Email is editable by SUPER_ADMIN AND DIRECTOR
   // in edit mode. Both roles trigger the same destructive flow on save
   // (session revoke + setup-email to new address). STAFF/PARENT etc.
@@ -461,7 +489,7 @@ export function StaffForm({
           label={t('staff.dateOfBirth')}
           error={form.formState.errors.dateOfBirth?.message}
         >
-          <Input
+          <DateField
             id="dateOfBirth"
             type="date"
             disabled={isSubmitting}
@@ -700,7 +728,7 @@ export function StaffForm({
           label={t('staff.hireDate')}
           error={form.formState.errors.hireDate?.message}
         >
-          <Input
+          <DateField
             id="hireDate"
             type="date"
             disabled={isSubmitting}
@@ -1266,7 +1294,7 @@ function ComplianceEditBlock({
                       : undefined
                   }
                 >
-                  <Input
+                  <DateField
                     id="cprExpiryDate"
                     type="date"
                     disabled={isSubmitting}

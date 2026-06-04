@@ -27,11 +27,16 @@ import { StaffInvitationForm } from './staff-invitation-form';
 interface SendInvitationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Optional: when set, the center picker is hidden and the invitation
+  // is pre-scoped to this center. Backward-compatible — existing callers
+  // that omit this prop see the full center-selection flow as before.
+  lockedCenterId?: string;
 }
 
 export function SendInvitationDialog({
   open,
   onOpenChange,
+  lockedCenterId,
 }: SendInvitationDialogProps) {
   const { t } = useTranslation();
   const confirm = useConfirm();
@@ -94,6 +99,7 @@ export function SendInvitationDialog({
             void handleOpenChange(false);
           }}
           onDirtyChange={setIsFormDirty}
+          lockedCenterId={lockedCenterId}
         />
       </DialogContent>
     </Dialog>

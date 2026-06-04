@@ -1,5 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 // Query params for GET /staff. Mirrors FindAllCentersDto so the pagination
 // shape stays consistent across list endpoints. ValidationPipe (main.ts)
@@ -31,4 +39,11 @@ export class FindAllStaffQueryDto {
   @IsString()
   @MaxLength(200)
   search?: string;
+
+  // SUPER_ADMIN only: scope the list to one center (used by the center
+  // detail Staff tab). Ignored for DIRECTOR/STAFF — their list is already
+  // scoped to their own center by role in the service.
+  @IsOptional()
+  @IsUUID()
+  centerId?: string;
 }

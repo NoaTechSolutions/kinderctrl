@@ -10,6 +10,19 @@ import type {
   CenterUpdateData,
 } from '@/lib/schemas/center';
 
+// Geofence-only patch — used by the center detail Settings tab.
+// Kept separate so the Zod centerUpdateSchema (which drives the edit form)
+// doesn't need to change; the edit form continues to type-check correctly.
+export interface GeofencePatch {
+  latitude?: number | null;
+  longitude?: number | null;
+  geoFenceRadiusMeters?: number;
+}
+
+// Full patch payload — the edit form uses CenterUpdateData, the Settings
+// tab uses GeofencePatch. Any extra keys flow through to the PATCH body.
+export type CenterPatchPayload = CenterUpdateData & GeofencePatch;
+
 export function getCenters(query: CentersQuery = {}) {
   const params = new URLSearchParams();
   if (query.page != null) params.set('page', String(query.page));
@@ -51,7 +64,7 @@ export function createCenter(data: CenterFormData) {
   });
 }
 
-export function updateCenter(id: string, data: CenterUpdateData) {
+export function updateCenter(id: string, data: CenterPatchPayload) {
   const payload: Record<string, unknown> = { ...data };
   if (payload.licenseNumber === '') {
     payload.licenseNumber = null;
@@ -135,4 +148,18 @@ export interface CenterStats {
 
 export function getCenterStats(id: string) {
   return apiRequest<CenterStats>(`/centers/${id}/stats`, { method: 'GET' });
+}
+
+// =================================================== Change director (SUPER_ADMIN)
+
+/**
+ * Transfer Director access of a center to a different system user.
+ * PATCH /centers/:id/director  body { newDirectorUserId }
+ * Returns the updated Center (owner now reflects the new director).
+ */
+export function changeDirector(centerId: string, newDirectorUserId: string) {
+  return apiRequest<Center>(`/centers/${centerId}/director`, {
+    method: 'PATCH',
+    body: { newDirectorUserId },
+  });
 }

@@ -16,6 +16,7 @@ import { UserRole } from '@prisma/client';
 import { CentersService } from './centers.service';
 import { CreateCenterDto } from './dto/create-center.dto';
 import { UpdateCenterDto } from './dto/update-center.dto';
+import { ChangeDirectorDto } from './dto/change-director.dto';
 import { SetCenterHoursDto } from './dto/center-hours.dto';
 import { FindAllCentersDto } from './dto/find-all-centers.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -99,6 +100,19 @@ export class CentersController {
     @Body() updateCenterDto: UpdateCenterDto,
   ) {
     return this.centersService.update(id, updateCenterDto);
+  }
+
+  // Transfer Director access to another system user. SUPER_ADMIN only —
+  // NO CenterOwnershipGuard here (the SA is not the owner; that's the point).
+  @Patch(':id/director')
+  @SkipSetupCheck()
+  @Roles(UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async changeDirector(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ChangeDirectorDto,
+  ) {
+    return this.centersService.changeDirector(id, dto.newDirectorUserId);
   }
 
   @Delete(':id')

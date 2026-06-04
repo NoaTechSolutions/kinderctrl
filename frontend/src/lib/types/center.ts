@@ -3,6 +3,10 @@ export type CenterStatus = 'SETUP_PENDING' | 'ACTIVE' | 'SUSPENDED' | 'CLOSED';
 export interface CenterOwner {
   id: string;
   email: string;
+  // Director's name — present on GET /centers/:id (used by the Change
+  // Director card/dialog). Optional because list endpoints omit it.
+  firstName?: string | null;
+  lastName?: string | null;
 }
 
 export interface Center {
@@ -19,6 +23,9 @@ export interface Center {
   licenseNumber: string | null;
   timezone: string;
   status: CenterStatus;
+  // True only for the single "KinderCtrl Admin" center — drives the badge,
+  // first-in-list ordering, and the locked (no edit/delete/status) actions.
+  isAdminCenter: boolean;
   ownerId: string;
   setupCompletedAt: string | null;
   createdAt: string;
@@ -27,6 +34,11 @@ export interface Center {
   // Present on the GET /centers/:id response (operating hours are included
   // in the detail payload). Optional because list endpoints omit it.
   centerHours?: CenterHours[];
+  // Geofence — returned by GET /centers/:id as scalar fields.
+  // null when not yet configured; 0 means no geofence enforced.
+  latitude: number | null;
+  longitude: number | null;
+  geoFenceRadiusMeters: number;
 }
 
 export interface CenterHours {
