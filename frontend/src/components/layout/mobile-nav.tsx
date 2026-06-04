@@ -3,23 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Baby,
-  BarChart3,
-  Building2,
-  Calendar,
-  ChevronDown,
-  CreditCard,
-  GraduationCap,
-  Home,
-  Mail,
-  Settings,
-  ShieldAlert,
-  UserCog,
-  Users,
-  UsersRound,
-  type LucideIcon,
-} from 'lucide-react';
+import { ChevronDown, Settings } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -33,26 +17,12 @@ import {
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { useAuthStore } from '@/store/auth';
-import { useCenters } from '@/lib/hooks/use-centers';
-import { useTranslation } from '@/lib/i18n';
-
-interface NavItem {
-  title: string;
-  href: string;
-  icon: LucideIcon;
-  active: boolean;
-}
-
-interface NavGroup {
-  kind: 'group';
-  title: string;
-  icon: LucideIcon;
-  items: NavItem[];
-}
-
-type NavEntry = NavItem | NavGroup;
-const isGroup = (e: NavEntry): e is NavGroup => (e as NavGroup).kind === 'group';
+import {
+  useNavEntries,
+  isGroup,
+  type NavItem,
+  type NavGroup,
+} from './use-nav-entries';
 
 interface MobileNavProps {
   open: boolean;
@@ -61,119 +31,13 @@ interface MobileNavProps {
 
 export function MobileNav({ open, onOpenChange }: MobileNavProps) {
   const pathname = usePathname();
-  const { t } = useTranslation();
-  const user = useAuthStore((s) => s.user);
-  const { data: centers } = useCenters();
 
-  // See sidebar.tsx for rationale — mirror its role-aware Centers entry.
-  const centerItem: NavItem | null =
-    (user?.role === 'STAFF' || user?.role === 'PARENT') && user.centerId
-      ? {
-          title: t('centers.titleSingular'),
-          href: `/centers/${user.centerId}`,
-          icon: Building2,
-          active: true,
-        }
-      : user?.role === 'DIRECTOR' &&
-          (centers?.pagination.total ?? 0) >= 1 &&
-          centers!.data.length > 0
-        ? {
-            title: t('centers.titleSingular'),
-            href: `/centers/${centers!.data[0].id}`,
-            icon: Building2,
-            active: true,
-          }
-        : {
-            title: t('centers.title'),
-            href: '/centers',
-            icon: Building2,
-            active: true,
-          };
-
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-
-  // Mirror sidebar's "Users" group for SUPER_ADMIN (PO QA #7).
-  const usersGroup: NavGroup | null = isSuperAdmin
-    ? {
-        kind: 'group',
-        title: t('admin.usersGroup'),
-        icon: Users,
-        items: [
-          {
-            title: t('admin.staffNav'),
-            href: '/staff',
-            icon: GraduationCap,
-            active: true,
-          },
-          // PO QA #16 — mirror sidebar's SUPER_ADMIN Invitations entry.
-          {
-            title: t('admin.invitationsNav'),
-            href: '/admin/invitations',
-            icon: Mail,
-            active: true,
-          },
-          {
-            title: t('admin.directorsNav'),
-            href: '/admin/directors',
-            icon: UserCog,
-            active: true,
-          },
-          {
-            title: t('admin.parentsNav'),
-            href: '/admin/parents',
-            icon: UsersRound,
-            active: true,
-          },
-          {
-            title: t('admin.lockedAccountsNav'),
-            href: '/admin/locked-accounts',
-            icon: ShieldAlert,
-            active: true,
-          },
-        ],
-      }
-    : null;
-
-  // DIRECTOR Staff group with All Staff + Invitations sub-items (PO QA
-  // #14 AJUSTE 2). Mirrors the sidebar so mobile and desktop stay aligned.
-  const staffGroup: NavGroup | null =
-    user?.role === 'DIRECTOR'
-      ? {
-          kind: 'group',
-          title: t('admin.staffGroup'),
-          icon: Users,
-          items: [
-            {
-              title: t('admin.staffAllNav'),
-              href: '/staff',
-              icon: GraduationCap,
-              active: true,
-            },
-            {
-              title: t('admin.staffInvitationsNav'),
-              href: '/staff/invite',
-              icon: Mail,
-              active: true,
-            },
-          ],
-        }
-      : null;
-
-  // Hide flat Parents for SUPER_ADMIN (replaced by Users > Parents).
-  const parentsFlatItem: NavItem | null = isSuperAdmin
-    ? null
-    : { title: 'Parents', href: '/parents', icon: UserCog, active: false };
-
-  const NAV_ENTRIES: NavEntry[] = [
-    { title: 'Dashboard', href: '/dashboard', icon: Home, active: true },
-    ...(usersGroup ? [usersGroup] : []),
-    ...(centerItem ? [centerItem] : []),
-    { title: 'Children', href: '/children', icon: Baby, active: false },
-    ...(staffGroup ? [staffGroup] : []),
-    ...(parentsFlatItem ? [parentsFlatItem] : []),
-    { title: 'Attendance', href: '/attendance', icon: Calendar, active: false },
-    { title: 'Reports', href: '/reports', icon: BarChart3, active: false },
-    { title: 'Billing', href: '/billing', icon: CreditCard, active: false },
+  // Single source of truth — same role-aware tree the desktop sidebar renders,
+  // so mobile and desktop can never drift. We append Settings here because the
+  // sidebar renders it in its own separate bottom section (not in the shared
+  // entry list).
+  const NAV_ENTRIES: (NavItem | NavGroup)[] = [
+    ...useNavEntries(),
     { title: 'Settings', href: '/settings', icon: Settings, active: false },
   ];
 

@@ -3,29 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  Baby,
-  BarChart3,
-  Building2,
-  Calendar,
-  ChevronDown,
-  Clock,
-  ChevronLeft,
-  CreditCard,
-  DollarSign,
-  GraduationCap,
-  Home,
-  LogOut,
-  Store,
-  Mail,
-  Settings,
-  ShieldAlert,
-  User,
-  UserCog,
-  Users,
-  UsersRound,
-  type LucideIcon,
-} from 'lucide-react';
+import { ChevronDown, ChevronLeft, LogOut, Settings } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -34,29 +12,18 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/auth';
-import { useCenters } from '@/lib/hooks/use-centers';
 import { useTranslation } from '@/lib/i18n';
 import { logout as logoutApi } from '@/lib/api/auth';
+import {
+  useNavEntries,
+  isGroup,
+  type NavItem,
+  type NavGroup,
+} from './use-nav-entries';
 
-interface NavItem {
-  title: string;
-  href: string;
-  icon: LucideIcon;
-  active: boolean;
-}
-
-interface NavGroup {
-  kind: 'group';
-  title: string;
-  icon: LucideIcon;
-  items: NavItem[];
-}
-
-type SidebarEntry = NavItem | NavGroup;
-
-function isGroup(entry: SidebarEntry): entry is NavGroup {
-  return (entry as NavGroup).kind === 'group';
-}
+// Nav types, `isGroup`, and the role-aware entry tree now live in
+// ./use-nav-entries so the desktop Sidebar and the mobile Sheet nav share a
+// single source of truth and can never drift.
 
 const COLLAPSED_STORAGE_KEY = 'kc-sidebar-collapsed';
 
@@ -73,9 +40,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useTranslation();
-  const user = useAuthStore((s) => s.user);
   const clearTokens = useAuthStore((s) => s.clearTokens);
-  const { data: centers } = useCenters();
+  const NAV_ENTRIES = useNavEntries();
 
   // Persisted state — written to localStorage. The user's
   // "preferred" sidebar mode.
@@ -174,194 +140,6 @@ export function Sidebar() {
     setTempExpanded(true);
     setTempOpenGroup(groupTitle);
   };
-
-  // Role-aware Centers menu entry.
-  const centerItem: NavItem | null =
-    (user?.role === 'STAFF' || user?.role === 'PARENT') && user.centerId
-      ? {
-          title: t('centers.titleSingular'),
-          href: `/centers/${user.centerId}`,
-          icon: Building2,
-          active: true,
-        }
-      : user?.role === 'DIRECTOR' &&
-          (centers?.pagination.total ?? 0) >= 1 &&
-          centers!.data.length > 0
-        ? {
-            title: t('centers.titleSingular'),
-            href: `/centers/${centers!.data[0].id}`,
-            icon: Building2,
-            active: true,
-          }
-        : {
-            title: t('centers.title'),
-            href: '/centers',
-            icon: Building2,
-            active: true,
-          };
-
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-
-  const staffGroup: NavGroup | null =
-    user?.role === 'DIRECTOR'
-      ? {
-          kind: 'group',
-          title: t('admin.staffGroup'),
-          icon: Users,
-          items: [
-            {
-              title: t('admin.staffAllNav'),
-              href: '/staff',
-              icon: GraduationCap,
-              active: true,
-            },
-            {
-              title: t('admin.staffInvitationsNav'),
-              href: '/staff/invite',
-              icon: Mail,
-              active: true,
-            },
-          ],
-        }
-      : null;
-
-  const usersGroup: NavGroup | null = isSuperAdmin
-    ? {
-        kind: 'group',
-        title: t('admin.usersGroup'),
-        icon: Users,
-        items: [
-          {
-            title: t('admin.staffNav'),
-            href: '/staff',
-            icon: GraduationCap,
-            active: true,
-          },
-          {
-            title: t('admin.invitationsNav'),
-            href: '/admin/invitations',
-            icon: Mail,
-            active: true,
-          },
-          {
-            title: t('admin.directorsNav'),
-            href: '/admin/directors',
-            icon: UserCog,
-            active: true,
-          },
-          {
-            title: t('admin.parentsNav'),
-            href: '/admin/parents',
-            icon: UsersRound,
-            active: true,
-          },
-          {
-            title: t('admin.lockedAccountsNav'),
-            href: '/admin/locked-accounts',
-            icon: ShieldAlert,
-            active: true,
-          },
-        ],
-      }
-    : null;
-
-  const parentsFlatItem: NavItem | null = isSuperAdmin
-    ? null
-    : { title: 'Parents', href: '/parents', icon: UserCog, active: false };
-
-  const profileItem: NavItem = {
-    title: 'Profile',
-    href: '/profile',
-    icon: User,
-    active: true,
-  };
-
-  const attendanceEntry: SidebarEntry =
-    user?.role === 'STAFF'
-      ? {
-          kind: 'group',
-          title: 'Attendance',
-          icon: Calendar,
-          items: [
-            {
-              title: 'Time Clock',
-              href: '/attendance',
-              icon: Clock,
-              active: true,
-            },
-            {
-              title: 'My Schedule',
-              href: '/attendance/my-schedule',
-              icon: Calendar,
-              active: true,
-            },
-            {
-              title: 'My Corrections',
-              href: '/attendance/my-corrections',
-              icon: Settings,
-              active: true,
-            },
-          ],
-        }
-      : user?.role === 'DIRECTOR' || isSuperAdmin
-        ? {
-            kind: 'group',
-            title: 'Attendance',
-            icon: Calendar,
-            items: [
-              {
-                title: 'Team Clock',
-                href: '/attendance/team',
-                icon: Users,
-                active: true,
-              },
-              {
-                title: 'Corrections',
-                href: '/attendance/corrections',
-                icon: Settings,
-                active: true,
-              },
-              {
-                title: 'Schedules',
-                href: '/attendance/schedules',
-                icon: Calendar,
-                active: true,
-              },
-            ],
-          }
-        : { title: 'Attendance', href: '/attendance', icon: Calendar, active: false };
-
-  const NAV_ENTRIES: SidebarEntry[] = [
-    { title: 'Dashboard', href: '/dashboard', icon: Home, active: true },
-    profileItem,
-    ...(usersGroup ? [usersGroup] : []),
-    ...(centerItem ? [centerItem] : []),
-    { title: 'Children', href: '/children', icon: Baby, active: false },
-    ...(staffGroup ? [staffGroup] : []),
-    ...(parentsFlatItem ? [parentsFlatItem] : []),
-    attendanceEntry,
-    ...(user?.role === 'DIRECTOR' || isSuperAdmin
-      ? [{ title: 'Kiosk', href: '/kiosk-settings', icon: Store, active: true } satisfies NavItem]
-      : []),
-    ...(user?.role === 'DIRECTOR' || isSuperAdmin
-      ? [
-          {
-            kind: 'group' as const,
-            title: 'Reports',
-            icon: BarChart3,
-            items: [
-              {
-                title: 'Payroll',
-                href: '/reports/payroll',
-                icon: DollarSign,
-                active: true,
-              },
-            ],
-          } satisfies NavGroup,
-        ]
-      : [{ title: 'Reports', href: '/reports', icon: BarChart3, active: false } as NavItem]),
-    { title: 'Billing', href: '/billing', icon: CreditCard, active: false },
-  ];
 
   const handleLogout = async () => {
     try {
