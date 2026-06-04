@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -16,6 +17,7 @@ import { KioskService } from './kiosk.service';
 import { SetupKioskDto } from './dto/setup-kiosk.dto';
 import { KioskPunchDto } from './dto/kiosk-punch.dto';
 import { VerifyPinDto } from './dto/verify-pin.dto';
+import { VerifyStaffPinDto } from './dto/verify-staff-pin.dto';
 import { ResetPinConfirmDto } from './dto/reset-pin-confirm.dto';
 import { KioskGuard } from './guards/kiosk.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -35,8 +37,12 @@ export class KioskController {
   @Post('setup')
   @UseGuards(RolesGuard)
   @Roles('DIRECTOR' as any, 'SUPER_ADMIN' as any)
-  setup(@Body() dto: SetupKioskDto, @CurrentUser() user: any) {
-    return this.service.setup(dto, user.id);
+  setup(
+    @Body() dto: SetupKioskDto,
+    @CurrentUser() user: any,
+    @Query('centerId') centerId?: string,
+  ) {
+    return this.service.setup(dto, user.id, centerId);
   }
 
   @Post('activate')
@@ -64,8 +70,11 @@ export class KioskController {
   @Get('settings')
   @UseGuards(RolesGuard)
   @Roles('DIRECTOR' as any, 'SUPER_ADMIN' as any)
-  getSettings(@CurrentUser() user: any) {
-    return this.service.getSettings(user.id);
+  getSettings(
+    @CurrentUser() user: any,
+    @Query('centerId') centerId?: string,
+  ) {
+    return this.service.getSettings(user.id, centerId);
   }
 
   @Get('activity')
@@ -84,6 +93,18 @@ export class KioskController {
     return this.service.getStaffList(req.kioskCenter);
   }
 
+  // Fresh single-staff shift status — read after PIN so the kiosk reflects
+  // punches made on the phone (synced state, no duplicate Clock In).
+  @Public()
+  @UseGuards(KioskGuard)
+  @Get('staff-shift-status')
+  staffShiftStatus(
+    @Query('staffId', ParseUUIDPipe) staffId: string,
+    @Req() req: any,
+  ) {
+    return this.service.getStaffShiftStatus(staffId, req.kioskCenter);
+  }
+
   @Public()
   @UseGuards(KioskGuard)
   @Post('punch')
@@ -98,6 +119,15 @@ export class KioskController {
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   verifyPin(@Body() dto: VerifyPinDto, @Req() req: any) {
     return this.service.verifyPin(dto.pin, req.kioskCenter.id);
+  }
+
+  // Per-staff PIN for clock-in/out (3 attempts → lock).
+  @Public()
+  @UseGuards(KioskGuard)
+  @Post('verify-staff-pin')
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  verifyStaffPin(@Body() dto: VerifyStaffPinDto, @Req() req: any) {
+    return this.service.verifyStaffPin(dto.staffId, dto.pin, req.kioskCenter.id);
   }
 
   // Exit-screen "Forgot PIN" — disables the kiosk + emails a reset link.

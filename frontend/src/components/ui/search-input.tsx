@@ -38,6 +38,10 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         className="pl-9 pr-9 h-10"
         aria-label={ariaLabel ?? placeholder}
+        autoComplete="off"
+        name="search"
+        data-1p-ignore
+        data-lpignore="true"
       />
       {value && (
         <button

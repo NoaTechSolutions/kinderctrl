@@ -3,8 +3,24 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Edit, Eye, MoreVertical, Trash2 } from 'lucide-react';
+import {
+  Edit,
+  Eye,
+  KeyRound,
+  MoreVertical,
+  PauseCircle,
+  PlayCircle,
+  Trash2,
+} from 'lucide-react';
 import { toast } from '@/lib/toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 import {
   Table,
@@ -22,13 +38,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ApiError } from '@/lib/api/client';
-import { useDeleteStaff } from '@/lib/hooks/use-staff';
+import { useChangeStaffStatus, useDeleteStaff } from '@/lib/hooks/use-staff';
 import { useTranslation } from '@/lib/i18n';
 import { useAuthStore } from '@/store/auth';
 import type { Staff } from '@/lib/types/staff';
 import type { UserRole } from '@/store/auth';
 import { StaffStatusBadge } from './staff-status-badge';
 import { DeleteStaffDialog } from './delete-staff-dialog';
+import { KioskPinDialog } from './kiosk-pin-dialog';
 
 interface StaffTableProps {
   staff: Staff[];
@@ -54,6 +71,7 @@ export function StaffTable({ staff, userRole }: StaffTableProps) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const deleteMutation = useDeleteStaff();
+  const statusMutation = useChangeStaffStatus();
   const canManage =
     user?.role === 'DIRECTOR' || user?.role === 'SUPER_ADMIN';
   const showCenter = userRole === 'SUPER_ADMIN';
@@ -63,6 +81,34 @@ export function StaffTable({ staff, userRole }: StaffTableProps) {
   // this page (redirected elsewhere); defensive show.
   const showEmploymentType = userRole !== 'SUPER_ADMIN';
   const [pendingDelete, setPendingDelete] = useState<Staff | null>(null);
+  // Change Status confirmation target. ACTIVE→SUSPENDED or SUSPENDED→ACTIVE;
+  // the action is only offered for those two states (INVITED/TERMINATED have
+  // their own lifecycle).
+  const [pendingStatus, setPendingStatus] = useState<Staff | null>(null);
+  const [pinStaff, setPinStaff] = useState<Staff | null>(null);
+
+  const handleConfirmStatus = () => {
+    if (!pendingStatus) return;
+    const next = pendingStatus.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    statusMutation.mutate(
+      { id: pendingStatus.id, status: next },
+      {
+        onSuccess: () => {
+          toast.success(
+            next === 'SUSPENDED' ? 'Staff suspended' : 'Staff reactivated',
+          );
+          setPendingStatus(null);
+        },
+        onError: (err) => {
+          toast.error(
+            err instanceof ApiError && err.message
+              ? err.message
+              : 'Could not change status',
+          );
+        },
+      },
+    );
+  };
 
   const handleConfirmDelete = () => {
     if (!pendingDelete) return;
@@ -205,6 +251,33 @@ export function StaffTable({ staff, userRole }: StaffTableProps) {
                               {t('staff.edit')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setPinStaff(s);
+                              }}
+                            >
+                              <KeyRound className="h-4 w-4" />
+                              {s.kioskPinSet ? 'Manage Kiosk PIN' : 'Set Kiosk PIN'}
+                            </DropdownMenuItem>
+                            {(s.status === 'ACTIVE' ||
+                              s.status === 'SUSPENDED') && (
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  setPendingStatus(s);
+                                }}
+                              >
+                                {s.status === 'ACTIVE' ? (
+                                  <PauseCircle className="h-4 w-4" />
+                                ) : (
+                                  <PlayCircle className="h-4 w-4" />
+                                )}
+                                {s.status === 'ACTIVE'
+                                  ? 'Suspend'
+                                  : 'Reactivate'}
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
                               variant="destructive"
                               disabled={s.status === 'TERMINATED'}
                               onSelect={(e) => {
@@ -251,6 +324,60 @@ export function StaffTable({ staff, userRole }: StaffTableProps) {
           if (!o && !deleteMutation.isPending) setPendingDelete(null);
         }}
       />
+
+      <KioskPinDialog
+        staffId={pinStaff?.id ?? ''}
+        staffName={pinStaff ? `${pinStaff.firstName} ${pinStaff.lastName}` : ''}
+        isSet={pinStaff?.kioskPinSet ?? false}
+        open={!!pinStaff}
+        onOpenChange={(o) => {
+          if (!o) setPinStaff(null);
+        }}
+      />
+
+      <Dialog
+        open={!!pendingStatus}
+        onOpenChange={(o) => {
+          if (!o && !statusMutation.isPending) setPendingStatus(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          {pendingStatus && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {pendingStatus.status === 'ACTIVE'
+                    ? 'Suspend staff member?'
+                    : 'Reactivate staff member?'}
+                </DialogTitle>
+                <DialogDescription>
+                  {pendingStatus.firstName} {pendingStatus.lastName}
+                  {pendingStatus.status === 'ACTIVE'
+                    ? ' will be suspended and lose access until reactivated.'
+                    : ' will be reactivated and regain access.'}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setPendingStatus(null)}
+                  disabled={statusMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirmStatus}
+                  disabled={statusMutation.isPending}
+                >
+                  {pendingStatus.status === 'ACTIVE'
+                    ? 'Suspend'
+                    : 'Reactivate'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

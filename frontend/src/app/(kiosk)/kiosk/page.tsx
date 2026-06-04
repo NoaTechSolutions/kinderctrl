@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Baby,
+  Check,
   CalendarClock,
   Clock,
   Coffee,
+  Delete,
   Eye,
   EyeOff,
   Loader2,
@@ -36,8 +38,11 @@ import {
   getKioskStaff,
   kioskPunch,
   verifyKioskPin,
+  verifyStaffPin,
+  getStaffShiftStatus,
   requestKioskReset,
   KioskPinError,
+  KioskSessionError,
   type KioskStaff,
   type KioskPunchResponse,
 } from '@/lib/api/kiosk';
@@ -49,7 +54,7 @@ import {
 import { syncPendingPunches } from '@/lib/kiosk/sync-engine';
 import { KioskSkeleton } from '@/components/skeletons/kiosk-skeleton';
 
-type Screen = 'home' | 'staff' | 'punch' | 'success' | 'exit' | 'locked';
+type Screen = 'home' | 'staff' | 'pin' | 'punch' | 'success' | 'exit' | 'locked';
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   NOT_IN: { label: 'Not In', bg: 'var(--kc-text-3)', color: 'white' },
@@ -95,6 +100,7 @@ export default function KioskPage() {
   const [token, setToken] = useState<string | null>(null);
   const [timeoutMin, setTimeoutMin] = useState(2);
   const [centerName, setCenterName] = useState('');
+  const [timeFormat, setTimeFormat] = useState<'12h' | '24h'>('24h');
   const [staff, setStaff] = useState<KioskStaff[]>([]);
   const [loading, setLoading] = useState(true);
   const [screen, setScreen] = useState<Screen>('home');
@@ -103,6 +109,13 @@ export default function KioskPage() {
   const [lastPunch, setLastPunch] = useState<KioskPunchResponse | null>(null);
   const [lastPunchType, setLastPunchType] = useState<string>('');
   const [savedOffline, setSavedOffline] = useState(false);
+  // Staff PIN screen state
+  const [pinEntry, setPinEntry] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinAttemptsLeft, setPinAttemptsLeft] = useState<number | null>(null);
+  const [pinShake, setPinShake] = useState(false);
+  const [pinSubmitting, setPinSubmitting] = useState(false);
+  const [todayPunches, setTodayPunches] = useState<Record<string, string>>({});
   const [exitPin, setExitPin] = useState('');
   const [showExitPin, setShowExitPin] = useState(false);
   const [exitError, setExitError] = useState('');
@@ -158,13 +171,24 @@ export default function KioskPage() {
       const data = await getKioskStaff(token);
       setStaff(data.staff);
       setCenterName(data.center.name);
+      setTimeFormat(data.center.timeFormat);
       setDirectorEmail(data.center.directorEmail);
-    } catch {
-      // token might be invalid or offline
+    } catch (e) {
+      // A 401 means the kiosk session is dead (deactivated/rotated/expired).
+      // Drop the dead token and leave so KioskLockGuard releases us instead of
+      // trapping the user on a broken kiosk (the stale-token lockout incident).
+      if (e instanceof KioskSessionError) {
+        sessionStorage.removeItem('kc-kiosk-token');
+        sessionStorage.removeItem('kc-kiosk-timeout');
+        router.replace('/kiosk-settings');
+        return;
+      }
+      // Otherwise: offline or transient — keep the token and let the UI show
+      // its offline/empty state.
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, router]);
 
   useEffect(() => { fetchStaff(); }, [fetchStaff]);
 
@@ -224,10 +248,91 @@ export default function KioskPage() {
   // ── Handlers ──
 
   const handleSelectStaff = (s: KioskStaff) => {
+    // Gate on the per-staff PIN before reaching the punch screen.
+    if (s.kioskPinLocked) {
+      toast.error('PIN locked. Contact your director.');
+      return;
+    }
+    if (!s.kioskPinSet) {
+      toast.error('PIN not set. Contact your director.');
+      return;
+    }
     setSelectedStaff(s);
-    setScreen('punch');
-    setLastPunch(null);
-    setSavedOffline(false);
+    setPinEntry('');
+    setPinError('');
+    setPinAttemptsLeft(null);
+    setTodayPunches({});
+    setScreen('pin');
+  };
+
+  const submitStaffPin = async (pin: string) => {
+    if (!token || !selectedStaff || pin.length !== 4) return;
+    setPinSubmitting(true);
+    setPinError('');
+    try {
+      const result = await verifyStaffPin(token, selectedStaff.id, pin);
+      if (result.ok) {
+        setPinEntry('');
+        setLastPunch(null);
+        setSavedOffline(false);
+        // Read the FRESH shift status before showing options so the kiosk
+        // reflects any punch made on the phone (single synced state).
+        try {
+          const status = await getStaffShiftStatus(token, selectedStaff.id);
+          setSelectedStaff({
+            ...selectedStaff,
+            shiftStatus: status.shiftStatus,
+            workedMinutes: status.workedMinutes,
+          });
+          setTodayPunches(status.punches);
+        } catch {
+          // fall back to the staff-list snapshot if the refresh fails
+        }
+        setScreen('punch');
+        return;
+      }
+      if (result.reason === 'locked') {
+        toast.error('PIN locked. Contact your director.');
+        setSelectedStaff(null);
+        setScreen('home');
+        return;
+      }
+      if (result.reason === 'not_set') {
+        toast.error('PIN not set. Contact your director.');
+        setSelectedStaff(null);
+        setScreen('home');
+        return;
+      }
+      // wrong PIN → shake + show remaining attempts, let them retry
+      setPinEntry('');
+      setPinAttemptsLeft(result.attemptsRemaining ?? null);
+      setPinError('Incorrect PIN');
+      setPinShake(true);
+      setTimeout(() => setPinShake(false), 450);
+    } catch {
+      setPinEntry('');
+      setPinError('Connection error');
+    } finally {
+      setPinSubmitting(false);
+    }
+  };
+
+  const handlePinKey = (key: string) => {
+    if (pinSubmitting) return;
+    if (key === 'back') {
+      setPinError('');
+      setPinEntry((v) => v.slice(0, -1));
+      return;
+    }
+    if (key === 'ok') {
+      if (pinEntry.length === 4) void submitStaffPin(pinEntry);
+      return;
+    }
+    if (pinEntry.length >= 4) return;
+    const next = pinEntry + key;
+    setPinError('');
+    setPinEntry(next);
+    if (next.length === 4) void submitStaffPin(next); // auto-submit on 4th digit
   };
 
   const scheduleAutoReturn = () => {
@@ -291,7 +396,7 @@ export default function KioskPage() {
       await verifyKioskPin(token, exitPin);
       sessionStorage.removeItem('kc-kiosk-token');
       sessionStorage.removeItem('kc-kiosk-timeout');
-      router.replace('/kiosk-settings');
+      router.push('/dashboard');
     } catch (e) {
       if (e instanceof KioskPinError) {
         if (e.locked) {
@@ -427,11 +532,6 @@ export default function KioskPage() {
             <h1 className="text-lg font-bold leading-tight" style={{ color: 'var(--kc-text-1)' }}>
               {centerName || 'Kiosk'}
             </h1>
-            <p className="text-xs tabular-nums" style={{ color: 'var(--kc-text-3)' }}>
-              {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-              {' • '}
-              {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -451,34 +551,72 @@ export default function KioskPage() {
       <div className="flex-1 overflow-y-auto p-6">
         {/* ── HOME: 2 big cards ── */}
         {screen === 'home' && (
-          <div className="flex flex-col items-center justify-center h-full gap-8">
-            <h2 className="text-xl font-semibold" style={{ color: 'var(--kc-text-2)' }}>
-              What would you like to do?
-            </h2>
-            <div className="flex flex-wrap gap-6 justify-center">
+          <div className="flex flex-col items-center justify-center h-full gap-6 px-4 sm:gap-8">
+            {/* Welcome message — greeting by time of day */}
+            <div className="text-center">
+              <p className="text-2xl sm:text-3xl font-semibold" style={{ color: 'var(--kc-text-1)' }}>
+                {now.getHours() < 12
+                  ? 'Good morning'
+                  : now.getHours() < 18
+                    ? 'Good afternoon'
+                    : 'Good evening'}{' '}
+                👋
+              </p>
+              <p className="mt-1 text-sm" style={{ color: 'var(--kc-text-3)' }}>
+                Tap your name to clock in
+              </p>
+            </div>
+
+            {/* Big live clock — uses the existing `now` tick (updates each second);
+                12h/24h per the center owner's preference. */}
+            <div className="text-center">
+              <div
+                className="font-display text-4xl sm:text-6xl font-bold tabular-nums"
+                style={{ color: 'var(--kc-text-1)' }}
+              >
+                {now.toLocaleTimeString('en-US', {
+                  hour: timeFormat === '12h' ? 'numeric' : '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: timeFormat === '12h',
+                })}
+              </div>
+              <div className="mt-1 text-base sm:text-xl" style={{ color: 'var(--kc-text-3)' }}>
+                {now.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </div>
+            </div>
+
+            {/* Staff / Children — 2 columns, square on phones so they fit a
+                375px screen without overflow; fixed height from sm: up. */}
+            <div className="grid grid-cols-2 gap-3 w-full max-w-xl sm:gap-4">
               <button
                 type="button"
-                className="flex flex-col items-center justify-center gap-4 rounded-2xl border transition-shadow hover:shadow-xl active:scale-[0.98]"
-                style={{ width: '220px', height: '220px', borderColor: 'var(--kc-border)' }}
+                className="flex aspect-square w-full flex-col items-center justify-center gap-3 rounded-2xl border transition-shadow hover:shadow-xl active:scale-[0.98] sm:aspect-auto sm:h-[220px] sm:gap-4"
+                style={{ borderColor: 'var(--kc-border)' }}
                 onClick={() => setScreen('staff')}
               >
-                <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: 'var(--kc-p-600)1A' }}>
-                  <Users className="h-10 w-10" style={{ color: 'var(--kc-p-600)' }} />
+                <div className="flex h-14 w-14 items-center justify-center rounded-full sm:h-20 sm:w-20" style={{ background: 'var(--kc-p-600)1A' }}>
+                  <Users className="h-7 w-7 sm:h-10 sm:w-10" style={{ color: 'var(--kc-p-600)' }} />
                 </div>
-                <span className="text-xl font-semibold" style={{ color: 'var(--kc-text-1)' }}>Staff</span>
+                <span className="text-lg font-semibold sm:text-xl" style={{ color: 'var(--kc-text-1)' }}>Staff</span>
                 <span className="text-xs" style={{ color: 'var(--kc-text-3)' }}>Clock in / out</span>
               </button>
 
               <button
                 type="button"
-                className="flex flex-col items-center justify-center gap-4 rounded-2xl border transition-shadow hover:shadow-xl active:scale-[0.98]"
-                style={{ width: '220px', height: '220px', borderColor: 'var(--kc-border)' }}
+                className="flex aspect-square w-full flex-col items-center justify-center gap-3 rounded-2xl border transition-shadow hover:shadow-xl active:scale-[0.98] sm:aspect-auto sm:h-[220px] sm:gap-4"
+                style={{ borderColor: 'var(--kc-border)' }}
                 onClick={() => toast.info('Coming soon!')}
               >
-                <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: '#f59e0b1A' }}>
-                  <Baby className="h-10 w-10" style={{ color: '#f59e0b' }} />
+                <div className="flex h-14 w-14 items-center justify-center rounded-full sm:h-20 sm:w-20" style={{ background: '#f59e0b1A' }}>
+                  <Baby className="h-7 w-7 sm:h-10 sm:w-10" style={{ color: '#f59e0b' }} />
                 </div>
-                <span className="text-xl font-semibold" style={{ color: 'var(--kc-text-1)' }}>Children</span>
+                <span className="text-lg font-semibold sm:text-xl" style={{ color: 'var(--kc-text-1)' }}>Children</span>
                 <span className="text-xs" style={{ color: 'var(--kc-text-3)' }}>Check in / out</span>
               </button>
             </div>
@@ -546,6 +684,114 @@ export default function KioskPage() {
           </div>
         )}
 
+        {/* ── STAFF PIN ── */}
+        {screen === 'pin' && selectedStaff && (
+          <div className="flex flex-col items-center justify-center h-full gap-6">
+            <button
+              type="button"
+              className="text-sm flex items-center gap-1 self-start"
+              style={{ color: 'var(--kc-text-3)' }}
+              onClick={() => {
+                setScreen('staff');
+                setSelectedStaff(null);
+                setPinEntry('');
+                setPinError('');
+              }}
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+
+            <div className="text-center">
+              <h2 className="text-2xl font-bold" style={{ color: 'var(--kc-text-1)' }}>
+                {selectedStaff.firstName} {selectedStaff.lastName}
+              </h2>
+              <p className="mt-1 text-sm" style={{ color: 'var(--kc-text-3)' }}>
+                Enter your 4-digit PIN
+              </p>
+            </div>
+
+            {/* 4 dots */}
+            <div className={`flex gap-4 ${pinShake ? 'animate-[kc-shake_0.45s]' : ''}`}>
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-4 w-4 rounded-full border-2 transition-colors"
+                  style={{
+                    borderColor: pinError ? 'var(--kc-error)' : 'var(--kc-p-600)',
+                    background:
+                      i < pinEntry.length
+                        ? pinError
+                          ? 'var(--kc-error)'
+                          : 'var(--kc-p-600)'
+                        : 'transparent',
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* error + remaining attempts */}
+            <div className="h-5 text-sm font-medium" style={{ color: 'var(--kc-error)' }}>
+              {pinError && (
+                <>
+                  {pinError}
+                  {pinAttemptsLeft != null
+                    ? ` — ${pinAttemptsLeft} attempt${pinAttemptsLeft === 1 ? '' : 's'} left`
+                    : ''}
+                </>
+              )}
+            </div>
+
+            {/* numeric keypad */}
+            <div className="grid grid-cols-3 gap-3">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => handlePinKey(d)}
+                  disabled={pinSubmitting}
+                  className="h-16 w-16 rounded-full border text-2xl font-semibold transition-transform hover:bg-muted active:scale-95 disabled:opacity-50"
+                  style={{ borderColor: 'var(--kc-border)', color: 'var(--kc-text-1)' }}
+                >
+                  {d}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => handlePinKey('back')}
+                disabled={pinSubmitting}
+                aria-label="Delete"
+                className="h-16 w-16 rounded-full border flex items-center justify-center transition-transform hover:bg-muted active:scale-95 disabled:opacity-50"
+                style={{ borderColor: 'var(--kc-border)', color: 'var(--kc-text-3)' }}
+              >
+                <Delete className="h-6 w-6" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePinKey('0')}
+                disabled={pinSubmitting}
+                className="h-16 w-16 rounded-full border text-2xl font-semibold transition-transform hover:bg-muted active:scale-95 disabled:opacity-50"
+                style={{ borderColor: 'var(--kc-border)', color: 'var(--kc-text-1)' }}
+              >
+                0
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePinKey('ok')}
+                disabled={pinSubmitting || pinEntry.length !== 4}
+                aria-label="Confirm PIN"
+                className="h-16 w-16 rounded-full flex items-center justify-center text-white transition-transform active:scale-95 disabled:opacity-40"
+                style={{ background: 'var(--kc-p-600)' }}
+              >
+                {pinSubmitting ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <Check className="h-6 w-6" />
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── PUNCH: individual ── */}
         {screen === 'punch' && selectedStaff && (
           <div className="flex flex-col items-center justify-center h-full gap-6">
@@ -557,23 +803,61 @@ export default function KioskPage() {
             >
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
-            <div
-              className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold"
-              style={{
-                background: STATUS_CONFIG[getStaffStatus(selectedStaff)].bg + '22',
-                color: STATUS_CONFIG[getStaffStatus(selectedStaff)].bg,
-              }}
-            >
-              {selectedStaff.firstName[0]}{selectedStaff.lastName[0]}
-            </div>
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--kc-text-1)' }}>
+              {selectedStaff.firstName} {selectedStaff.lastName}
+            </h2>
+
+            {/* Live clock — same format (12h/24h) as the Home screen */}
             <div className="text-center">
-              <h2 className="text-2xl font-bold" style={{ color: 'var(--kc-text-1)' }}>
-                {selectedStaff.firstName} {selectedStaff.lastName}
-              </h2>
-              <p className="text-sm mt-1" style={{ color: 'var(--kc-text-3)' }}>
-                Status: {STATUS_CONFIG[getStaffStatus(selectedStaff)].label}
-                {' • '}{formatWorked(selectedStaff.workedMinutes)} worked
+              <div className="font-display text-4xl font-bold tabular-nums" style={{ color: 'var(--kc-text-1)' }}>
+                {now.toLocaleTimeString('en-US', {
+                  hour: timeFormat === '12h' ? 'numeric' : '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: timeFormat === '12h',
+                })}
+              </div>
+              <div className="text-sm" style={{ color: 'var(--kc-text-3)' }}>
+                {now.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </div>
+            </div>
+
+            {/* Today's punches — synced (kiosk + phone), same shift */}
+            <div className="w-full max-w-xs">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--kc-text-3)' }}>
+                Today&apos;s punches
               </p>
+              {Object.keys(todayPunches).length === 0 ? (
+                <p className="text-sm" style={{ color: 'var(--kc-text-3)' }}>No punches yet today</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {(['CLOCK_IN', 'BREAK_IN', 'BREAK_OUT', 'CLOCK_OUT'] as const)
+                    .filter((t) => todayPunches[t])
+                    .map((t) => {
+                      const cfg = PUNCH_LABELS[t];
+                      const Icon = cfg.icon;
+                      return (
+                        <div key={t} className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2" style={{ color: 'var(--kc-text-2)' }}>
+                            <Icon className="h-4 w-4" style={{ color: cfg.color }} /> {cfg.label}
+                          </span>
+                          <span className="tabular-nums" style={{ color: 'var(--kc-text-1)' }}>
+                            {new Date(todayPunches[t]).toLocaleTimeString('en-US', {
+                              hour: timeFormat === '12h' ? 'numeric' : '2-digit',
+                              minute: '2-digit',
+                              hour12: timeFormat === '12h',
+                            })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap gap-3 justify-center">
               {selectedStaff.shiftStatus.nextActions.length === 0 ? (

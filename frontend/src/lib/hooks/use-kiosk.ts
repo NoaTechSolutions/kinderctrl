@@ -11,14 +11,19 @@ import {
 } from '@/lib/api/kiosk';
 
 export const kioskKeys = {
+  // Default (no centerId) key — used by /kiosk-settings director flow.
   settings: ['kiosk', 'settings'] as const,
+  // Scoped key — used by SUPER_ADMIN center-detail tab to avoid collisions.
+  settingsForCenter: (centerId: string) => ['kiosk', 'settings', centerId] as const,
   activity: ['kiosk', 'activity'] as const,
 };
 
-export function useKioskSettings() {
+// centerId is optional — omitting it keeps the /kiosk-settings director flow
+// identical to before (same query key, same API call, no centerId param).
+export function useKioskSettings(centerId?: string) {
   return useQuery({
-    queryKey: kioskKeys.settings,
-    queryFn: getKioskSettings,
+    queryKey: centerId ? kioskKeys.settingsForCenter(centerId) : kioskKeys.settings,
+    queryFn: () => getKioskSettings(centerId),
   });
 }
 
@@ -30,11 +35,19 @@ export function useKioskActivity() {
   });
 }
 
-export function useSetupKiosk() {
+// centerId is bound at hook level (same pattern as useCreateSchedule).
+// Omitting it keeps the existing /kiosk-settings director flow unchanged.
+export function useSetupKiosk(centerId?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: setupKiosk,
-    onSuccess: () => qc.invalidateQueries({ queryKey: kioskKeys.settings }),
+    mutationFn: (data: Parameters<typeof setupKiosk>[0]) => setupKiosk(data, centerId),
+    onSuccess: () => {
+      if (centerId) {
+        qc.invalidateQueries({ queryKey: kioskKeys.settingsForCenter(centerId) });
+      } else {
+        qc.invalidateQueries({ queryKey: kioskKeys.settings });
+      }
+    },
   });
 }
 

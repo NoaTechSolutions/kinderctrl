@@ -19,6 +19,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { CardWithHeader } from '@/components/ui/card-with-header';
+import { KioskPinSection } from '@/components/staff/kiosk-pin-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -412,6 +413,12 @@ export default function StaffDetailPage() {
           <CardWithHeader icon={StickyNote} title={t('staff.notes')} className="md:col-span-2">
             <p className="text-sm whitespace-pre-wrap">{staff.notes}</p>
           </CardWithHeader>
+        )}
+
+        {canManage && (
+          <div className="md:col-span-2">
+            <KioskPinSection staff={staff} />
+          </div>
         )}
       </div>
 

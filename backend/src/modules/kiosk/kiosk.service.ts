@@ -38,8 +38,8 @@ export class KioskService {
     private readonly config: ConfigService,
   ) {}
 
-  async setup(dto: SetupKioskDto, userId: string) {
-    const centerId = await this.resolveDirectorCenter(userId);
+  async setup(dto: SetupKioskDto, userId: string, queryCenterId?: string) {
+    const centerId = await this.resolveDirectorCenter(userId, queryCenterId);
     const hashedPin = await bcrypt.hash(dto.pin, 10);
 
     // Setting (or resetting) a PIN clears the lockout counter and re-enables
@@ -121,8 +121,8 @@ export class KioskService {
     return { reset: true };
   }
 
-  async getSettings(userId: string) {
-    const centerId = await this.resolveDirectorCenter(userId);
+  async getSettings(userId: string, queryCenterId?: string) {
+    const centerId = await this.resolveDirectorCenter(userId, queryCenterId);
 
     const kiosk = await this.prisma.kioskSettings.findUnique({
       where: { centerId },
@@ -211,6 +211,59 @@ export class KioskService {
       data: { isEnabled: false, kioskSessionToken: null, failedPinAttempts: 0 },
     });
     return { valid: true };
+  }
+
+  /**
+   * Verify a STAFF member's per-person kiosk PIN (clock-in/out). 3 failed
+   * attempts → lock; the director unlocks/resets. Scoped to the kiosk's center
+   * so a token for one center can't probe another's staff. Returns a structured
+   * result the kiosk PIN screen branches on.
+   */
+  async verifyStaffPin(
+    staffId: string,
+    pin: string,
+    centerId: string,
+  ): Promise<
+    | { ok: true; staffId: string }
+    | { ok: false; reason: 'not_set' | 'locked' | 'wrong'; attemptsRemaining?: number }
+  > {
+    const staff = await this.prisma.staff.findFirst({
+      where: { id: staffId, centerId },
+      select: {
+        id: true,
+        kioskPin: true,
+        kioskPinFailCount: true,
+        kioskPinLocked: true,
+      },
+    });
+    if (!staff) throw new NotFoundException('Staff not found');
+
+    if (!staff.kioskPin) return { ok: false, reason: 'not_set' };
+    if (staff.kioskPinLocked) return { ok: false, reason: 'locked' };
+
+    const match = await bcrypt.compare(pin, staff.kioskPin);
+    if (match) {
+      if (staff.kioskPinFailCount > 0) {
+        await this.prisma.staff.update({
+          where: { id: staffId },
+          data: { kioskPinFailCount: 0 },
+        });
+      }
+      return { ok: true, staffId };
+    }
+
+    // Wrong PIN — increment; lock at the 3rd failure.
+    const newCount = staff.kioskPinFailCount + 1;
+    const locked = newCount >= 3;
+    await this.prisma.staff.update({
+      where: { id: staffId },
+      data: { kioskPinFailCount: newCount, kioskPinLocked: locked },
+    });
+    // When `locked` flips true the director is alerted on their dashboard,
+    // which polls GET /staff/kiosk-pin/locked (no push channel needed).
+    return locked
+      ? { ok: false, reason: 'locked' }
+      : { ok: false, reason: 'wrong', attemptsRemaining: 3 - newCount };
   }
 
   // Increments the failed-attempt counter. On the MAX_PIN_ATTEMPTS-th failure
@@ -376,6 +429,8 @@ export class KioskService {
         lastName: true,
         role: true,
         position: true,
+        kioskPin: true,
+        kioskPinLocked: true,
         timeEntries: {
           where: { date: today },
           orderBy: { deviceTimestamp: 'asc' },
@@ -410,6 +465,8 @@ export class KioskService {
         shiftStatus: buildShiftStatus(s.timeEntries),
         scheduleToday,
         workedMinutes: computeWorkedMinutes(s.timeEntries),
+        kioskPinSet: s.kioskPin != null,
+        kioskPinLocked: s.kioskPinLocked,
       };
     });
 
@@ -417,12 +474,42 @@ export class KioskService {
     // who the reset link will be sent to. The kiosk is a trusted device.
     const centerRecord = await this.prisma.center.findUnique({
       where: { id: center.id },
-      select: { owner: { select: { email: true } } },
+      select: { owner: { select: { email: true, timeFormat: true } } },
     });
 
     return {
-      center: { name: center.name, directorEmail: centerRecord?.owner?.email ?? null },
+      center: {
+        name: center.name,
+        directorEmail: centerRecord?.owner?.email ?? null,
+        // The kiosk has no logged-in user; honor the center owner/director's
+        // 12h/24h preference for the on-screen clock.
+        timeFormat:
+          centerRecord?.owner?.timeFormat === 'TWELVE_HOUR' ? '12h' : '24h',
+      },
       staff: staffList,
+    };
+  }
+
+  /** Fresh shift status for ONE staff. The kiosk reads this AFTER PIN entry so
+   *  the options reflect punches made on the phone (single synced state) — it
+   *  never trusts the staff-list snapshot. */
+  async getStaffShiftStatus(staffId: string, center: KioskCenter) {
+    const staff = await this.prisma.staff.findFirst({
+      where: { id: staffId, centerId: center.id, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!staff) throw new NotFoundException('Staff not found in this center');
+
+    const today = dateInTimezone(new Date(), center.timezone);
+    const entries = await this.prisma.staffTimeEntry.findMany({
+      where: { staffId, centerId: center.id, date: today },
+      orderBy: { deviceTimestamp: 'asc' },
+    });
+
+    return {
+      shiftStatus: buildShiftStatus(entries),
+      workedMinutes: computeWorkedMinutes(entries),
+      punches: Object.fromEntries(entries.map((e) => [e.type, e.deviceTimestamp])),
     };
   }
 
@@ -520,17 +607,25 @@ export class KioskService {
     }
   }
 
-  private async resolveDirectorCenter(userId: string): Promise<string> {
+  private async resolveDirectorCenter(
+    userId: string,
+    queryCenterId?: string,
+  ): Promise<string> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { role: true, centerId: true },
     });
 
     if (!user) throw new NotFoundException('User not found');
+    // SUPER_ADMIN operates a specific center via the center Settings tab and
+    // must pass centerId; DIRECTOR uses their own center and ignores it.
     if (user.role === 'SUPER_ADMIN') {
-      throw new ForbiddenException(
-        'Super admins must specify a center context',
-      );
+      if (!queryCenterId) {
+        throw new BadRequestException(
+          'Super admins must specify a center context (centerId)',
+        );
+      }
+      return queryCenterId;
     }
     if (!user.centerId) {
       throw new BadRequestException('User has no center assigned');

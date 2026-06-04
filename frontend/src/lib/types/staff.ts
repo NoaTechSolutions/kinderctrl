@@ -89,6 +89,9 @@ export interface Staff {
   emergencyContact2Phone: string | null;
   emergencyContact2Relationship: string | null;
   profileComplete: boolean;
+  // Kiosk PIN status (hash never sent to the client).
+  kioskPinSet: boolean;
+  kioskPinLocked: boolean;
   hourlyRate: number | null;
   // Free-form on the backend — typed as string here, narrow at display sites
   // if you need a specific union of values.
@@ -130,6 +133,8 @@ export interface StaffQuery {
   page?: number;
   limit?: number;
   search?: string;
+  // SUPER_ADMIN only: scope the list to one center (center detail Staff tab).
+  centerId?: string;
 }
 
 export interface StaffPaginationMeta {

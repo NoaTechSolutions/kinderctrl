@@ -33,6 +33,9 @@ export class StaffResponseDto {
   emergencyContact2Phone: string | null;
   emergencyContact2Relationship: string | null;
   profileComplete: boolean;
+  // Kiosk PIN status (the bcrypt hash itself is never sent to the client).
+  kioskPinSet: boolean;
+  kioskPinLocked: boolean;
   // Decimal in DB → number in API. Null when not set (Staff.hourlyRate optional).
   hourlyRate: number | null;
   employmentType: string;

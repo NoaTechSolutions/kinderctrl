@@ -8,6 +8,7 @@ import type {
   PaginatedStaff,
   Staff,
   StaffQuery,
+  StaffStatus,
 } from '@/lib/types/staff';
 import type {
   AcceptInvitationFormData,
@@ -36,6 +37,7 @@ export function getStaff(query: StaffQuery = {}) {
   if (query.page != null) params.set('page', String(query.page));
   if (query.limit != null) params.set('limit', String(query.limit));
   if (query.search) params.set('search', query.search);
+  if (query.centerId) params.set('centerId', query.centerId);
   const qs = params.toString();
   return apiRequest<PaginatedStaff>(qs ? `/staff?${qs}` : '/staff', {
     method: 'GET',
@@ -155,6 +157,16 @@ export function deleteStaff(id: string) {
   return apiRequest<void>(`/staff/${id}`, { method: 'DELETE' });
 }
 
+// Dedicated status transition (Activate ↔ Suspend). Sends ONLY status so it
+// can't accidentally clear other fields — PATCH /staff/:id treats every
+// other key as "leave alone". SUPER_ADMIN/DIRECTOR gated server-side.
+export function changeStaffStatus(id: string, status: StaffStatus) {
+  return apiRequest<Staff>(`/staff/${id}`, {
+    method: 'PATCH',
+    body: { status },
+  });
+}
+
 // ─── Invitation flow ──────────────────────────────────────────────
 
 // POST /staff/invite. centerId is required for SUPER_ADMIN; DIRECTOR omits
@@ -201,6 +213,34 @@ export function sendStaffPasswordReset(staffId: string) {
   return apiRequest<{ success: true; email: string }>(
     `/staff/${staffId}/send-password-reset`,
     { method: 'POST', body: {} },
+  );
+}
+
+// ── Kiosk PIN (per-staff) ──────────────────────────────────────────────────
+export function setStaffKioskPin(staffId: string, pin: string) {
+  return apiRequest<{ success: true }>(`/staff/${staffId}/kiosk-pin`, {
+    method: 'POST',
+    body: { pin },
+  });
+}
+
+export function removeStaffKioskPin(staffId: string) {
+  return apiRequest<{ success: true }>(`/staff/${staffId}/kiosk-pin`, {
+    method: 'DELETE',
+  });
+}
+
+export function unlockStaffKioskPin(staffId: string) {
+  return apiRequest<{ success: true }>(`/staff/${staffId}/kiosk-pin/unlock`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+/** Staff in the actor's center with a locked kiosk PIN (director dashboard alert). */
+export function getLockedKioskPins() {
+  return apiRequest<Array<{ id: string; firstName: string; lastName: string }>>(
+    '/staff/kiosk-pin/locked',
   );
 }
 

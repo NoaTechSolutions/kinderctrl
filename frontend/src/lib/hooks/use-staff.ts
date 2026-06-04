@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   acceptInvitation,
+  changeStaffStatus,
   createStaff,
   deleteStaff,
   getComplianceSummary,
@@ -13,6 +14,10 @@ import {
   resendInvitation,
   revokeInvitation,
   sendStaffPasswordReset,
+  setStaffKioskPin,
+  removeStaffKioskPin,
+  unlockStaffKioskPin,
+  getLockedKioskPins,
   updateBackgroundCheck,
   updateCpr,
   updateMyProfile,
@@ -20,7 +25,7 @@ import {
 } from '@/lib/api/staff';
 import { apiRequest } from '@/lib/api/client';
 import { useAuthStore, type AuthUser } from '@/store/auth';
-import type { InvitationsQuery, StaffQuery } from '@/lib/types/staff';
+import type { InvitationsQuery, StaffQuery, StaffStatus } from '@/lib/types/staff';
 import type {
   AcceptInvitationFormData,
   InviteStaffFormData,
@@ -41,6 +46,12 @@ export const staffQueryKeys = {
       'list',
       query.page ?? 1,
       query.limit ?? 25,
+      // The search term MUST be part of the cache key. Without it, typing
+      // a query reuses the cached (unsearched) page — React Query sees an
+      // unchanged key and never refetches, so the list shows stale, wrong
+      // results (e.g. searching a center name returned the full roster).
+      query.search ?? '',
+      query.centerId ?? '',
     ] as const,
   detail: (id: string) => ['staff', id] as const,
   invitation: (token: string) => ['staff', 'invitation', token] as const,
@@ -74,6 +85,20 @@ export function useCreateStaff() {
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: staffQueryKeys.all });
       qc.setQueryData(staffQueryKeys.detail(created.id), created);
+    },
+  });
+}
+
+// Status-only transition (Activate ↔ Suspend) from the staff table dropdown.
+// Invalidates the list so the row's badge updates, and seeds the detail cache.
+export function useChangeStaffStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: StaffStatus }) =>
+      changeStaffStatus(id, status),
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: staffQueryKeys.all });
+      qc.setQueryData(staffQueryKeys.detail(updated.id), updated);
     },
   });
 }
@@ -162,6 +187,39 @@ export function useResendInvitation() {
 export function useSendStaffPasswordReset() {
   return useMutation({
     mutationFn: (staffId: string) => sendStaffPasswordReset(staffId),
+  });
+}
+
+export function useSetStaffKioskPin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ staffId, pin }: { staffId: string; pin: string }) =>
+      setStaffKioskPin(staffId, pin),
+    onSuccess: () => qc.invalidateQueries({ queryKey: staffQueryKeys.all }),
+  });
+}
+
+export function useRemoveStaffKioskPin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (staffId: string) => removeStaffKioskPin(staffId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: staffQueryKeys.all }),
+  });
+}
+
+export function useUnlockStaffKioskPin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (staffId: string) => unlockStaffKioskPin(staffId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: staffQueryKeys.all }),
+  });
+}
+
+export function useLockedKioskPins(enabled = true) {
+  return useQuery({
+    queryKey: ['staff', 'kiosk-pin-locked'] as const,
+    queryFn: getLockedKioskPins,
+    enabled,
   });
 }
 

@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/lib/theme';
 import { TimeFormatProvider } from '@/lib/preferences/time-format';
 import { ConfirmProvider } from '@/lib/toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { KioskLockGuard } from '@/components/kiosk/kiosk-lock-guard';
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -60,6 +61,7 @@ export function Providers({ children }: { children: ReactNode }) {
                 the same root state. */}
             <TooltipProvider>
               <ConfirmProvider>
+                <KioskLockGuard />
                 {children}
                 <Toaster richColors position="top-right" closeButton />
               </ConfirmProvider>

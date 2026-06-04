@@ -23,6 +23,7 @@ import { InviteStaffDto } from './dto/invite-staff.dto';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { UpdateBackgroundCheckDto } from './dto/update-background-check.dto';
 import { UpdateCprDto } from './dto/update-cpr.dto';
+import { SetKioskPinDto } from './dto/set-kiosk-pin.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { FindAllStaffQueryDto } from './dto/find-all-staff-query.dto';
 import { FindAllInvitationsQueryDto } from './dto/find-all-invitations-query.dto';
@@ -177,6 +178,14 @@ export class StaffController {
     return this.staffService.findAll(user.id, user.role, query);
   }
 
+  // Staff with a locked kiosk PIN — powers the director dashboard alert.
+  // Declared before `@Get(':id')` so the static path wins routing.
+  @Get('kiosk-pin/locked')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  lockedKioskPins(@CurrentUser() user: AuthUser) {
+    return this.staffService.getLockedKioskPins(user.id, user.role);
+  }
+
   @Get(':id')
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -262,5 +271,38 @@ export class StaffController {
       user.role,
       req.ip,
     );
+  }
+
+  // ─── Kiosk PIN (per-staff) ───────────────────────────────────────────────
+
+  @Post(':id/kiosk-pin')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  setKioskPin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetKioskPinDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.staffService.setKioskPin(id, dto.pin, user.id, user.role);
+  }
+
+  @Delete(':id/kiosk-pin')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  removeKioskPin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.staffService.removeKioskPin(id, user.id, user.role);
+  }
+
+  @Post(':id/kiosk-pin/unlock')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  unlockKioskPin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.staffService.unlockKioskPin(id, user.id, user.role);
   }
 }

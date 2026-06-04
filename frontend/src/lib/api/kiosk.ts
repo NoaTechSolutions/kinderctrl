@@ -24,10 +24,12 @@ export interface KioskStaff {
   };
   scheduleToday: { startTime: string; endTime: string } | null;
   workedMinutes: number;
+  kioskPinSet: boolean;
+  kioskPinLocked: boolean;
 }
 
 export interface KioskStaffResponse {
-  center: { name: string; directorEmail: string | null };
+  center: { name: string; directorEmail: string | null; timeFormat: '12h' | '24h' };
   staff: KioskStaff[];
 }
 
@@ -88,12 +90,14 @@ export function getKioskActivity() {
   return apiRequest<KioskActivity>('/attendance/kiosk/activity');
 }
 
-export function getKioskSettings() {
-  return apiRequest<KioskSettings>('/attendance/kiosk/settings');
+export function getKioskSettings(centerId?: string) {
+  const qs = centerId ? `?centerId=${centerId}` : '';
+  return apiRequest<KioskSettings>(`/attendance/kiosk/settings${qs}`);
 }
 
-export function setupKiosk(data: { pin: string; timeoutMin: number }) {
-  return apiRequest<KioskSettings>('/attendance/kiosk/setup', {
+export function setupKiosk(data: { pin: string; timeoutMin: number }, centerId?: string) {
+  const qs = centerId ? `?centerId=${centerId}` : '';
+  return apiRequest<KioskSettings>(`/attendance/kiosk/setup${qs}`, {
     method: 'POST',
     body: data,
   });
@@ -127,10 +131,21 @@ export function resetKioskPin() {
   });
 }
 
+// Thrown when the kiosk session token is rejected (401) — i.e. the session was
+// deactivated, rotated, or expired server-side. Callers use this to escape the
+// kiosk gracefully (clear the dead token + leave) instead of trapping the user.
+export class KioskSessionError extends Error {
+  constructor() {
+    super('Kiosk session expired');
+    this.name = 'KioskSessionError';
+  }
+}
+
 export async function getKioskStaff(token: string) {
   const res = await fetch(`${API_URL}/attendance/kiosk/staff`, {
     headers: { 'x-kiosk-token': token, 'Content-Type': 'application/json' },
   });
+  if (res.status === 401) throw new KioskSessionError();
   if (!res.ok) throw new Error(`Kiosk staff fetch failed: ${res.status}`);
   return res.json() as Promise<KioskStaffResponse>;
 }
@@ -168,6 +183,61 @@ export async function kioskPunch(
     throw new Error(body.message ?? `Punch failed: ${res.status}`);
   }
   return res.json() as Promise<KioskPunchResponse>;
+}
+
+export interface VerifyStaffPinResult {
+  ok: boolean;
+  staffId?: string;
+  reason?: 'not_set' | 'locked' | 'wrong';
+  attemptsRemaining?: number;
+}
+
+// Verify a staff member's per-person kiosk PIN. Returns a structured result
+// (the backend returns 200 with {ok:false,...} for wrong/locked/not_set — it
+// only throws for staff-not-found / bad token).
+export async function verifyStaffPin(
+  token: string,
+  staffId: string,
+  pin: string,
+): Promise<VerifyStaffPinResult> {
+  const res = await fetch(`${API_URL}/attendance/kiosk/verify-staff-pin`, {
+    method: 'POST',
+    headers: { 'x-kiosk-token': token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ staffId, pin }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? `PIN check failed: ${res.status}`);
+  }
+  return res.json() as Promise<VerifyStaffPinResult>;
+}
+
+export interface KioskShiftStatus {
+  shiftStatus: {
+    clockedIn: boolean;
+    onBreak: boolean;
+    clockedOut: boolean;
+    nextActions: string[];
+  };
+  workedMinutes: number;
+  punches: Record<string, string>;
+}
+
+// Fresh single-staff shift status — read after PIN so the kiosk's options
+// reflect punches made on the phone (synced state, no duplicate Clock In).
+export async function getStaffShiftStatus(
+  token: string,
+  staffId: string,
+): Promise<KioskShiftStatus> {
+  const res = await fetch(
+    `${API_URL}/attendance/kiosk/staff-shift-status?staffId=${staffId}`,
+    { headers: { 'x-kiosk-token': token } },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? `Shift status failed: ${res.status}`);
+  }
+  return res.json() as Promise<KioskShiftStatus>;
 }
 
 // Exit-screen "Forgot PIN" — disables the kiosk and emails the director a
