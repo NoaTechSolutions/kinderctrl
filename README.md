@@ -4,8 +4,8 @@ SaaS platform for daycare/preschool management.
 
 ## Project Structure
 
-- `backend/` - NestJS API server (PRIMARY FOCUS)
-- `frontend/` - Next.js web application (coming soon)
+- `backend/` - NestJS API server
+- `frontend/` - Next.js web application
 - `mobile/` - React Native mobile app (coming later)
 
 ## Tech Stack
@@ -15,14 +15,14 @@ SaaS platform for daycare/preschool management.
 - Prisma ORM + PostgreSQL (Neon)
 - Redis 7.x (Upstash) - cache/queue
 - Stripe Connect - payments
-- SendGrid - email
+- Resend - email
 - Twilio - SMS
 - Firebase FCM - push notifications
 
 **Frontend:**
-- Next.js 14.x (App Router)
+- Next.js 15.x (App Router)
 - React 18.x + TypeScript
-- TailwindCSS 3.x + Zustand
+- Tailwind v4 + Zustand
 
 ## Documentation
 

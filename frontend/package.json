@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "kinderctrl-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -20,6 +20,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.75.0",
+    "recharts": "^3.8.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "zipcode-to-timezone": "^0.0.9",

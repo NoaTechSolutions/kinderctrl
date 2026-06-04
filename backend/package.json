@@ -1,7 +1,7 @@
 {
-  "name": "backend",
+  "name": "kinderctrl-backend",
   "version": "0.0.1",
-  "description": "",
+  "description": "KinderCtrl SaaS — NestJS API",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
@@ -19,6 +19,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

@@ -45,3 +45,6 @@ coverage/
 # Prisma
 prisma/dev.db
 prisma/dev.db-journal
+
+# Stray agent memory artifacts (engram auto-memory lives in ~/.claude)
+memory/
