@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Filter, Mail, Plus } from 'lucide-react';
@@ -82,11 +82,13 @@ export default function StaffPage() {
   // 300ms debounce — see useDebouncedValue. Pair with the server-side
   // search query param (`?search`) handled in staff.service.ts findAll.
   const debouncedQuery = useDebouncedValue(query, 300);
+  const searchTerm = debouncedQuery.trim();
+  const hasActiveSearch = searchTerm.length > 0;
 
   const { data, isLoading, error } = useStaff({
     page,
     limit,
-    ...(debouncedQuery.trim() && { search: debouncedQuery.trim() }),
+    ...(hasActiveSearch && { search: searchTerm }),
   });
   const staff = data?.data;
   const pagination = data?.pagination;
@@ -141,6 +143,20 @@ export default function StaffPage() {
     setQuery(next);
     if (page > 1) setPage(1);
   };
+
+  // BUG 1: snap back to page 1 when the requested page is past the last
+  // one. This happens when the desktop/mobile limit flips (skip then
+  // exceeds total → backend returns an empty slice) or the result set
+  // shrinks under the current page. Without this the list renders blank
+  // with no way back. totalPages floors at 1, so page 1 is always valid
+  // and the guard can't loop.
+  useEffect(() => {
+    if (!isLoading && pagination && page > pagination.totalPages) {
+      setPage(1);
+    }
+    // setPage is recreated each render; the meaningful inputs are below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, pagination?.totalPages, page]);
 
   // Search is now server-side; only status + role filters run client-side
   // (they're a follow-up; same pattern can move them to ?status=&role= later).
@@ -322,10 +338,30 @@ export default function StaffPage() {
 
       {isLoading && <StaffListSkeleton />}
 
-      {/* "All empty" check uses pagination.total (across ALL pages), not
-          staff.length (current page only) — otherwise landing on page 2
-          of an emptied list would show the empty state by mistake. */}
-      {!isLoading && pagination && pagination.total === 0 && <EmptyState />}
+      {/* Empty states split two ways (BUG 2). The "all empty" check uses
+          pagination.total (across ALL pages), not staff.length (current
+          page only) — landing on a now-empty page 2 is handled by the
+          snap-to-page-1 effect above, never here.
+            - total 0 + active search → search-specific message so a
+              zero-match query doesn't read as "this center has no staff"
+              (e.g. searching the center name "Sunshine").
+            - total 0 + no search → first-run empty state. */}
+      {!isLoading &&
+        pagination &&
+        pagination.total === 0 &&
+        (hasActiveSearch ? (
+          <div
+            className="text-center py-12"
+            style={{ color: 'var(--kc-text-3)' }}
+          >
+            <p className="text-sm">
+              {t('staff.noStaffFound')}{' '}
+              <span className="font-mono">&quot;{searchTerm}&quot;</span>
+            </p>
+          </div>
+        ) : (
+          <EmptyState />
+        ))}
 
       {!isLoading &&
         staff &&

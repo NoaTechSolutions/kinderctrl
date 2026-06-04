@@ -188,6 +188,10 @@ export const translations = {
       list: 'All staff',
       noStaff: 'No staff members yet',
       createFirst: 'Add your first staff member to get started',
+      // Search-specific empty state — distinct from `noStaff` so a query
+      // with zero matches doesn't read as "this center has no staff". The
+      // term is interpolated inline at the call site.
+      noStaffFound: 'No staff found for',
 
       firstName: 'First name',
       firstNamePlaceholder: 'e.g., Maria',
@@ -1027,6 +1031,7 @@ export const translations = {
       list: 'Todo el personal',
       noStaff: 'Aún no hay empleados',
       createFirst: 'Agregá tu primer empleado para empezar',
+      noStaffFound: 'No se encontró personal para',
 
       center: 'Centro',
       firstName: 'Nombre',
