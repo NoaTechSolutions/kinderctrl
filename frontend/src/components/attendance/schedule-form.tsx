@@ -84,72 +84,85 @@ export function ScheduleForm({
         </CardHeader>
       )}
       <CardContent className="space-y-3">
-        {/* Header row */}
-        <div className="grid grid-cols-[120px_1fr_1fr_60px_50px] gap-2 text-xs font-medium" style={{ color: 'var(--kc-text-3)' }}>
-          <span>Day</span>
-          <span>Start</span>
-          <span>End</span>
-          <span className="text-center">Hours</span>
-          <span className="text-center">OFF</span>
-        </div>
-
-        {days.map((d) => {
-          const dayInfo = DAYS.find((dd) => dd.iso === d.dayOfWeek)!;
-          const hours = dayHours(d);
-          return (
+        {/* Day/time config. Phones (<sm): horizontal scroll INSIDE this wrapper
+            with fixed, readable column widths and the Day column pinned (sticky
+            left-0 + solid bg). Desktop keeps the original fluid 1fr layout via
+            the sm: overrides, where the sticky/scroll are inert. */}
+        <div className="overflow-x-auto sm:overflow-x-visible">
+          <div className="space-y-3">
+            {/* Header row */}
             <div
-              key={d.dayOfWeek}
-              className="grid grid-cols-[120px_1fr_1fr_60px_50px] gap-2 items-center"
+              className="grid w-max grid-cols-[110px_100px_100px_56px_44px] gap-2 text-xs font-medium sm:w-auto sm:grid-cols-[120px_1fr_1fr_60px_50px]"
+              style={{ color: 'var(--kc-text-3)' }}
             >
-              <span
-                className="text-sm font-medium"
-                style={{ color: d.isOff ? 'var(--kc-text-3)' : 'var(--kc-text-1)' }}
-              >
-                {dayInfo.name}
+              <span className="sticky left-0 top-0 z-20 flex items-center self-stretch bg-[var(--kc-surface)] sm:static sm:bg-transparent">
+                Day
               </span>
-              {d.isOff ? (
-                <>
-                  <span className="text-xs text-center" style={{ color: 'var(--kc-text-3)' }}>—</span>
-                  <span className="text-xs text-center" style={{ color: 'var(--kc-text-3)' }}>—</span>
-                </>
-              ) : (
-                <>
-                  <input
-                    type="time"
-                    value={d.startTime}
-                    onChange={(e) => updateDay(d.dayOfWeek, { startTime: e.target.value })}
-                    disabled={readonly}
-                    className={inputCls}
-                    style={inputStyle}
-                  />
-                  <input
-                    type="time"
-                    value={d.endTime}
-                    onChange={(e) => updateDay(d.dayOfWeek, { endTime: e.target.value })}
-                    disabled={readonly}
-                    className={inputCls}
-                    style={inputStyle}
-                  />
-                </>
-              )}
-              <span
-                className="text-sm text-center tabular-nums"
-                style={{ color: hours > 0 ? 'var(--kc-text-1)' : 'var(--kc-text-3)' }}
-              >
-                {hours > 0 ? `${hours.toFixed(1)}` : '—'}
-              </span>
-              <div className="flex justify-center">
-                <input
-                  type="checkbox"
-                  checked={d.isOff}
-                  onChange={(e) => updateDay(d.dayOfWeek, { isOff: e.target.checked })}
-                  disabled={readonly}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-              </div>
+              <span>Start</span>
+              <span>End</span>
+              <span className="text-center">Hours</span>
+              <span className="text-center">OFF</span>
             </div>
-          );
-        })}
+
+            {days.map((d) => {
+              const dayInfo = DAYS.find((dd) => dd.iso === d.dayOfWeek)!;
+              const hours = dayHours(d);
+              return (
+                <div
+                  key={d.dayOfWeek}
+                  className="grid w-max grid-cols-[110px_100px_100px_56px_44px] gap-2 items-center sm:w-auto sm:grid-cols-[120px_1fr_1fr_60px_50px]"
+                >
+                  <span
+                    className="sticky left-0 z-10 flex items-center self-stretch pr-2 text-sm font-medium bg-[var(--kc-surface)] sm:static sm:bg-transparent"
+                    style={{ color: d.isOff ? 'var(--kc-text-3)' : 'var(--kc-text-1)' }}
+                  >
+                    {dayInfo.name}
+                  </span>
+                  {d.isOff ? (
+                    <>
+                      <span className="text-xs text-center" style={{ color: 'var(--kc-text-3)' }}>—</span>
+                      <span className="text-xs text-center" style={{ color: 'var(--kc-text-3)' }}>—</span>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="time"
+                        value={d.startTime}
+                        onChange={(e) => updateDay(d.dayOfWeek, { startTime: e.target.value })}
+                        disabled={readonly}
+                        className={inputCls}
+                        style={inputStyle}
+                      />
+                      <input
+                        type="time"
+                        value={d.endTime}
+                        onChange={(e) => updateDay(d.dayOfWeek, { endTime: e.target.value })}
+                        disabled={readonly}
+                        className={inputCls}
+                        style={inputStyle}
+                      />
+                    </>
+                  )}
+                  <span
+                    className="text-sm text-center tabular-nums"
+                    style={{ color: hours > 0 ? 'var(--kc-text-1)' : 'var(--kc-text-3)' }}
+                  >
+                    {hours > 0 ? `${hours.toFixed(1)}` : '—'}
+                  </span>
+                  <div className="flex justify-center">
+                    <input
+                      type="checkbox"
+                      checked={d.isOff}
+                      onChange={(e) => updateDay(d.dayOfWeek, { isOff: e.target.checked })}
+                      disabled={readonly}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Total */}
         <div

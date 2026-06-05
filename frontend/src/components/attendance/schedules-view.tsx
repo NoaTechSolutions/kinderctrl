@@ -439,13 +439,13 @@ function ScheduleStats({
         const Icon = card.icon;
         return (
           <Card key={card.label}>
-            <CardContent className="py-3 px-4 flex items-center gap-3">
+            <CardContent className="flex flex-col items-center gap-2 py-3 px-4 text-center">
               <div className="p-2 rounded-lg" style={{ background: card.color + '1A' }}>
                 <Icon className="h-4 w-4" style={{ color: card.color }} />
               </div>
-              <div className="min-w-0">
+              <div className="w-full min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--kc-text-3)' }}>{card.label}</p>
-                <p className="text-sm font-semibold truncate" style={{ color: 'var(--kc-text-1)' }}>{card.value}</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--kc-text-1)' }}>{card.value}</p>
               </div>
             </CardContent>
           </Card>

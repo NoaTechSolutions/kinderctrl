@@ -20,6 +20,14 @@ const STAFF_COLORS = [
   '#ec4899', '#06b6d4', '#ef4444', '#eab308',
 ];
 
+// Per-shift color WITHIN a single day for the staff "My Schedule" view. Shifts
+// are colored by chronological order (earliest = index 0) so a day's dot in the
+// Month grid matches the same shift's accent in the Day detail. Reuses the
+// staff palette tokens; wraps if a day somehow has more shifts than colors.
+function shiftDotColor(index: number): string {
+  return STAFF_COLORS[index % STAFF_COLORS.length];
+}
+
 const HOUR_HEIGHT = 64;
 
 type ViewMode = 'month' | 'week' | 'day';
@@ -80,6 +88,8 @@ function WeekView({
   weekStart,
   startHour,
   endHour,
+  centerOpenTime,
+  centerCloseTime,
   readonly = false,
   singleStaffMode = false,
 }: {
@@ -87,6 +97,8 @@ function WeekView({
   weekStart: Date;
   startHour: number;
   endHour: number;
+  centerOpenTime?: string;
+  centerCloseTime?: string;
   readonly?: boolean;
   singleStaffMode?: boolean;
 }) {
@@ -116,9 +128,21 @@ function WeekView({
     return map;
   }, [shifts, weekDates]);
 
-  const isCurrentWeek = weekDates.some(d => d.toLocaleDateString('en-CA') === todayStr);
-  const now = new Date();
-  const nowFrac = (now.getHours() + now.getMinutes() / 60 - startHour) / numHours;
+  // Center operating-hours markers: a green line at opening, a red line at
+  // closing (replacing the old current-time indicator). Uniform across the
+  // week — same open/close for every day row. Positions use the same fraction
+  // formula as the shift blocks: (hour - startHour) / numHours.
+  const openFrac = centerOpenTime != null
+    ? (timeToHours(centerOpenTime) - startHour) / numHours
+    : null;
+  const closeFrac = centerCloseTime != null
+    ? (timeToHours(centerCloseTime) - startHour) / numHours
+    : null;
+  // Horizontal offset that keeps a fraction aligned with the timeline area
+  // (which starts after the sticky LABEL_W day-label column).
+  const fracLeft = (f: number) => `calc(${LABEL_W * (1 - f)}px + ${f * 100}%)`;
+  const showBand = openFrac != null && closeFrac != null
+    && closeFrac > openFrac && openFrac >= 0 && closeFrac <= 1;
 
   return (
     <Card>
@@ -145,11 +169,36 @@ function WeekView({
 
           {/* Day rows */}
           <div className="relative">
-            {/* Current time vertical line */}
-            {isCurrentWeek && nowFrac >= 0 && nowFrac <= 1 && (
+            {/* Operating-hours band — soft shading between open and close. */}
+            {showBand && (
+              <div
+                className="absolute top-0 bottom-0 z-0 pointer-events-none"
+                style={{
+                  left: fracLeft(openFrac!),
+                  width: `calc(${(closeFrac! - openFrac!) * 100}% - ${LABEL_W * (closeFrac! - openFrac!)}px)`,
+                  background: 'color-mix(in oklch, var(--kc-p-600), transparent 94%)',
+                }}
+              />
+            )}
+
+            {/* Opening line (green) */}
+            {openFrac != null && openFrac >= 0 && openFrac <= 1 && (
               <div
                 className="absolute top-0 bottom-0 z-20 pointer-events-none"
-                style={{ left: `calc(${LABEL_W * (1 - nowFrac)}px + ${nowFrac * 100}%)` }}
+                style={{ left: fracLeft(openFrac) }}
+              >
+                <div className="flex flex-col items-center h-full">
+                  <div className="w-2 h-2 rounded-full bg-green-500 flex-none" />
+                  <div className="w-[2px] flex-1 bg-green-500" />
+                </div>
+              </div>
+            )}
+
+            {/* Closing line (red) */}
+            {closeFrac != null && closeFrac >= 0 && closeFrac <= 1 && (
+              <div
+                className="absolute top-0 bottom-0 z-20 pointer-events-none"
+                style={{ left: fracLeft(closeFrac) }}
               >
                 <div className="flex flex-col items-center h-full">
                   <div className="w-2 h-2 rounded-full bg-red-500 flex-none" />
@@ -267,6 +316,23 @@ function WeekView({
             })}
           </div>
         </div>
+
+        {/* Legend — what the open/close markers mean. */}
+        {(openFrac != null || closeFrac != null) && (
+          <div
+            className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 text-xs"
+            style={{ borderColor: 'var(--kc-border)', color: 'var(--kc-text-2)' }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 flex-none rounded-full bg-green-500" />
+              Opening{centerOpenTime ? ` (${formatHM12(centerOpenTime)})` : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 flex-none rounded-full bg-red-500" />
+              Closing{centerCloseTime ? ` (${formatHM12(centerCloseTime)})` : ''}
+            </span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -414,18 +480,29 @@ function formatHM12(time: string): string {
   return `${h12}:${String(m).padStart(2, '0')}${ampm}`;
 }
 
+// "John Doe" → "JD". Single-word names → first two letters.
+function staffInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
 function MonthView({
   schedules,
   year,
   month,
   onDayClick,
   singleStaffMode = false,
+  compact = false,
 }: {
   schedules: ScheduleWithStaff[];
   year: number;
   month: number;
   onDayClick: (date: Date) => void;
   singleStaffMode?: boolean;
+  // Mobile-only (<640px): show compact initials-circles per day + a legend.
+  // Desktop keeps the original first-name pills.
+  compact?: boolean;
 }) {
   const shifts = useMemo(() => buildShifts(schedules), [schedules]);
 
@@ -458,28 +535,19 @@ function MonthView({
     return map;
   }, [schedules, singleStaffMode]);
 
-  const weeks = useMemo(() => {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const jsDay = firstDay.getDay();
-    const startOffset = jsDay === 0 ? 6 : jsDay - 1;
-    const start = new Date(firstDay);
-    start.setDate(start.getDate() - startOffset);
-    const result: Date[][] = [];
-    const cursor = new Date(start);
-    while (cursor <= lastDay || result.length === 0 || cursor.getDay() !== 1) {
-      if (cursor.getDay() === 1 || result.length === 0) result.push([]);
-      result[result.length - 1].push(new Date(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-      if (result[result.length - 1].length === 7 && cursor > lastDay && cursor.getDay() === 1) break;
-    }
-    return result;
-  }, [year, month]);
+  const weeks = useMemo(() => monthWeeks(year, month), [year, month]);
 
   const dayLookup = useMemo(() => {
     const map = new Map<string, Shift[]>();
     for (const s of shifts) { if (!map.has(s.date)) map.set(s.date, []); map.get(s.date)!.push(s); }
     return map;
+  }, [shifts]);
+
+  // Unique staff across this month's shifts → bottom legend (color + name).
+  const legend = useMemo(() => {
+    const m = new Map<string, { name: string; color: string }>();
+    for (const s of shifts) if (!m.has(s.staffId)) m.set(s.staffId, { name: s.staffName, color: s.color });
+    return [...m.values()];
   }, [shifts]);
 
   const todayStr = new Date().toLocaleDateString('en-CA');
@@ -501,6 +569,10 @@ function MonthView({
               const isToday = key === todayStr;
               const isPast = !isToday && key < todayStr;
               const entries = dayLookup.get(key) ?? [];
+              // Unique staff that day (a staff may have >1 shift) → one circle each.
+              const uniqueStaff: Shift[] = [];
+              const seenStaff = new Set<string>();
+              for (const e of entries) if (!seenStaff.has(e.staffId)) { seenStaff.add(e.staffId); uniqueStaff.push(e); }
               const cellBg = isPast ? 'var(--kc-surface-2)' : 'transparent';
 
               const singleInfo = singleStaffMode ? dayInfoMap?.get(key) : null;
@@ -509,7 +581,10 @@ function MonthView({
               return (
                 <div
                   key={key}
-                  className="p-1.5 border-r last:border-r-0 cursor-pointer transition-colors"
+                  // Staff mobile (My Schedule): stack the date number over the
+                  // shift dots, centered. Director / desktop keep the original
+                  // top-left block layout.
+                  className={`p-1.5 border-r last:border-r-0 cursor-pointer transition-colors${singleStaffMode && compact ? ' flex flex-col items-center' : ''}`}
                   style={{ minHeight: cellMinHeight, borderColor: 'var(--kc-border)', background: cellBg, ...(isToday && { boxShadow: 'inset 0 0 0 2px var(--kc-p-600)' }) }}
                   onClick={() => onDayClick(date)}
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--kc-surface-2)'; }}
@@ -525,7 +600,36 @@ function MonthView({
                     </div>
                   )}
                   {singleStaffMode ? (
-                    !singleInfo ? null : shiftCount === 0 && singleInfo.off ? (
+                    compact ? (
+                      /* Mobile (My Schedule): the per-day time pills overflowed
+                         the narrow phone cell, so scheduled days show colored
+                         dots (one per shift) instead. The cell's onClick
+                         (goToDay) opens the Day view for the full detail. Off /
+                         empty days show just the date number. */
+                      shiftCount > 0 ? (
+                        // One colored dot per shift (chronological order), up to
+                        // 3 then "+N" so the narrow phone cell never overflows.
+                        // Colors match the Day detail via shiftDotColor(index).
+                        <div className="flex items-center justify-center gap-1" style={isPast ? { opacity: 0.6 } : undefined}>
+                          {[...(singleInfo?.works ?? [])]
+                            .sort((a, b) => timeToHours(a.startTime) - timeToHours(b.startTime))
+                            .slice(0, 3)
+                            .map((w, i) => (
+                              <span
+                                key={i}
+                                className="inline-block h-2 w-2 flex-none rounded-full"
+                                style={{ background: shiftDotColor(i) }}
+                                title={`${formatHM12(w.startTime)} – ${formatHM12(w.endTime)}`}
+                              />
+                            ))}
+                          {shiftCount > 3 && (
+                            <span className="text-[9px] font-semibold leading-none" style={{ color: 'var(--kc-text-3)' }}>
+                              +{shiftCount - 3}
+                            </span>
+                          )}
+                        </div>
+                      ) : null
+                    ) : !singleInfo ? null : shiftCount === 0 && singleInfo.off ? (
                       <div className="text-[11px]" style={{ color: 'var(--kc-text-3)', ...(isPast && { opacity: 0.6 }) }}>
                         Day Off
                       </div>
@@ -555,7 +659,30 @@ function MonthView({
                         })}
                       </div>
                     ) : null
+                  ) : compact ? (
+                    /* Mobile: compact initials-circles. */
+                    <div className="flex flex-wrap gap-1" style={isPast ? { opacity: 0.6 } : undefined}>
+                      {uniqueStaff.slice(0, 4).map((entry) => (
+                        <span
+                          key={entry.staffId}
+                          className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full text-[8px] font-bold text-white"
+                          style={{ background: entry.color }}
+                          title={`${entry.staffName}: ${entry.startTime}–${entry.endTime}`}
+                        >
+                          {staffInitials(entry.staffName)}
+                        </span>
+                      ))}
+                      {uniqueStaff.length > 4 && (
+                        <span
+                          className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+                          style={{ background: 'var(--kc-surface-2)', color: 'var(--kc-text-2)' }}
+                        >
+                          +{uniqueStaff.length - 4}
+                        </span>
+                      )}
+                    </div>
                   ) : (
+                    /* Desktop: original first-name pills (unchanged). */
                     <div className="space-y-1">
                       {entries.map((entry, i) => (
                         <div
@@ -574,6 +701,26 @@ function MonthView({
             })}
           </div>
         ))}
+
+        {/* Legend — who's who (color + initials → full name). Mobile director only. */}
+        {compact && !singleStaffMode && legend.length > 0 && (
+          <div
+            className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t pt-3"
+            style={{ borderColor: 'var(--kc-border)' }}
+          >
+            {legend.map((s) => (
+              <span key={s.name} className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--kc-text-2)' }}>
+                <span
+                  className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-full text-[8px] font-bold text-white"
+                  style={{ background: s.color }}
+                >
+                  {staffInitials(s.name)}
+                </span>
+                {s.name}
+              </span>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -735,6 +882,90 @@ function SingleStaffDayView({
   );
 }
 
+// ============================================ MOBILE VIEWS (<640px)
+// Compact, list-based renders so the calendar never scrolls horizontally on a
+// phone. Desktop/tablet (>=640px) keep the timeline/grid views above. All three
+// reuse buildShifts() so the data shape is identical.
+
+function monthWeeks(year: number, month: number): Date[][] {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const jsDay = firstDay.getDay();
+  const startOffset = jsDay === 0 ? 6 : jsDay - 1;
+  const start = new Date(firstDay);
+  start.setDate(start.getDate() - startOffset);
+  const result: Date[][] = [];
+  const cursor = new Date(start);
+  while (cursor <= lastDay || result.length === 0 || cursor.getDay() !== 1) {
+    if (cursor.getDay() === 1 || result.length === 0) result.push([]);
+    result[result.length - 1].push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+    if (result[result.length - 1].length === 7 && cursor > lastDay && cursor.getDay() === 1) break;
+  }
+  return result;
+}
+
+function ShiftRow({ shift, color }: { shift: Shift; color?: string }) {
+  // `color` overrides the staff color — My Schedule passes a per-shift accent
+  // so each row matches its Month dot. Director rows fall back to shift.color.
+  const accent = color ?? shift.color;
+  return (
+    <div
+      className="flex items-center justify-between gap-3 rounded-md border p-3"
+      style={{ borderColor: 'var(--kc-border)', borderLeft: `3px solid ${accent}` }}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="h-2 w-2 flex-none rounded-full" style={{ background: accent }} />
+        <span className="truncate text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
+          {shift.staffName}
+        </span>
+      </span>
+      <span className="flex-none text-sm tabular-nums" style={{ color: 'var(--kc-text-2)' }}>
+        {shift.startTime}–{shift.endTime}
+      </span>
+    </div>
+  );
+}
+
+function MobileDayView({
+  schedules,
+  date,
+  singleStaffMode = false,
+}: {
+  schedules: ScheduleWithStaff[];
+  date: Date;
+  singleStaffMode?: boolean;
+}) {
+  const shifts = useMemo(() => buildShifts(schedules), [schedules]);
+  const dateStr = date.toLocaleDateString('en-CA');
+  const dayShifts = shifts
+    .filter((s) => s.date === dateStr)
+    .sort((a, b) => timeToHours(a.startTime) - timeToHours(b.startTime));
+  return (
+    <Card>
+      <CardContent className="space-y-2 pt-4">
+        {dayShifts.length === 0 ? (
+          <p className="py-8 text-center text-sm" style={{ color: 'var(--kc-text-3)' }}>
+            No staff scheduled
+          </p>
+        ) : (
+          // My Schedule (singleStaffMode): every row is the same staff, so color
+          // each shift by its chronological index to mirror the Month dot. The
+          // Director view keeps the per-staff color. Key includes startTime so
+          // multiple same-staff shifts in one day don't collide.
+          dayShifts.map((s, i) => (
+            <ShiftRow
+              key={`${s.staffId}-${s.startTime}`}
+              shift={s}
+              color={singleStaffMode ? shiftDotColor(i) : undefined}
+            />
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ============================================ MAIN EXPORT
 
 export function ScheduleCalendar({
@@ -820,11 +1051,33 @@ export function ScheduleCalendar({
         </div>
       </div>
 
-      {view === 'month' && <MonthView schedules={schedules} year={year} month={month} onDayClick={goToDay} singleStaffMode={singleStaffMode} />}
-      {view === 'week' && <WeekView schedules={schedules} weekStart={weekStart} startHour={startHour} endHour={endHour} readonly={readonly} singleStaffMode={singleStaffMode} />}
-      {view === 'day' && (singleStaffMode
-        ? <SingleStaffDayView schedules={schedules} date={dateForDay} startHour={startHour} endHour={endHour} />
-        : <DayView schedules={schedules} date={dateForDay} startHour={startHour} endHour={endHour} readonly={readonly} />
+      {/* Month + Week: same view on all sizes (the Month cells use compact
+          initials-circles so they fit on phones too). Day: timeline on
+          desktop/tablet, vertical list on phones (<640px). */}
+      {view === 'month' && (
+        <>
+          {/* Desktop/tablet: original month (first-name pills, no legend). */}
+          <div className="hidden sm:block">
+            <MonthView schedules={schedules} year={year} month={month} onDayClick={goToDay} singleStaffMode={singleStaffMode} />
+          </div>
+          {/* Mobile: compact initials-circles + legend. */}
+          <div className="sm:hidden">
+            <MonthView schedules={schedules} year={year} month={month} onDayClick={goToDay} singleStaffMode={singleStaffMode} compact />
+          </div>
+        </>
+      )}
+      {view === 'week' && <WeekView schedules={schedules} weekStart={weekStart} startHour={startHour} endHour={endHour} centerOpenTime={centerOpenTime} centerCloseTime={centerCloseTime} readonly={readonly} singleStaffMode={singleStaffMode} />}
+      {view === 'day' && (
+        <>
+          <div className="hidden sm:block">
+            {singleStaffMode
+              ? <SingleStaffDayView schedules={schedules} date={dateForDay} startHour={startHour} endHour={endHour} />
+              : <DayView schedules={schedules} date={dateForDay} startHour={startHour} endHour={endHour} readonly={readonly} />}
+          </div>
+          <div className="sm:hidden">
+            <MobileDayView schedules={schedules} date={dateForDay} singleStaffMode={singleStaffMode} />
+          </div>
+        </>
       )}
     </div>
   );

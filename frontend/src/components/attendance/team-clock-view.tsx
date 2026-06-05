@@ -92,7 +92,7 @@ export function TeamClockView({ centerId }: { centerId?: string }) {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-20 w-full rounded-lg" />
           ))}
@@ -108,9 +108,9 @@ export function TeamClockView({ centerId }: { centerId?: string }) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Card>
-          <CardContent className="pt-4">
+          <CardContent className="flex flex-col items-center pt-4 text-center">
             <p className="text-2xl font-display font-semibold" style={{ color: 'var(--kc-p-600)' }}>
               {working}
             </p>
@@ -118,7 +118,7 @@ export function TeamClockView({ centerId }: { centerId?: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
+          <CardContent className="flex flex-col items-center pt-4 text-center">
             <p className="text-2xl font-display font-semibold" style={{ color: 'var(--kc-warning)' }}>
               {onBreak}
             </p>
@@ -126,7 +126,7 @@ export function TeamClockView({ centerId }: { centerId?: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
+          <CardContent className="flex flex-col items-center pt-4 text-center">
             <p className="text-2xl font-display font-semibold" style={{ color: 'var(--kc-text-2)' }}>
               {total}
             </p>
