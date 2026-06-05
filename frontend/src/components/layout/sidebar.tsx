@@ -17,6 +17,8 @@ import { logout as logoutApi } from '@/lib/api/auth';
 import {
   useNavEntries,
   isGroup,
+  collectNavHrefs,
+  isNavItemActive,
   type NavItem,
   type NavGroup,
 } from './use-nav-entries';
@@ -42,6 +44,11 @@ export function Sidebar() {
   const { t } = useTranslation();
   const clearTokens = useAuthStore((s) => s.clearTokens);
   const NAV_ENTRIES = useNavEntries();
+
+  // Every rendered href (incl. the bottom Settings item) — feeds the shared
+  // "most specific wins" active matcher so a parent route doesn't stay
+  // highlighted on a child route.
+  const allHrefs = [...collectNavHrefs(NAV_ENTRIES), '/settings'];
 
   // Persisted state — written to localStorage. The user's
   // "preferred" sidebar mode.
@@ -256,6 +263,7 @@ export function Sidebar() {
                 key={`group-${entry.title}-${idx}-${isTempOpen ? 'temp' : 'persistent'}`}
                 group={entry}
                 pathname={pathname}
+                allHrefs={allHrefs}
                 defaultOpen={isTempOpen ? true : undefined}
               />
             );
@@ -265,6 +273,7 @@ export function Sidebar() {
               key={entry.href}
               item={entry}
               pathname={pathname}
+              allHrefs={allHrefs}
               collapsed={displayCollapsed}
             />
           );
@@ -283,6 +292,7 @@ export function Sidebar() {
             active: false,
           }}
           pathname={pathname}
+          allHrefs={allHrefs}
           collapsed={displayCollapsed}
         />
         <LogoutButton
@@ -310,10 +320,12 @@ function KLogo() {
 function SidebarGroup({
   group,
   pathname,
+  allHrefs,
   defaultOpen,
 }: {
   group: NavGroup;
   pathname: string;
+  allHrefs: string[];
   // v13: external override for initial open state. Used when the
   // parent forces a temp expansion via clicking a collapsed group
   // icon — the key prop also changes so the component remounts
@@ -358,6 +370,7 @@ function SidebarGroup({
             key={item.href}
             item={item}
             pathname={pathname}
+            allHrefs={allHrefs}
             collapsed={false}
           />
         ))}
@@ -424,22 +437,19 @@ function CollapsedGroupTrigger({
 function SidebarItem({
   item,
   pathname,
+  allHrefs,
   collapsed,
 }: {
   item: NavItem;
   pathname: string;
+  allHrefs: string[];
   collapsed: boolean;
 }) {
   const Icon = item.icon;
-  const isActive = item.href.startsWith('/centers')
-    ? pathname.startsWith('/centers')
-    : item.href === '/staff'
-      ? pathname === '/staff' ||
-        (pathname.startsWith('/staff/') &&
-          !pathname.startsWith('/staff/invite'))
-      : item.href === '/attendance'
-        ? pathname === '/attendance'
-        : pathname.startsWith(item.href);
+  // Shared "most specific wins" matcher (see use-nav-entries) so desktop and
+  // mobile can never drift again — and a parent route (e.g. /attendance) stops
+  // staying active on a child route.
+  const isActive = isNavItemActive(item.href, pathname, allHrefs);
 
   if (!item.active) {
     if (collapsed) {

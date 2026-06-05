@@ -20,6 +20,8 @@ import { Badge } from '@/components/ui/badge';
 import {
   useNavEntries,
   isGroup,
+  collectNavHrefs,
+  isNavItemActive,
   type NavItem,
   type NavGroup,
 } from './use-nav-entries';
@@ -40,6 +42,10 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
     ...useNavEntries(),
     { title: 'Settings', href: '/settings', icon: Settings, active: false },
   ];
+
+  // Every rendered href — feeds the "most specific wins" active matcher so a
+  // parent route (e.g. /attendance) doesn't stay highlighted on a child route.
+  const allHrefs = collectNavHrefs(NAV_ENTRIES);
 
   const closeOnClick = () => onOpenChange(false);
 
@@ -70,6 +76,7 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
                 key={`group-${entry.title}-${idx}`}
                 group={entry}
                 pathname={pathname}
+                allHrefs={allHrefs}
                 onItemClick={closeOnClick}
               />
             ) : (
@@ -77,6 +84,7 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
                 key={entry.href}
                 item={entry}
                 pathname={pathname}
+                allHrefs={allHrefs}
                 onClick={closeOnClick}
               />
             ),
@@ -90,10 +98,12 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
 function MobileNavGroup({
   group,
   pathname,
+  allHrefs,
   onItemClick,
 }: {
   group: NavGroup;
   pathname: string;
+  allHrefs: string[];
   onItemClick: () => void;
 }) {
   const isAnyChildActive = group.items.some((it) =>
@@ -127,6 +137,7 @@ function MobileNavGroup({
             key={item.href}
             item={item}
             pathname={pathname}
+            allHrefs={allHrefs}
             onClick={onItemClick}
           />
         ))}
@@ -138,22 +149,19 @@ function MobileNavGroup({
 function MobileNavItem({
   item,
   pathname,
+  allHrefs,
   onClick,
 }: {
   item: NavItem;
   pathname: string;
+  allHrefs: string[];
   onClick: () => void;
 }) {
   const Icon = item.icon;
-  // Match the sibling-aware matcher in sidebar.tsx — /staff stays inactive
-  // when the Director is on /staff/invite so the Invitations entry is the
-  // one that highlights.
-  const isActive = item.href.startsWith('/centers')
-    ? pathname.startsWith('/centers')
-    : item.href === '/staff'
-      ? pathname === '/staff' ||
-        (pathname.startsWith('/staff/') && !pathname.startsWith('/staff/invite'))
-      : pathname.startsWith(item.href);
+  // Shared "most specific wins" matcher (see use-nav-entries) — keeps only the
+  // deepest matching entry active, so Time Clock (/attendance) no longer stays
+  // lit on /attendance/my-corrections.
+  const isActive = isNavItemActive(item.href, pathname, allHrefs);
 
   if (!item.active) {
     return (

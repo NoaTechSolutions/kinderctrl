@@ -44,6 +44,58 @@ export function isGroup(entry: SidebarEntry): entry is NavGroup {
   return (entry as NavGroup).kind === 'group';
 }
 
+/** Flattens the entry tree to every navigable href (group children + items). */
+export function collectNavHrefs(entries: SidebarEntry[]): string[] {
+  const hrefs: string[] = [];
+  for (const entry of entries) {
+    if (isGroup(entry)) hrefs.push(...entry.items.map((it) => it.href));
+    else hrefs.push(entry.href);
+  }
+  return hrefs;
+}
+
+// A href "covers" the path when it IS the path or is one of its parent
+// segments (`/a` covers `/a` and `/a/b`, but NOT `/ab`).
+function coversPath(href: string, pathname: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * Whether a nav item is THE active one for `pathname`, using "most specific
+ * wins": when several entries cover the path (e.g. /attendance and
+ * /attendance/my-corrections), only the longest href stays active — so a
+ * parent (Time Clock → /attendance) no longer lights up on a child route.
+ *
+ * This single matcher is shared by the desktop Sidebar AND the mobile Sheet
+ * nav so the two can NEVER drift again. They previously did: sidebar.tsx
+ * exact-matched /attendance while mobile-nav.tsx used a bare startsWith, so on
+ * /attendance/my-corrections BOTH Time Clock and My Corrections highlighted.
+ * "Most specific wins" also subsumes the old /staff special case (so /staff
+ * stays inactive on /staff/invite without a hardcoded branch).
+ *
+ * `allHrefs` is every rendered nav href — see collectNavHrefs.
+ */
+export function isNavItemActive(
+  href: string,
+  pathname: string,
+  allHrefs: string[],
+): boolean {
+  // Centers uses a dynamic href (/centers/:id); keep it active for any
+  // /centers* path regardless of the specific id or sub-tab.
+  if (href.startsWith('/centers')) return pathname.startsWith('/centers');
+  if (!coversPath(href, pathname)) return false;
+  // Defer to any other (non-centers) entry that covers the path with a longer
+  // href — that one is the real, more-specific match.
+  const longest = allHrefs.reduce(
+    (max, h) =>
+      !h.startsWith('/centers') && coversPath(h, pathname)
+        ? Math.max(max, h.length)
+        : max,
+    0,
+  );
+  return href.length === longest;
+}
+
 /**
  * Single source of truth for the role-aware navigation tree. Both the desktop
  * Sidebar and the mobile Sheet nav consume this hook so the two can NEVER drift
