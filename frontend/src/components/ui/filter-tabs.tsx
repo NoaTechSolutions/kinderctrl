@@ -1,10 +1,13 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface FilterTab<T extends string> {
   value: T;
-  label: string;
+  // ReactNode (not just string) so callers can pass responsive labels, e.g.
+  // a short span on mobile + the full label on sm: up.
+  label: ReactNode;
 }
 
 interface FilterTabsProps<T extends string> {

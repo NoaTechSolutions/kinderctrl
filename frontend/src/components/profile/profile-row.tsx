@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 // Profile v3 — reusable row inside info cards.
 // Shape: [icon] [label / value]                                [action]
@@ -44,13 +45,17 @@ export function ProfileRow({
       />
       <div className="min-w-0 flex-1">
         <p
-          className="text-xs font-medium"
+          className="truncate text-xs font-medium"
           style={{ color: 'var(--kc-text-3)' }}
         >
           {label}
         </p>
         <div
-          className="text-sm"
+          // With an action button beside it (e.g. Email "Change"), the value
+          // truncates to one line so it yields width to the flex-none button
+          // — otherwise a long email pushes the button off-screen (the 375px
+          // overflow). Action-less rows keep break-words so addresses wrap.
+          className={cn('text-sm', action ? 'truncate' : 'break-words')}
           style={
             isEmpty
               ? { color: 'var(--kc-text-3)', fontStyle: 'italic' }

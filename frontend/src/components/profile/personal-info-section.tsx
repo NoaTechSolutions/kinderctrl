@@ -102,14 +102,30 @@ export function PersonalInfoSection({ profile }: PersonalInfoSectionProps) {
             label={t('profile.email')}
             value={profile.email}
             action={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setEmailOpen(true)}
-              >
-                {t('profile.change')}
-              </Button>
+              <>
+                {/* Mobile: icon-only so the email gets the row width (375px). */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 sm:hidden"
+                  onClick={() => setEmailOpen(true)}
+                  aria-label={t('profile.change')}
+                  title={t('profile.change')}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </Button>
+                {/* Desktop: full text button (unchanged). */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:inline-flex"
+                  onClick={() => setEmailOpen(true)}
+                >
+                  {t('profile.change')}
+                </Button>
+              </>
             }
           />
           <Separator />

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, KeyRound, ShieldCheck } from 'lucide-react';
+import { ChevronRight, KeyRound, Pencil, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CardWithHeader } from '@/components/ui/card-with-header';
 import { Separator } from '@/components/ui/separator';
@@ -30,14 +30,30 @@ export function SecuritySection() {
             label={t('profile.password')}
             value="••••••••"
             action={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setOpen(true)}
-              >
-                {t('profile.changePassword')}
-              </Button>
+              <>
+                {/* Mobile: icon-only for consistency with the Email row. */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 sm:hidden"
+                  onClick={() => setOpen(true)}
+                  aria-label={t('profile.changePassword')}
+                  title={t('profile.changePassword')}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </Button>
+                {/* Desktop: full text button (unchanged). */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:inline-flex"
+                  onClick={() => setOpen(true)}
+                >
+                  {t('profile.changePassword')}
+                </Button>
+              </>
             }
           />
           <Separator />

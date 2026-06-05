@@ -778,6 +778,9 @@ export const translations = {
       // v6 — Emergency Contact dual tabs (card + modal)
       emergencyContact1Tab: 'Emergency Contact 1',
       emergencyContact2Tab: 'Emergency Contact 2',
+      // Short variants for the mobile tabs (full text overflows ~375px).
+      emergencyContact1Short: 'Contact 1',
+      emergencyContact2Short: 'Contact 2',
 
       // v14 — STAFF-only DOB row label (Personal Info card + modal)
       dateOfBirth: 'Date of birth',
@@ -1527,6 +1530,9 @@ export const translations = {
       // v6 — Emergency Contact tabs duales (card + modal)
       emergencyContact1Tab: 'Contacto de emergencia 1',
       emergencyContact2Tab: 'Contacto de emergencia 2',
+      // Variantes cortas para los tabs en mobile (el texto completo desborda).
+      emergencyContact1Short: 'Contacto 1',
+      emergencyContact2Short: 'Contacto 2',
 
       // v14 — STAFF-only label de DOB (Personal Info card + modal)
       dateOfBirth: 'Fecha de nacimiento',

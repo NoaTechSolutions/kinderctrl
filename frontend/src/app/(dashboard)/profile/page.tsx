@@ -47,7 +47,10 @@ export default function ProfilePage() {
   if (!ready || !allowed) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6 overflow-x-hidden">
+      {/* overflow-x-hidden: safety net so nothing can cause horizontal page
+          scroll on phones (the real fixes are break-words in ProfileRow +
+          min-w-0 on flex children). */}
       <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight">
         {t('profile.pageTitle')}
       </h1>
@@ -64,14 +67,18 @@ export default function ProfilePage() {
               (settings + security) next to the primary identity stack
               on the left. */}
           <div className="grid gap-6 lg:grid-cols-12">
-            <div className="space-y-6 lg:col-span-7">
+            {/* min-w-0 on the grid columns: grid items default to min-width:auto,
+                which would let a wide child (long email row) force the track past
+                the viewport. min-w-0 lets the column shrink so the truncates inside
+                actually take effect. */}
+            <div className="min-w-0 space-y-6 lg:col-span-7">
               <PersonalInfoSection profile={profile} />
               {!isSuperAdmin && (
                 <EmergencyContactSection profile={profile} />
               )}
             </div>
 
-            <div className="space-y-6 lg:col-span-5">
+            <div className="min-w-0 space-y-6 lg:col-span-5">
               <SecuritySection />
               <PreferencesSection />
             </div>

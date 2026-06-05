@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { LifeBuoy, Pencil, Phone, PhoneCall, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CardWithHeader } from '@/components/ui/card-with-header';
@@ -42,9 +42,27 @@ export function EmergencyContactSection({
 
   const ec = activeTab === 1 ? profile.emergencyContact1 : profile.emergencyContact2;
 
-  const tabs: ReadonlyArray<{ value: ContactSlot; label: string }> = [
-    { value: 1, label: t('profile.emergencyContact1Tab') },
-    { value: 2, label: t('profile.emergencyContact2Tab') },
+  // Responsive labels — short on phones (full text overflowed ~375px),
+  // full on sm: up.
+  const tabs: ReadonlyArray<{ value: ContactSlot; label: ReactNode }> = [
+    {
+      value: 1,
+      label: (
+        <>
+          <span className="sm:hidden">{t('profile.emergencyContact1Short')}</span>
+          <span className="hidden sm:inline">{t('profile.emergencyContact1Tab')}</span>
+        </>
+      ),
+    },
+    {
+      value: 2,
+      label: (
+        <>
+          <span className="sm:hidden">{t('profile.emergencyContact2Short')}</span>
+          <span className="hidden sm:inline">{t('profile.emergencyContact2Tab')}</span>
+        </>
+      ),
+    },
   ];
 
   return (

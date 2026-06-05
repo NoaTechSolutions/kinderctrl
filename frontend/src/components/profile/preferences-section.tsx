@@ -2,7 +2,6 @@
 
 import { Settings2 } from 'lucide-react';
 import { CardWithHeader } from '@/components/ui/card-with-header';
-import { Separator } from '@/components/ui/separator';
 import { ThemeDropdown } from '@/components/auth/theme-dropdown';
 import { TimeFormatDropdown } from '@/components/auth/time-format-dropdown';
 import { useTranslation } from '@/lib/i18n';
@@ -15,26 +14,25 @@ import { useTranslation } from '@/lib/i18n';
 //     TimeFormatProvider's PATCH /auth/me/preferences write-through;
 //     dropdown change here mirrors immediately in the topbar.
 //
-// Each row gets a label + subtitle pair on the left and the dropdown
-// on the right — the subtitle's job is to make the preference's effect
-// obvious before the user clicks (Israel's spec).
+// Each cell is just the setting label + its control (the descriptive
+// per-row subtitle was removed under the global "title only" rule).
 export function PreferencesSection() {
   const { t } = useTranslation();
   return (
     <CardWithHeader icon={Settings2} title={t('profile.preferencesTitle')}>
-      <PreferenceRow
-        label={t('profile.theme')}
-        subtitle={t('profile.themeHint')}
-      >
-        <ThemeDropdown />
-      </PreferenceRow>
-      <Separator />
-      <PreferenceRow
-        label={t('profile.timeFormat')}
-        subtitle={t('profile.timeFormatHint')}
-      >
-        <TimeFormatDropdown />
-      </PreferenceRow>
+      {/* 2-column grid (Israel: 2 columns by default, desktop + mobile). Falls
+          back to 1 column on very narrow phones (<360px) so the controls don't
+          cramp — M (375) and L (480) keep 2 columns. Each cell is a vertical
+          label/subtitle + control block; min-w-0 on the cells lets long labels
+          truncate instead of pushing width. */}
+      <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
+        <PreferenceRow label={t('profile.theme')}>
+          <ThemeDropdown />
+        </PreferenceRow>
+        <PreferenceRow label={t('profile.timeFormat')}>
+          <TimeFormatDropdown />
+        </PreferenceRow>
+      </div>
     </CardWithHeader>
   );
 }
@@ -45,30 +43,23 @@ export function PreferencesSection() {
 // Info / Security where every row carries its own icon.
 function PreferenceRow({
   label,
-  subtitle,
   children,
 }: {
   label: string;
-  subtitle: string;
   children: React.ReactNode;
 }) {
+  // Vertical cell: label above the control. Descriptive subtitle removed per
+  // the global "title only, no subtitle" rule — each cell is now just the
+  // setting label + its control, stacked so nothing competes for width.
   return (
-    <div className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <p
-          className="text-sm font-medium"
-          style={{ color: 'var(--kc-text-1)' }}
-        >
-          {label}
-        </p>
-        <p
-          className="text-xs"
-          style={{ color: 'var(--kc-text-3)' }}
-        >
-          {subtitle}
-        </p>
-      </div>
-      <div className="flex-none">{children}</div>
+    <div className="flex min-w-0 flex-col gap-2">
+      <p
+        className="truncate text-sm font-medium"
+        style={{ color: 'var(--kc-text-1)' }}
+      >
+        {label}
+      </p>
+      <div>{children}</div>
     </div>
   );
 }

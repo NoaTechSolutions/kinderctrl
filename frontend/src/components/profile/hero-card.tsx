@@ -43,7 +43,12 @@ export function HeroCard({ profile }: HeroCardProps) {
     // color block. `from-primary/5` is barely-there in light mode and
     // shows just a hint in dark mode — the spec's intent.
     <Card className="bg-gradient-to-br from-primary/5 to-transparent">
-      <CardContent className="flex flex-col items-start gap-4 py-6 sm:flex-row sm:items-center sm:gap-6">
+      {/* Mobile is now a ROW too (avatar left, info centered beside it) — not
+          stacked. In a row the info's flex-1 + min-w-0 + the name/email truncate
+          finally constrain width, so a long email truncates instead of pushing
+          the card past the viewport (the ~375px lateral-overflow bug). Reduced
+          horizontal padding (px-4) gives ~320px more room. Desktop unchanged. */}
+      <CardContent className="flex flex-row items-center gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6">
         {/* v7: avatar now actually renders large (176px / size-44).
             See the long comment in user-avatar.tsx — v3-v6 had a CSS
             specificity bug where the primitive's data-[size=lg]:size-10
