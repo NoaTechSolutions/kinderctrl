@@ -32,16 +32,16 @@ import {
   Clock,
   DollarSign,
   Download,
-  Eye,
   FileSpreadsheet,
   FileText,
   History,
   ListChecks,
   Loader2,
-  Pencil,
   TrendingUp,
   Users,
+  XCircle,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   BarChart,
   Bar,
@@ -171,18 +171,28 @@ function StatCard({
   value,
   color,
   href,
+  className,
 }: {
   icon: typeof Users;
   label: string;
   value: string;
   color: string;
   href?: string;
+  // Grid-item overrides (e.g. col-span-2 to make a card span a full mobile row).
+  className?: string;
 }) {
   const content = (
-    <Card className={href ? 'cursor-pointer transition-colors hover:bg-muted/40' : ''}>
-      <CardContent className="pt-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Icon className="h-4 w-4" style={{ color }} />
+    <Card
+      className={cn(
+        href && 'cursor-pointer transition-colors hover:bg-muted/40',
+        // When there's an href the grid item is the <Link>, so className goes
+        // there instead (below); otherwise the Card itself is the grid item.
+        !href && className,
+      )}
+    >
+      <CardContent className="flex flex-col items-center pt-4 text-center">
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <Icon className="h-4 w-4 flex-none" style={{ color }} />
           <span className="text-xs font-medium" style={{ color: 'var(--kc-text-3)' }}>
             {label}
           </span>
@@ -193,7 +203,7 @@ function StatCard({
       </CardContent>
     </Card>
   );
-  return href ? <Link href={href}>{content}</Link> : content;
+  return href ? <Link href={href} className={cn('block', className)}>{content}</Link> : content;
 }
 
 // ============================================================ MonthPicker
@@ -238,7 +248,7 @@ function SummaryCards({ month, centerId }: { month: string; centerId?: string })
 
   if (isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-lg" />
         ))}
@@ -248,7 +258,7 @@ function SummaryCards({ month, centerId }: { month: string; centerId?: string })
 
   if (!summary) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="pt-4">
@@ -265,7 +275,7 @@ function SummaryCards({ month, centerId }: { month: string; centerId?: string })
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatCard
         icon={Clock}
         label="Regular Hours"
@@ -752,16 +762,19 @@ function DirectorCurrentPeriodSection({
                 {selectedPeriod.startDate.split('T')[0]} — {selectedPeriod.endDate.split('T')[0]}
               </p>
               {reportLoading ? (
-                <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Skeleton key={i} className="h-20 w-full rounded-lg" />
                   ))}
                 </div>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                // Mobile layout (grid-cols-2): row1 [Total Staff][Total Hours],
+                // row2 [Total Pay full-width], row3 [OT Hours][Pending]. Total
+                // Pay spans 2 cols on phones, resets to 1 from sm: up.
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   <StatCard icon={Users} label="Total Staff" value={String(totalStaff)} color="var(--kc-p-600)" />
                   <StatCard icon={Clock} label="Total Hours" value={fmtHours(totalHours)} color="var(--kc-p-600)" />
-                  <StatCard icon={DollarSign} label="Total Pay" value={`$${totalPay.toFixed(2)}`} color="var(--kc-p-600)" />
+                  <StatCard icon={DollarSign} label="Total Pay" value={`$${totalPay.toFixed(2)}`} color="var(--kc-p-600)" className="col-span-2 sm:col-span-1" />
                   <StatCard icon={Clock} label="OT Hours" value={fmtHours(otHours)} color="var(--kc-warning)" />
                   <StatCard
                     icon={AlertTriangle}
@@ -987,15 +1000,54 @@ function approvalBadgeStyle(state: string): CSSProperties {
   }
 }
 
+// Compact state icon for the MOBILE Team Payroll "State" column (desktop keeps
+// the text badges). Corrections-pending takes priority (most actionable), then
+// the approval state. Colors mirror the desktop badge tokens.
+function ApprovalStateIcon({
+  state,
+  correctionsPending,
+}: {
+  state: string;
+  correctionsPending: boolean;
+}) {
+  let Icon = Clock;
+  let color = 'var(--kc-text-3)';
+  let label = state || '—';
+  if (correctionsPending) {
+    Icon = AlertTriangle;
+    color = 'var(--kc-warning)';
+    label = 'Corrections pending';
+  } else if (state === 'APPROVED') {
+    Icon = CheckCircle;
+    color = 'var(--kc-success)';
+    label = 'Approved';
+  } else if (state === 'REJECTED') {
+    Icon = XCircle;
+    color = 'var(--kc-error)';
+    label = 'Rejected';
+  } else if (state === 'PENDING') {
+    Icon = Clock;
+    color = 'var(--kc-warning)';
+    label = 'Pending';
+  }
+  return (
+    <span role="img" aria-label={label} title={label} className="inline-flex">
+      <Icon className="h-4 w-4" style={{ color }} aria-hidden />
+    </span>
+  );
+}
+
 interface TeamTabContentProps {
   month: string;
   centerId?: string;
-  onSelectStaff: (staffId: string) => void;
 }
 
-function TeamTabContent({ month, centerId, onSelectStaff }: TeamTabContentProps) {
+function TeamTabContent({ month, centerId }: TeamTabContentProps) {
   const { data: rows, isLoading } = usePayrollTeam(month, centerId);
   const approveAll = useApproveAllPayroll(centerId);
+  const [showApproveAllConfirm, setShowApproveAllConfirm] = useState(false);
+  const pendingCount =
+    rows?.filter((r) => r.approvalState === 'PENDING').length ?? 0;
 
   const handleApproveAll = async () => {
     try {
@@ -1047,32 +1099,46 @@ function TeamTabContent({ month, centerId, onSelectStaff }: TeamTabContentProps)
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Staff</TableHead>
-                  <TableHead className="text-right">Scheduled</TableHead>
-                  <TableHead className="text-right">Worked</TableHead>
+                  {/* Sticky first column (Staff) — solid bg so the scrolling
+                      columns slide UNDER it, not over the name. */}
+                  <TableHead className="sticky left-0 top-0 z-20" style={{ background: 'var(--kc-surface)' }}>
+                    Staff
+                  </TableHead>
+                  {/* Mobile: merged Scheduled/Worked column. */}
+                  <TableHead className="text-right sm:hidden">Sch / Work</TableHead>
+                  <TableHead className="hidden text-right sm:table-cell">Scheduled</TableHead>
+                  <TableHead className="hidden text-right sm:table-cell">Worked</TableHead>
                   <TableHead className="text-right">OT</TableHead>
                   <TableHead className="text-right">Pay</TableHead>
-                  <TableHead>Approval</TableHead>
-                  <TableHead />
+                  {/* Mobile: compact "State" icon column; desktop: "Approval" badges. */}
+                  <TableHead className="text-center sm:hidden">State</TableHead>
+                  <TableHead className="hidden sm:table-cell">Approval</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(rows as PayrollTeamRow[]).map((r) => (
                   <TableRow key={r.staffId}>
                     <TableCell
-                      className="font-medium"
-                      style={{ color: 'var(--kc-text-1)' }}
+                      className="sticky left-0 z-10 font-medium"
+                      style={{ color: 'var(--kc-text-1)', background: 'var(--kc-surface)' }}
                     >
                       {r.firstName} {r.lastName}
                     </TableCell>
+                    {/* Mobile: merged "scheduled / worked"; separate columns from sm: up. */}
                     <TableCell
-                      className="text-right tabular-nums"
+                      className="text-right tabular-nums sm:hidden"
+                      style={{ color: 'var(--kc-text-2)' }}
+                    >
+                      {fmtHours(r.scheduledHours)} / {fmtHours(r.regularHours + r.overtimeHours)}
+                    </TableCell>
+                    <TableCell
+                      className="hidden text-right tabular-nums sm:table-cell"
                       style={{ color: 'var(--kc-text-3)' }}
                     >
                       {fmtHours(r.scheduledHours)}
                     </TableCell>
                     <TableCell
-                      className="text-right tabular-nums"
+                      className="hidden text-right tabular-nums sm:table-cell"
                       style={{ color: 'var(--kc-text-2)' }}
                     >
                       {fmtHours(r.regularHours + r.overtimeHours)}
@@ -1092,7 +1158,15 @@ function TeamTabContent({ month, centerId, onSelectStaff }: TeamTabContentProps)
                     >
                       {fmtCurrency(r.totalPay)}
                     </TableCell>
-                    <TableCell>
+                    {/* Mobile: compact state icon. */}
+                    <TableCell className="text-center sm:hidden">
+                      <ApprovalStateIcon
+                        state={r.approvalState}
+                        correctionsPending={r.correctionsPending}
+                      />
+                    </TableCell>
+                    {/* Desktop / tablet: text badges (original). */}
+                    <TableCell className="hidden sm:table-cell">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge style={approvalBadgeStyle(r.approvalState)}>
                           {r.approvalState}
@@ -1110,28 +1184,6 @@ function TeamTabContent({ month, centerId, onSelectStaff }: TeamTabContentProps)
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onSelectStaff(r.staffId)}
-                          style={{ color: 'var(--kc-text-2)' }}
-                          title="View individual"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onSelectStaff(r.staffId)}
-                          style={{ color: 'var(--kc-p-600)' }}
-                          title="Edit hours"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1145,15 +1197,27 @@ function TeamTabContent({ month, centerId, onSelectStaff }: TeamTabContentProps)
                       background: 'var(--kc-surface-2)',
                     }}
                   >
-                    <TableCell style={{ color: 'var(--kc-text-2)' }}>Totals</TableCell>
                     <TableCell
-                      className="text-right tabular-nums"
+                      className="sticky left-0 z-10"
+                      style={{ color: 'var(--kc-text-2)', background: 'var(--kc-surface-2)' }}
+                    >
+                      Totals
+                    </TableCell>
+                    {/* Mobile: merged scheduled / worked total. */}
+                    <TableCell
+                      className="text-right tabular-nums sm:hidden"
+                      style={{ color: 'var(--kc-text-2)' }}
+                    >
+                      {fmtHours(totals.scheduledHours)} / {fmtHours(totals.workedHours)}
+                    </TableCell>
+                    <TableCell
+                      className="hidden text-right tabular-nums sm:table-cell"
                       style={{ color: 'var(--kc-text-2)' }}
                     >
                       {fmtHours(totals.scheduledHours)}
                     </TableCell>
                     <TableCell
-                      className="text-right tabular-nums"
+                      className="hidden text-right tabular-nums sm:table-cell"
                       style={{ color: 'var(--kc-text-2)' }}
                     >
                       {fmtHours(totals.workedHours)}
@@ -1170,7 +1234,7 @@ function TeamTabContent({ month, centerId, onSelectStaff }: TeamTabContentProps)
                     >
                       {fmtCurrency(totals.totalPay)}
                     </TableCell>
-                    <TableCell />
+                    {/* Approval column (no total). */}
                     <TableCell />
                   </TableRow>
                 </tfoot>
@@ -1185,7 +1249,7 @@ function TeamTabContent({ month, centerId, onSelectStaff }: TeamTabContentProps)
         <div className="flex justify-end">
           <Button
             variant="outline"
-            onClick={handleApproveAll}
+            onClick={() => setShowApproveAllConfirm(true)}
             disabled={approveAll.isPending}
             style={{ borderColor: 'var(--kc-border)', color: 'var(--kc-text-2)' }}
           >
@@ -1199,12 +1263,28 @@ function TeamTabContent({ month, centerId, onSelectStaff }: TeamTabContentProps)
         </div>
       )}
 
-      <div className="space-y-2">
-        <p className="text-sm font-semibold" style={{ color: 'var(--kc-text-2)' }}>
-          Approvals
-        </p>
-        <WeeklyApprovalSection centerId={centerId} />
-      </div>
+      {/* Confirmation before the bulk approve — all views (same AlertDialog
+          pattern as Change Director / Approve Period). */}
+      <AlertDialog open={showApproveAllConfirm} onOpenChange={setShowApproveAllConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve All Pending</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to approve all pending hours for the team
+              {pendingCount > 0 ? ` (${pendingCount} pending staff)` : ''}. This
+              will mark all pending staff as approved for this period.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleApproveAll}>
+              Approve All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <WeeklyApprovalSection centerId={centerId} />
     </div>
   );
 }
@@ -1582,13 +1662,13 @@ function IndividualTabContent({
         <>
           {/* 4 stat cards */}
           {staffLoading ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-24 w-full rounded-lg" />
               ))}
             </div>
           ) : staffData ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard
                 icon={CalendarDays}
                 label="Scheduled"
@@ -1641,7 +1721,11 @@ function IndividualTabContent({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
+                      {/* Sticky first column (Date) — solid bg so scrolling
+                          columns slide under it, not over the date. */}
+                      <TableHead className="sticky left-0 top-0 z-20" style={{ background: 'var(--kc-surface)' }}>
+                        Date
+                      </TableHead>
                       <TableHead>Clock In</TableHead>
                       <TableHead>Clock Out</TableHead>
                       <TableHead>Break In</TableHead>
@@ -1656,8 +1740,8 @@ function IndividualTabContent({
                     {staffData.days.map((day) => (
                       <TableRow key={day.date}>
                         <TableCell
-                          className="font-medium tabular-nums"
-                          style={{ color: 'var(--kc-text-1)' }}
+                          className="sticky left-0 z-10 font-medium tabular-nums"
+                          style={{ color: 'var(--kc-text-1)', background: 'var(--kc-surface)' }}
                         >
                           {new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', {
                             weekday: 'short',
@@ -1820,12 +1904,6 @@ export function PayrollReports({ centerId }: PayrollReportsProps) {
     setSelectedStaffId('');
   }
 
-  /** Switch to Individual tab with a staff pre-selected. */
-  const handleSelectStaffAndSwitch = (staffId: string) => {
-    setSelectedStaffId(staffId);
-    setActiveTab('individual');
-  };
-
   const handleApprove = async () => {
     if (!pendingApprovePeriod) return;
     try {
@@ -1849,7 +1927,11 @@ export function PayrollReports({ centerId }: PayrollReportsProps) {
 
       {/* Overview: MonthPicker + stat cards + charts + Director period sections */}
       {activeTab === 'overview' && (
-        <div className="space-y-4">
+        // space-y-6 = the SAAS-standard card-stack spacing (profile / payroll
+        // page), so Weekly Hours no longer sits flush against the cards below
+        // and every Overview card has the same vertical gap. Charts grid bumped
+        // to gap-6 to match.
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium" style={{ color: 'var(--kc-text-2)' }}>
               Month
@@ -1857,7 +1939,7 @@ export function PayrollReports({ centerId }: PayrollReportsProps) {
             <MonthPicker value={month} onChange={setMonth} />
           </div>
           <SummaryCards month={month} centerId={centerId} />
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-2">
             <WeeklyHoursChart month={month} centerId={centerId} />
             <MonthlyCostChart centerId={centerId} />
           </div>
@@ -1888,11 +1970,7 @@ export function PayrollReports({ centerId }: PayrollReportsProps) {
             </span>
             <MonthPicker value={month} onChange={setMonth} />
           </div>
-          <TeamTabContent
-            month={month}
-            centerId={centerId}
-            onSelectStaff={handleSelectStaffAndSwitch}
-          />
+          <TeamTabContent month={month} centerId={centerId} />
         </div>
       )}
 
