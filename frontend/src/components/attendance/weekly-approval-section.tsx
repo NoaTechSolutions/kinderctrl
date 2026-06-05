@@ -39,6 +39,10 @@ import type {
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
+// Opaque background for sticky cells in the mobile transposed table so the
+// pinned first column / header mask the scrolling content behind them.
+const STICKY_BG = { background: 'var(--kc-surface)' } as const;
+
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -245,7 +249,9 @@ export function WeeklyApprovalSection({ centerId }: { centerId?: string } = {}) 
               No active staff in this center.
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Desktop / tablet (>=640px) — staff in rows (original). */}
+              <div className="hidden overflow-x-auto sm:block">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--kc-border)' }}>
@@ -298,7 +304,69 @@ export function WeeklyApprovalSection({ centerId }: { centerId?: string } = {}) 
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+
+              {/* Mobile (<640px) — transposed: days in rows, staff in columns.
+                  First column (day) + header (staff) sticky; cells reuse
+                  DayCell. Tap a staff name → week detail, tap a cell → day
+                  detail (same modals as desktop). */}
+              <div
+                className="overflow-x-auto rounded-lg border sm:hidden"
+                style={{ background: 'var(--kc-surface)', borderColor: 'var(--kc-border)' }}
+              >
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--kc-border)' }}>
+                      <th
+                        className="sticky left-0 top-0 z-20 text-left py-2 px-2 font-medium text-xs"
+                        style={{ ...STICKY_BG, color: 'var(--kc-text-3)' }}
+                      >
+                        Day
+                      </th>
+                      {data.staff.map((s) => (
+                        <th
+                          key={s.id}
+                          className="sticky top-0 z-10 py-2 px-1 font-medium text-xs min-w-[60px]"
+                          style={{ ...STICKY_BG, color: 'var(--kc-text-3)' }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setWeekDetailStaffId(s.id)}
+                            className="hover:underline focus:outline-none focus-visible:underline"
+                          >
+                            {s.firstName}
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {DAYS.map((label, i) => (
+                      <tr key={label} style={{ borderBottom: '1px solid var(--kc-border)' }}>
+                        <td
+                          className="sticky left-0 z-10 py-2 px-2 font-medium whitespace-nowrap"
+                          style={{ ...STICKY_BG, color: 'var(--kc-text-1)' }}
+                        >
+                          {label}
+                        </td>
+                        {data.staff.map((s) => {
+                          const day = s.days[i];
+                          return (
+                            <td key={s.id} className="text-center py-2 px-1">
+                              {day ? (
+                                <DayCell day={day} onClick={() => setDayDetail({ staff: s, day })} />
+                              ) : (
+                                <span className="text-xs" style={{ color: 'var(--kc-text-3)' }}>—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </CardWithHeader>
