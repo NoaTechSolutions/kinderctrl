@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CheckCircle, ChevronLeft, ChevronRight, Coffee, History, LogIn, LogOut, Pencil, XCircle } from 'lucide-react';
+import { CheckCircle, ChevronLeft, ChevronRight, Clock, Coffee, History, LogIn, LogOut, Pencil, XCircle } from 'lucide-react';
 import { CardWithHeader } from '@/components/ui/card-with-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -271,9 +271,12 @@ function MonthCalendarView({
             const withinWindow = isWithin48h(key);
             const showCorrect = hasPunches && withinWindow;
 
-            const hoursLabel = complete ? workedDisplay(day!.entries) : incomplete ? 'In progress' : '';
+            // Incomplete (clocked in, not out) renders as an icon instead of
+            // the "In progress" text — that text overflowed the ~53px month
+            // cell on phones. Complete days keep "{hours} ✓".
+            const hoursLabel = complete ? workedDisplay(day!.entries) : '';
             const statusColor = complete ? '#22c55e' : incomplete ? 'var(--kc-warning)' : 'var(--kc-text-3)';
-            const statusMark = complete ? '✓' : incomplete ? '!' : '';
+            const statusMark = complete ? '✓' : '';
 
             // Past days in the current month with no punches get a subtly
             // darker background so they read as "missed/empty" at a glance.
@@ -299,10 +302,18 @@ function MonthCalendarView({
                 )}
                 {hasPunches && (
                   <div className="flex items-center gap-1">
-                    <p className="text-sm font-semibold tabular-nums" style={{ color: statusColor }}>
-                      {hoursLabel}
-                    </p>
-                    <span className="text-xs font-bold" style={{ color: statusColor }}>{statusMark}</span>
+                    {incomplete ? (
+                      <span className="inline-flex" title="In progress">
+                        <Clock className="h-4 w-4" style={{ color: statusColor }} aria-label="In progress" />
+                      </span>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold tabular-nums" style={{ color: statusColor }}>
+                          {hoursLabel}
+                        </p>
+                        <span className="text-xs font-bold" style={{ color: statusColor }}>{statusMark}</span>
+                      </>
+                    )}
                   </div>
                 )}
                 {showCorrect && (

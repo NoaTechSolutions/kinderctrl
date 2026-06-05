@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { CardWithHeader } from '@/components/ui/card-with-header';
+import { CompactStatCard } from '@/components/ui/compact-stat-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -349,8 +350,38 @@ export default function MyPayrollPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* 3 stat cards */}
-          <div className="grid gap-3 sm:grid-cols-3">
+          {/* 3 stat cards.
+              Phones: 2-col grid — Hours + Estimated Pay share row 1, OT Hours
+              spans the full width on row 2 (centered, fixed-height cards, same
+              pattern as the Time Clock staff stats). Tablet/desktop keep the
+              original 3-across left-aligned cards. */}
+          <div className="grid grid-cols-2 gap-3 sm:hidden">
+            <CompactStatCard
+              icon={Clock}
+              iconColor="var(--kc-p-600)"
+              valueColor="var(--kc-p-600)"
+              label="Hours This Month"
+              value={fmtHours(data.totalRegular + data.totalOvertime)}
+            />
+            <CompactStatCard
+              icon={DollarSign}
+              iconColor="var(--kc-success)"
+              valueColor="var(--kc-success)"
+              label="Estimated Pay"
+              value={fmtCurrency(data.totalPay)}
+            />
+            <div className="col-span-2">
+              <CompactStatCard
+                icon={TrendingUp}
+                iconColor={data.totalOvertime > 0 ? 'var(--kc-warning)' : 'var(--kc-text-3)'}
+                valueColor={data.totalOvertime > 0 ? 'var(--kc-warning)' : 'var(--kc-text-3)'}
+                label="OT Hours"
+                value={fmtHours(data.totalOvertime)}
+              />
+            </div>
+          </div>
+
+          <div className="hidden gap-3 sm:grid sm:grid-cols-3">
             <StatCard
               icon={Clock}
               label="Hours This Month"

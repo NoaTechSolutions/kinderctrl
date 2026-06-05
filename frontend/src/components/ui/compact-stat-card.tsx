@@ -16,12 +16,17 @@ export function CompactStatCard({
   iconColor,
   label,
   value,
+  valueColor,
   sublabel,
 }: {
   icon?: LucideIcon;
   iconColor?: string;
   label: string;
   value: string;
+  // Color for the value text. Defaults to the standard text color so existing
+  // callers (dashboard / kiosk stat rows) are unaffected; the staff Time Clock
+  // stats pass the StatTile colors here so mobile matches desktop.
+  valueColor?: string;
   sublabel?: string;
 }) {
   return (
@@ -39,7 +44,7 @@ export function CompactStatCard({
         </p>
         <p
           className="w-full truncate text-xs font-semibold leading-tight"
-          style={{ color: 'var(--kc-text-1)' }}
+          style={{ color: valueColor ?? 'var(--kc-text-1)' }}
         >
           {value}
         </p>

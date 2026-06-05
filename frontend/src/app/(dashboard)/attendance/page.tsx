@@ -6,6 +6,7 @@ import { useTimeFormat } from '@/lib/preferences/time-format';
 import { formatTime as fmtTimeUtil } from '@/lib/format-time';
 import { toast } from 'sonner';
 import { CardWithHeader } from '@/components/ui/card-with-header';
+import { CompactStatCard } from '@/components/ui/compact-stat-card';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
 import {
@@ -166,34 +167,39 @@ function StaffTimeClockStats() {
   const pending = (corrections ?? []).filter((c) => c.status === 'PENDING').length;
   const nextShift = getNextShift(schedules);
 
+  const weekVal = `${sumWorkedHours(weekHistory).toFixed(1)}h`;
+  const monthVal = `${sumWorkedHours(monthHistory).toFixed(1)}h`;
+  const pendingColor = pending > 0 ? 'var(--kc-warning)' : 'var(--kc-text-2)';
+  const nextVal = nextShift ? `${nextShift.label} · ${nextShift.time}` : '—';
+
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <StatTile
-        icon={Clock}
-        label="Hours This Week"
-        value={`${sumWorkedHours(weekHistory).toFixed(1)}h`}
-        color="var(--kc-p-600)"
-      />
-      <StatTile
-        icon={CalendarDays}
-        label="Hours This Month"
-        value={`${sumWorkedHours(monthHistory).toFixed(1)}h`}
-        color="var(--kc-text-2)"
-      />
-      <StatTile
-        icon={FileEdit}
-        label="Pending Corrections"
-        value={String(pending)}
-        color={pending > 0 ? 'var(--kc-warning)' : 'var(--kc-text-2)'}
-        href="/attendance/my-corrections"
-      />
-      <StatTile
-        icon={Calendar}
-        label="Next Shift"
-        value={nextShift ? `${nextShift.label} · ${nextShift.time}` : '—'}
-        color="var(--kc-text-2)"
-      />
-    </div>
+    <>
+      {/* Phones: compact 2x2 grid — fixed-height h-20 cards keep all four the
+          same width AND height (CompactStatCard already centers content), the
+          same pattern the dashboard mobile stat grids use. */}
+      <div className="grid grid-cols-2 gap-3 sm:hidden">
+        <CompactStatCard icon={Clock} iconColor="var(--kc-p-600)" valueColor="var(--kc-p-600)" label="Hours This Week" value={weekVal} />
+        <CompactStatCard icon={CalendarDays} iconColor="var(--kc-text-2)" valueColor="var(--kc-text-2)" label="Hours This Month" value={monthVal} />
+        <Link href="/attendance/my-corrections" className="block">
+          <CompactStatCard icon={FileEdit} iconColor={pendingColor} valueColor={pendingColor} label="Pending Corrections" value={String(pending)} />
+        </Link>
+        <CompactStatCard icon={Calendar} iconColor="var(--kc-text-2)" valueColor="var(--kc-text-2)" label="Next Shift" value={nextVal} />
+      </div>
+
+      {/* Tablet/desktop: original StatTile grid — unchanged. */}
+      <div className="hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile icon={Clock} label="Hours This Week" value={weekVal} color="var(--kc-p-600)" />
+        <StatTile icon={CalendarDays} label="Hours This Month" value={monthVal} color="var(--kc-text-2)" />
+        <StatTile
+          icon={FileEdit}
+          label="Pending Corrections"
+          value={String(pending)}
+          color={pendingColor}
+          href="/attendance/my-corrections"
+        />
+        <StatTile icon={Calendar} label="Next Shift" value={nextVal} color="var(--kc-text-2)" />
+      </div>
+    </>
   );
 }
 
