@@ -10,15 +10,30 @@ const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
 };
 
 /**
- * Heading shown on /dashboard. Reads "Welcome, {center name}" for any user
- * whose center is populated; SUPER_ADMIN (typically center-less) gets its
- * role as the salutation. The DIRECTOR-without-center branch is a defensive
- * fallback — the (dashboard) layout normally bounces those users to setup
- * before the page renders.
+ * Heading shown on /dashboard.
+ *  - STAFF / PARENT → greeted by their own profile name ("Welcome, Jane Doe"),
+ *    NOT the center name — they read their own identity, not the org's.
+ *  - DIRECTOR → keeps the center name (pending Israel's confirmation).
+ *  - SUPER_ADMIN (typically center-less) → its role as the salutation.
+ * The name-less branches fall back to a bare "Welcome" defensively.
  */
 export function getDashboardGreeting(user: AuthUser): string {
   if (user.role === 'SUPER_ADMIN') {
     return 'Welcome, Super Admin';
+  }
+  // STAFF and PARENT greet by their own name. Both carry a center, so these
+  // checks MUST precede the center-name branch below.
+  if (user.role === 'STAFF') {
+    const name = user.staff
+      ? `${user.staff.firstName} ${user.staff.lastName}`.trim()
+      : '';
+    return name ? `Welcome, ${name}` : 'Welcome';
+  }
+  if (user.role === 'PARENT') {
+    const name = user.parent
+      ? `${user.parent.firstName} ${user.parent.lastName}`.trim()
+      : '';
+    return name ? `Welcome, ${name}` : 'Welcome';
   }
   if (user.center?.name) {
     return `Welcome, ${user.center.name}`;
