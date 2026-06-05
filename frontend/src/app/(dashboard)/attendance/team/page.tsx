@@ -20,8 +20,6 @@ export default function TeamClockPage() {
             month: 'long',
             day: 'numeric',
           })}
-          {' — '}
-          Auto-refreshes every 30s
         </p>
       </div>
 
