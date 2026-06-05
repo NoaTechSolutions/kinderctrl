@@ -69,8 +69,8 @@ const STATUS_STYLES: Record<InvitationStatus, { bg: string; fg: string }> = {
 
 // Self-contained invitations management surface (PO QA #13/#22). Renders:
 //   • status filter tabs
-//   • paginated desktop table (hidden md:block)
-//   • paginated mobile cards (md:hidden)
+//   • paginated desktop table (hidden sm:block)
+//   • paginated mobile cards (sm:hidden)
 //   • per-row Resend/Cancel actions, disabled for non-PENDING rows
 //   • live MM:SS countdown when a row's per-invitation rate limit is hit
 // Used by both /staff/invite (Director) and /admin/invitations (SUPER_ADMIN);
@@ -286,7 +286,7 @@ export function InvitationsTable() {
   return (
     <div className="space-y-4">
       {/* Desktop: full filter tabs row. */}
-      <div className="hidden md:block">
+      <div className="hidden sm:block">
         <FilterTabs<StatusFilter>
           tabs={filterTabs}
           value={filter}
@@ -296,7 +296,7 @@ export function InvitationsTable() {
       </div>
       {/* Mobile: same options inside a dropdown so 5 tabs don't overflow
           at 320px (BUG-015 pattern from the centers list). PO QA #23. */}
-      <div className="md:hidden flex justify-end">
+      <div className="sm:hidden flex justify-end">
         <FilterDropdown<StatusFilter>
           options={filterTabs}
           value={filter}
@@ -324,13 +324,13 @@ export function InvitationsTable() {
       {isLoading && (
         <>
           {/* Desktop skeleton — matches the table's row height. */}
-          <div className="hidden md:block space-y-2">
+          <div className="hidden sm:block space-y-2">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
           </div>
           {/* Mobile skeleton — card-shaped to avoid a layout shift. */}
-          <div className="md:hidden space-y-3">
+          <div className="sm:hidden space-y-3">
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-28 w-full" />
           </div>
@@ -354,7 +354,7 @@ export function InvitationsTable() {
         <>
           {/* Desktop: full table (PO QA #15 — wrapper matches staff-table). */}
           <div
-            className="hidden md:block rounded-lg border overflow-x-auto [&_th:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:first-child]:pl-4 [&_td:last-child]:pr-4"
+            className="hidden sm:block rounded-lg border overflow-x-auto [&_th:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:first-child]:pl-4 [&_td:last-child]:pr-4"
             style={{
               background: 'var(--kc-surface)',
               borderColor: 'var(--kc-border)',
@@ -417,7 +417,7 @@ export function InvitationsTable() {
               staff-card.tsx — users can keep several open while browsing.
               min-w-0 on each row keeps long emails from blowing out the
               viewport. */}
-          <div className="md:hidden space-y-3">
+          <div className="sm:hidden space-y-3">
             {rows.map((inv) => {
               const isOpen = expandedCardIds.has(inv.id);
               const isWorking = pendingActionId === inv.id;

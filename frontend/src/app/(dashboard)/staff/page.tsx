@@ -380,10 +380,14 @@ export default function StaffPage() {
 
       {!isLoading && filtered.length > 0 && (
         <>
-          <div className="hidden md:block">
+          {/* Table from tablet up (sm:), cards only on phones (<640px).
+              StaffTable's wrapper has overflow-x-auto, so on a narrow tablet
+              the table scrolls horizontally inside its own container rather
+              than the page. */}
+          <div className="hidden sm:block">
             <StaffTable staff={filtered} userRole={user?.role} />
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:hidden">
+          <div className="grid grid-cols-1 gap-4 sm:hidden">
             {filtered.map((s) => (
               <StaffCard key={s.id} staff={s} userRole={user?.role} />
             ))}

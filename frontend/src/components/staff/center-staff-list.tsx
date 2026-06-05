@@ -178,10 +178,13 @@ export function CenterStaffList({ centerId }: { centerId: string }) {
         </div>
       ) : (
         <>
-          <div className="hidden md:block">
+          {/* Table from tablet up (sm:), cards only on phones (<640px) — same
+              criterion as /staff (SUPER_ADMIN parity). The table wrapper has
+              overflow-x-auto so a narrow tablet scrolls it internally. */}
+          <div className="hidden sm:block">
             <StaffTable staff={staff} />
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:hidden">
+          <div className="grid grid-cols-1 gap-4 sm:hidden">
             {staff.map((s) => (
               <StaffCard key={s.id} staff={s} />
             ))}
