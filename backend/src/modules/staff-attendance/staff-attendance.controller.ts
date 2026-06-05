@@ -650,4 +650,37 @@ export class StaffAttendanceController {
     }
     return this.payrollSeed.resetPayrollSeed();
   }
+
+  /**
+   * POST /attendance/dev/seed-schedules
+   * Realistic schedules for Sunshine Learning Academy across the last 2 weeks of
+   * May + all of June 2026 (7 week-Mondays) so the Schedules calendar has data in
+   * Month/Week/Day. Weekday-only, variable teacher count + shifts per day,
+   * Carlos off Thu / Ana off Fri, weekends empty. Idempotent (drops those weeks
+   * first; leaves the payroll recurring schedule intact). SUPER_ADMIN + NODE_ENV.
+   */
+  @Post('dev/seed-schedules')
+  @Roles(UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async devSeedSchedules() {
+    if (this.config.get('NODE_ENV') === 'production') {
+      return { error: 'Not available in production' };
+    }
+    return this.payrollSeed.seedSchedules();
+  }
+
+  /**
+   * DELETE /attendance/dev/reset-schedules
+   * Removes the Jun 1–7, 2026 demo schedules (leaves the payroll recurring
+   * schedule intact). SUPER_ADMIN-gated + NODE_ENV guard.
+   */
+  @Delete('dev/reset-schedules')
+  @Roles(UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async devResetSchedules() {
+    if (this.config.get('NODE_ENV') === 'production') {
+      return { error: 'Not available in production' };
+    }
+    return this.payrollSeed.resetSchedules();
+  }
 }

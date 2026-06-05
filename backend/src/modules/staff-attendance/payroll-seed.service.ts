@@ -624,6 +624,143 @@ export class PayrollSeedService {
     return this._deletePayrollData();
   }
 
+  // ─── DEV: realistic schedules across a multi-week range ─────────────────────
+  // Fills the Schedules calendar (Month / Week / Day) for the last 2 weeks of
+  // May + all of June 2026 so every view has data. One Schedule per (staff,
+  // week) keyed by the week's Monday startDate (the calendar indexes by that),
+  // endDate = Sunday. Weekday-only (Mon–Fri); weekends are left empty (realistic
+  // for a daycare). Carlos is always off Thursday, Ana always off Friday. Per-day
+  // staff count + shift hours vary deterministically so days read differently
+  // (some 4 teachers, some 1–3). Idempotent: drops these weeks first; the payroll
+  // seed's recurring schedule (a non-Monday startDate) is left untouched.
+  async seedSchedules(): Promise<object> {
+    const { directorId, centerId, staff } = await this.resolveContext();
+    const byName = new Map(staff.map((s) => [`${s.firstName} ${s.lastName}`, s]));
+    // Rotation order; index 2 = Carlos (off Thu), index 3 = Ana (off Fri).
+    const order = [
+      byName.get('John Doe')!,
+      byName.get('María García')!,
+      byName.get('Carlos López')!,
+      byName.get('Ana Martínez')!,
+    ];
+    const carlosId = order[2].id;
+    const anaId = order[3].id;
+
+    // Week Mondays: last 2 of May + every June week (Jun 1 is a Monday). The
+    // calendar matches schedules by startDate === week-Monday, so these MUST be
+    // Mondays.
+    const WEEK_MONDAYS = [
+      '2026-05-18',
+      '2026-05-25',
+      '2026-06-01',
+      '2026-06-08',
+      '2026-06-15',
+      '2026-06-22',
+      '2026-06-29',
+    ];
+
+    const SHIFTS = [
+      { startTime: '08:00', endTime: '16:00' }, // morning
+      { startTime: '09:00', endTime: '17:00' }, // afternoon
+      { startTime: '08:00', endTime: '12:00' }, // half day
+    ];
+    // Deterministic per-day target headcount → variety (some days 4, some 1–3).
+    const COUNT_CYCLE = [4, 3, 2, 4, 1, 3, 2, 4, 3, 2];
+
+    const isoToUtc = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+    const addDaysIso = (iso: string, n: number) => {
+      const d = isoToUtc(iso);
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().split('T')[0];
+    };
+
+    // Idempotency: drop exactly these weeks (ScheduleDay cascades). The payroll
+    // recurring schedule has a non-Monday startDate, so it is not in this set.
+    await this.prisma.schedule.deleteMany({
+      where: { centerId, startDate: { in: WEEK_MONDAYS.map(isoToUtc) } },
+    });
+
+    let schedulesCreated = 0;
+    let scheduleDays = 0;
+
+    for (let w = 0; w < WEEK_MONDAYS.length; w++) {
+      const monday = WEEK_MONDAYS[w];
+      const sunday = addDaysIso(monday, 6);
+
+      const perStaff = new Map<
+        string,
+        Array<{ dayOfWeek: number; startTime: string; endTime: string }>
+      >();
+
+      for (let di = 0; di < 5; di++) {
+        const dow = di + 1; // 1=Mon … 5=Fri
+        const available = order.filter((s) => {
+          if (dow === 4 && s.id === carlosId) return false; // Carlos off Thu
+          if (dow === 5 && s.id === anaId) return false; // Ana off Fri
+          return true;
+        });
+        const target = Math.min(
+          COUNT_CYCLE[(w * 5 + di) % COUNT_CYCLE.length],
+          available.length,
+        );
+        const rot = (w + di) % available.length;
+        for (let k = 0; k < target; k++) {
+          const s = available[(rot + k) % available.length];
+          const shift = SHIFTS[(k + w) % SHIFTS.length];
+          const list = perStaff.get(s.id) ?? [];
+          list.push({ dayOfWeek: dow, ...shift });
+          perStaff.set(s.id, list);
+        }
+      }
+
+      for (const [staffId, days] of perStaff) {
+        if (!days.length) continue;
+        await this.prisma.schedule.create({
+          data: {
+            staffId,
+            centerId,
+            startDate: isoToUtc(monday),
+            endDate: isoToUtc(sunday),
+            status: 'APPROVED',
+            approvedBy: directorId,
+            approvedAt: new Date(),
+            days: { create: days.map((d) => ({ ...d, isOff: false })) },
+          },
+        });
+        schedulesCreated++;
+        scheduleDays += days.length;
+      }
+    }
+
+    return {
+      centerId,
+      weeks: WEEK_MONDAYS,
+      range: { from: '2026-05-18', to: '2026-07-05' },
+      schedulesCreated,
+      scheduleDays,
+    };
+  }
+
+  async resetSchedules(): Promise<object> {
+    const { centerId } = await this.resolveContext();
+    const WEEK_MONDAYS = [
+      '2026-05-18',
+      '2026-05-25',
+      '2026-06-01',
+      '2026-06-08',
+      '2026-06-15',
+      '2026-06-22',
+      '2026-06-29',
+    ];
+    const res = await this.prisma.schedule.deleteMany({
+      where: {
+        centerId,
+        startDate: { in: WEEK_MONDAYS.map((d) => new Date(`${d}T00:00:00.000Z`)) },
+      },
+    });
+    return { centerId, deletedSchedules: res.count };
+  }
+
   private async _deletePayrollData(): Promise<object> {
     const { centerId } = await this.resolveContext();
 
