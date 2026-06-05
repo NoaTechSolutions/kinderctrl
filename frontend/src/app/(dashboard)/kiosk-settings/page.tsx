@@ -36,6 +36,8 @@ import {
   useActivateKiosk,
   useResetKioskPin,
 } from '@/lib/hooks/use-kiosk';
+import { useKioskLaunch } from '@/lib/hooks/use-kiosk-launch';
+import { CompactStatCard } from '@/components/ui/compact-stat-card';
 import { useAuthStore } from '@/store/auth';
 import { KioskSettingsSkeleton } from '@/components/skeletons/kiosk-skeleton';
 import { getPendingCount } from '@/lib/kiosk/offline-store';
@@ -67,6 +69,9 @@ export default function KioskSettingsPage() {
   const setupMutation = useSetupKiosk();
   const activate = useActivateKiosk();
   const resetPinMutation = useResetKioskPin();
+  // Shared launch flow (activate + token + spinner + "set up PIN first"
+  // fallback) — same hook the dashboard uses, so they never drift.
+  const { launching, launchKiosk } = useKioskLaunch();
 
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -173,13 +178,32 @@ export default function KioskSettingsPage() {
           </div>
           <div>
             <h1 className="font-display text-2xl font-semibold">Kiosk Mode</h1>
-            <p className="text-sm" style={{ color: 'var(--kc-text-3)' }}>
-              Shared device for staff clock-in/out
-            </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={openPinModal}>
+        {/* PIN Settings — desktop only (lg+). Tablet/mobile use the row below. */}
+        <Button variant="outline" size="sm" className="hidden lg:inline-flex" onClick={openPinModal}>
           <Settings className="mr-1.5 h-3.5 w-3.5" /> PIN Settings
+        </Button>
+      </div>
+
+      {/* Launch + PIN Settings row under the title.
+          - Phones (<sm): full-width 2-col grid.
+          - Tablet (sm–lg): inline flex row, content-width buttons (proportional,
+            not full-width). Verified at 768px / 1024px.
+          - Desktop (lg+): hidden — header PIN button + Launch card take over.
+          Launch reuses the shared useKioskLaunch flow; PIN Settings opens the
+          existing config modal. */}
+      <div className="grid grid-cols-2 gap-3 sm:flex lg:hidden">
+        <Button onClick={launchKiosk} disabled={launching}>
+          {launching ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Play className="mr-2 h-4 w-4 fill-current" />
+          )}
+          Launch Kiosk
+        </Button>
+        <Button variant="outline" onClick={openPinModal}>
+          <Settings className="mr-2 h-4 w-4" /> PIN Settings
         </Button>
       </div>
 
@@ -221,8 +245,21 @@ export default function KioskSettingsPage() {
         </div>
       ) : (
         <>
-          {/* Stats Cards */}
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+          {/* Stats Cards — phones: compact 3-in-a-row (shared CompactStatCard,
+              h-20) so they fit even ~320px without stretching; desktop keeps
+              the original horizontal cards unchanged. */}
+          <div className="grid grid-cols-3 gap-2 sm:hidden">
+            {statsCards.map((card) => (
+              <CompactStatCard
+                key={card.label}
+                icon={card.icon}
+                iconColor={card.color}
+                label={card.label}
+                value={card.value}
+              />
+            ))}
+          </div>
+          <div className="hidden gap-3 sm:grid sm:grid-cols-3">
             {statsCards.map((card) => {
               const Icon = card.icon;
               return (
@@ -241,28 +278,31 @@ export default function KioskSettingsPage() {
             })}
           </div>
 
-          {/* Launch Card */}
-          <CardWithHeader icon={Store} title="Kiosk Mode">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: isEnabled ? '#22c55e' : 'var(--kc-text-3)' }} />
-                  <span className="text-sm font-semibold" style={{ color: 'var(--kc-text-1)' }}>
-                    {isEnabled ? 'Kiosk is active' : 'Kiosk is inactive'}
-                  </span>
+          {/* Launch Card — desktop only (lg+). Mobile + tablet use the 2-button
+              row under the title; desktop (lg+) is unchanged. */}
+          <div className="hidden lg:block">
+            <CardWithHeader icon={Store} title="Kiosk Mode">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: isEnabled ? '#22c55e' : 'var(--kc-text-3)' }} />
+                    <span className="text-sm font-semibold" style={{ color: 'var(--kc-text-1)' }}>
+                      {isEnabled ? 'Kiosk is active' : 'Kiosk is inactive'}
+                    </span>
+                  </div>
+                  <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
+                    Launch the fullscreen kiosk. You&apos;ll need the PIN to exit.
+                  </p>
                 </div>
-                <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
-                  Launch the fullscreen kiosk. You&apos;ll need the PIN to exit.
-                </p>
+                <div className="flex gap-2">
+                  <Button onClick={handleLaunch} disabled={activate.isPending} className="h-10">
+                    {activate.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4 fill-current" />}
+                    Launch Kiosk
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button onClick={handleLaunch} disabled={activate.isPending} className="h-10">
-                  {activate.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4 fill-current" />}
-                  Launch Kiosk
-                </Button>
-              </div>
-            </div>
-          </CardWithHeader>
+            </CardWithHeader>
+          </div>
 
           {/* Recent Activity */}
           <CardWithHeader icon={Activity} title="Recent Activity">

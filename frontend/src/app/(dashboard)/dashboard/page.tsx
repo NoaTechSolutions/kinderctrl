@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   Activity,
@@ -15,7 +14,6 @@ import {
   Store,
   Unlock,
   UserCircle,
-  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -28,7 +26,8 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CardWithHeader } from '@/components/ui/card-with-header';
-import { activateKiosk, KioskNotConfiguredError } from '@/lib/api/kiosk';
+import { CompactStatCard } from '@/components/ui/compact-stat-card';
+import { useKioskLaunch } from '@/lib/hooks/use-kiosk-launch';
 import { useTranslation } from '@/lib/i18n';
 import { getDashboardGreeting, getDisplayRole } from '@/lib/user-display';
 import { TimeClockWidget } from '@/components/attendance/time-clock-widget';
@@ -44,79 +43,6 @@ const STATS = [
   { title: 'Active Staff' },
   { title: 'Attendance Today' },
 ];
-
-// Compact, fixed-height stat card shared by the mobile kiosk row (grid-cols-3)
-// and the mobile global stats grid (grid-cols-2). The fixed height is what
-// guarantees every stat card lines up at the same compact height on phones —
-// kiosk and "Coming soon" alike — regardless of icon/sublabel presence.
-function CompactStatCard({
-  icon: Icon,
-  iconColor,
-  label,
-  value,
-  sublabel,
-}: {
-  icon?: LucideIcon;
-  iconColor?: string;
-  label: string;
-  value: string;
-  sublabel?: string;
-}) {
-  return (
-    <Card className="h-20">
-      <CardContent className="flex h-full flex-col items-center justify-center gap-0.5 p-2 text-center">
-        {Icon && <Icon className="h-4 w-4 flex-none" style={{ color: iconColor }} />}
-        <p
-          className="text-[10px] font-medium uppercase leading-tight tracking-wide"
-          style={{ color: 'var(--kc-text-3)' }}
-        >
-          {label}
-        </p>
-        <p
-          className="w-full truncate text-sm font-semibold leading-tight"
-          style={{ color: 'var(--kc-text-1)' }}
-        >
-          {value}
-        </p>
-        {sublabel && (
-          <p className="text-[10px] leading-tight" style={{ color: 'var(--kc-text-3)' }}>
-            {sublabel}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// Launch flow shared by the desktop Kiosk card and the mobile section so the
-// two never drift: activate (mint a kiosk session token) then navigate. A plain
-// <Link href="/kiosk"> would skip activation. Fallback "Set up a PIN first" when
-// the center has no PIN yet (KioskNotConfiguredError) → bounce to settings.
-function useKioskLaunch() {
-  const router = useRouter();
-  const [launching, setLaunching] = useState(false);
-
-  const launchKiosk = async () => {
-    setLaunching(true);
-    try {
-      const result = await activateKiosk();
-      sessionStorage.setItem('kc-kiosk-token', result.kioskSessionToken);
-      sessionStorage.setItem('kc-kiosk-timeout', String(result.timeoutMin));
-      router.push('/kiosk');
-    } catch (e) {
-      if (e instanceof KioskNotConfiguredError) {
-        toast.error('Set up a PIN first');
-      } else {
-        toast.error('Could not launch kiosk');
-      }
-      router.push('/kiosk-settings');
-    } finally {
-      setLaunching(false);
-    }
-  };
-
-  return { launching, launchKiosk };
-}
 
 // Desktop-only Kiosk card (hidden on phones — see the mobile section below).
 function KioskWidget() {
