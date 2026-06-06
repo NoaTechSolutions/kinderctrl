@@ -46,6 +46,7 @@ import {
   type ParentOps,
 } from '@/lib/hooks/use-children';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
+import { useTranslation } from '@/lib/i18n';
 import {
   AddressFields,
   EditableList,
@@ -63,28 +64,23 @@ import type {
 import type { Child } from '@/lib/types/child';
 
 type EditTab = 'child' | 'parents' | 'medical';
-const EDIT_TABS: ReadonlyArray<FilterTab<EditTab>> = [
-  { value: 'child', label: 'Child details' },
-  { value: 'parents', label: 'Parents' },
-  { value: 'medical', label: 'Medical' },
-];
 
 const GENDERS = [
-  { value: 'MALE', label: 'Male' },
-  { value: 'FEMALE', label: 'Female' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'MALE', labelKey: 'children.genderMale' },
+  { value: 'FEMALE', labelKey: 'children.genderFemale' },
+  { value: 'OTHER', labelKey: 'children.genderOther' },
 ];
 const RELATIONSHIPS = [
-  { value: 'MOTHER', label: 'Mother' },
-  { value: 'FATHER', label: 'Father' },
-  { value: 'GUARDIAN', label: 'Guardian' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'MOTHER', labelKey: 'children.relMother' },
+  { value: 'FATHER', labelKey: 'children.relFather' },
+  { value: 'GUARDIAN', labelKey: 'children.relGuardian' },
+  { value: 'OTHER', labelKey: 'children.relOther' },
 ];
 const ENROLLMENT_STATUSES = [
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'ACTIVE', label: 'Active' },
-  { value: 'INACTIVE', label: 'Inactive' },
-  { value: 'WITHDRAWN', label: 'Withdrawn' },
+  { value: 'PENDING', labelKey: 'children.statusPending' },
+  { value: 'ACTIVE', labelKey: 'children.statusActive' },
+  { value: 'INACTIVE', labelKey: 'children.statusInactive' },
+  { value: 'WITHDRAWN', labelKey: 'children.statusWithdrawn' },
 ];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -217,7 +213,14 @@ function seed(child: Child) {
 
 export function ChildEditForm({ child }: { child: Child }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const seeded = useMemo(() => seed(child), [child]);
+
+  const EDIT_TABS: ReadonlyArray<FilterTab<EditTab>> = [
+    { value: 'child', label: t('children.childDetails') },
+    { value: 'parents', label: t('children.colParents') },
+    { value: 'medical', label: t('children.medical') },
+  ];
 
   const [tab, setTab] = useState<EditTab>('child');
 
@@ -269,7 +272,7 @@ export function ChildEditForm({ child }: { child: Child }) {
   const currentDirty = tab === 'child' ? childDirty : tab === 'parents' ? parentsDirty : medicalDirty;
 
   // Module-exit guard (sidebar / back / refresh) — active if ANY tab is dirty.
-  useUnsavedChangesPrompt(anyDirty, 'You have unsaved changes. Leaving will discard them.');
+  useUnsavedChangesPrompt(anyDirty, t('children.unsavedLeaveEdit'));
 
   const setC = <K extends keyof ChildState>(k: K, v: ChildState[K]) =>
     setChildState((s) => ({ ...s, [k]: v }));
@@ -301,29 +304,29 @@ export function ChildEditForm({ child }: { child: Child }) {
 
   const childErrors = useMemo(() => {
     const e: string[] = [];
-    if (!childState.firstName.trim()) e.push('First name is required.');
-    if (!childState.lastName.trim()) e.push('Last name is required.');
-    if (!childState.birthDate) e.push('Birth date is required.');
-    else if (childState.birthDate > todayStr) e.push('Birth date cannot be in the future.');
-    if (!childState.gender) e.push('Gender is required.');
+    if (!childState.firstName.trim()) e.push(t('children.errFirstNameRequired'));
+    if (!childState.lastName.trim()) e.push(t('children.errLastNameRequired'));
+    if (!childState.birthDate) e.push(t('children.errBirthDateRequired'));
+    else if (childState.birthDate > todayStr) e.push(t('children.errBirthDateFuture'));
+    if (!childState.gender) e.push(t('children.errGenderRequired'));
     return e;
-  }, [childState, todayStr]);
+  }, [childState, todayStr, t]);
 
   const parentErrors = useMemo(() => {
     const e: string[] = [];
-    if (parents.length === 0) e.push('At least one parent is required.');
+    if (parents.length === 0) e.push(t('children.errAtLeastOneParent'));
     parents.forEach((p, i) => {
-      const tag = `Parent ${i + 1}`;
-      if (!p.relationship) e.push(`${tag}: relationship is required.`);
-      if (!p.linked && p.mode === 'existing' && !p.parentId) e.push(`${tag}: pick an existing parent.`);
+      const tag = `${t('children.parentWord')} ${i + 1}`;
+      if (!p.relationship) e.push(`${tag}: ${t('children.errRelationshipRequired')}`);
+      if (!p.linked && p.mode === 'existing' && !p.parentId) e.push(`${tag}: ${t('children.errPickExisting')}`);
       if (!p.linked && p.mode === 'new') {
-        if (splitName(p.fullName).lastName === '') e.push(`${tag}: full name (first and last) is required.`);
-        if (!EMAIL_RE.test(p.email.trim())) e.push(`${tag}: a valid email is required.`);
+        if (splitName(p.fullName).lastName === '') e.push(`${tag}: ${t('children.errFullNameRequired')}`);
+        if (!EMAIL_RE.test(p.email.trim())) e.push(`${tag}: ${t('children.errEmailRequired')}`);
       }
     });
-    if (parents.length > 0 && !parents.some((p) => p.isPrimary)) e.push('Mark one parent as primary.');
+    if (parents.length > 0 && !parents.some((p) => p.isPrimary)) e.push(t('children.errMarkPrimary'));
     return e;
-  }, [parents]);
+  }, [parents, t]);
 
   const currentErrors = tab === 'child' ? childErrors : tab === 'parents' ? parentErrors : [];
 
@@ -420,11 +423,11 @@ export function ChildEditForm({ child }: { child: Child }) {
         }
         await detailsMut.mutateAsync({ childId: child.id, payload: buildChildPayload() });
         setChildBaseline(JSON.stringify(childState));
-        toast.success('Child details saved');
+        toast.success(t('children.toastDetailsSaved'));
       } else if (section === 'medical') {
         await medicalMut.mutateAsync({ childId: child.id, payload: buildMedicalPayload() });
         setMedicalBaseline(JSON.stringify(medical));
-        toast.success('Medical info saved');
+        toast.success(t('children.toastMedicalSaved'));
       } else {
         if (parentErrors.length) {
           setTouched(true);
@@ -437,12 +440,12 @@ export function ChildEditForm({ child }: { child: Child }) {
         setParents(reseeded);
         setRemovedLinkedIds([]);
         setParentsBaseline(JSON.stringify({ p: reseeded, r: [] }));
-        toast.success('Parents saved');
+        toast.success(t('children.toastParentsSaved'));
       }
       setTouched(false);
       return true;
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to save changes');
+      toast.error(err instanceof ApiError ? err.message : t('children.toastSaveFailed'));
       return false;
     }
   };
@@ -468,11 +471,11 @@ export function ChildEditForm({ child }: { child: Child }) {
     setTab(next);
   };
 
-  const saveLabel = tab === 'child' ? 'Save details' : tab === 'parents' ? 'Save parents' : 'Save medical';
+  const saveLabel = tab === 'child' ? t('children.saveDetails') : tab === 'parents' ? t('children.saveParents') : t('children.saveMedical');
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <FilterTabs tabs={EDIT_TABS} value={tab} onChange={handleTabChange} ariaLabel="Edit sections" />
+      <FilterTabs tabs={EDIT_TABS} value={tab} onChange={handleTabChange} ariaLabel={t('children.editSectionsAria')} />
 
       {touched && currentErrors.length > 0 && (
         <ul
@@ -490,39 +493,39 @@ export function ChildEditForm({ child }: { child: Child }) {
       )}
 
       {tab === 'child' && (
-        <CardWithHeader title="Child details">
+        <CardWithHeader title={t('children.childDetails')}>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="First name" required>
+              <Field label={t('children.firstName')} required>
                 <NameInput value={childState.firstName} onChange={(v) => setC('firstName', v)} />
               </Field>
-              <Field label="Middle name">
+              <Field label={t('children.middleName')}>
                 <NameInput value={childState.middleName} onChange={(v) => setC('middleName', v)} />
               </Field>
-              <Field label="Last name" required>
+              <Field label={t('children.lastName')} required>
                 <NameInput value={childState.lastName} onChange={(v) => setC('lastName', v)} />
               </Field>
-              <Field label="Birth date" required>
+              <Field label={t('children.birthDate')} required>
                 <DateField value={childState.birthDate} onChange={(e) => setC('birthDate', e.target.value)} max={todayStr} />
               </Field>
-              <Field label="Gender" required>
+              <Field label={t('children.gender')} required>
                 <PlainSelect value={childState.gender} onValueChange={(v) => setC('gender', v)} options={GENDERS} />
               </Field>
-              <Field label="Enrollment status" required>
+              <Field label={t('children.enrollmentStatus')} required>
                 <PlainSelect value={childState.enrollmentStatus} onValueChange={(v) => setC('enrollmentStatus', v)} options={ENROLLMENT_STATUSES} />
               </Field>
             </div>
             <div className="rounded-lg p-4 space-y-4" style={{ background: 'var(--kc-surface-2)' }}>
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
-                Child&apos;s address
+                {t('children.childsAddress')}
               </p>
               <AddressFields value={childState.address} onChange={(f, v) => setC('address', { ...childState.address, [f]: v })} />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Admission date">
+              <Field label={t('children.admissionDate')}>
                 <DateField value={childState.admissionDate} onChange={(e) => setC('admissionDate', e.target.value)} />
               </Field>
-              <Field label="First day of care">
+              <Field label={t('children.firstDayOfCare')}>
                 <DateField value={childState.firstCareDay} onChange={(e) => setC('firstCareDay', e.target.value)} />
               </Field>
             </div>
@@ -531,7 +534,7 @@ export function ChildEditForm({ child }: { child: Child }) {
       )}
 
       {tab === 'parents' && (
-        <CardWithHeader title="Parents & guardians">
+        <CardWithHeader title={t('children.parentsGuardians')}>
           <div className="space-y-4">
             {parents.map((p, i) => (
               <ParentEditCard
@@ -547,30 +550,30 @@ export function ChildEditForm({ child }: { child: Child }) {
             ))}
             <Button variant="outline" onClick={addRow} className="w-full">
               <Plus className="mr-1.5 h-4 w-4" />
-              Add parent
+              {t('children.addParent')}
             </Button>
           </div>
         </CardWithHeader>
       )}
 
       {tab === 'medical' && (
-        <CardWithHeader title="Medical">
+        <CardWithHeader title={t('children.medical')}>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Doctor name">
+              <Field label={t('children.doctorName')}>
                 <NameInput value={medical.doctorName} onChange={(v) => setM('doctorName', v)} />
               </Field>
-              <Field label="Doctor phone">
+              <Field label={t('children.doctorPhone')}>
                 <PhoneInput value={medical.doctorPhone} onChange={(v) => setM('doctorPhone', v)} />
               </Field>
-              <Field label="Doctor address" className="sm:col-span-2">
+              <Field label={t('children.doctorAddress')} className="sm:col-span-2">
                 <Input value={medical.doctorAddress} onChange={(e) => setM('doctorAddress', e.target.value)} />
               </Field>
             </div>
-            <EditableList label="Allergies" items={medical.allergies} onChange={(v) => setM('allergies', v)} placeholder="Add an allergy…" />
-            <EditableList label="Medication allergies" items={medical.medicationAllergies} onChange={(v) => setM('medicationAllergies', v)} placeholder="Add a medication allergy…" />
-            <EditableList label="Medications" items={medical.medications} onChange={(v) => setM('medications', v)} placeholder="Add a medication…" />
-            <Field label="Medical plan">
+            <EditableList label={t('children.allergies')} items={medical.allergies} onChange={(v) => setM('allergies', v)} placeholder={t('children.addAllergy')} />
+            <EditableList label={t('children.medicationAllergies')} items={medical.medicationAllergies} onChange={(v) => setM('medicationAllergies', v)} placeholder={t('children.addMedicationAllergy')} />
+            <EditableList label={t('children.medications')} items={medical.medications} onChange={(v) => setM('medications', v)} placeholder={t('children.addMedication')} />
+            <Field label={t('children.medicalPlan')}>
               <textarea
                 className="w-full min-h-[72px] rounded-md border px-3 py-2 text-sm"
                 style={{ borderColor: 'var(--kc-border)', background: 'var(--kc-bg)', color: 'var(--kc-text-1)' }}
@@ -580,7 +583,7 @@ export function ChildEditForm({ child }: { child: Child }) {
             </Field>
             <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
               <Checkbox checked={medical.hasSpecialNeeds} onCheckedChange={(c) => setM('hasSpecialNeeds', c === true)} />
-              Has special needs
+              {t('children.hasSpecialNeeds')}
             </label>
           </div>
         </CardWithHeader>
@@ -588,7 +591,7 @@ export function ChildEditForm({ child }: { child: Child }) {
 
       <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost">
-          <Link href={`/children/${child.id}`}>Cancel</Link>
+          <Link href={`/children/${child.id}`}>{t('children.cancel')}</Link>
         </Button>
         <Button
           onClick={() => {
@@ -606,11 +609,11 @@ export function ChildEditForm({ child }: { child: Child }) {
       <AlertDialog open={confirmSaveOpen} onOpenChange={setConfirmSaveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Save changes?</AlertDialogTitle>
-            <AlertDialogDescription>Apply the changes to this section?</AlertDialogDescription>
+            <AlertDialogTitle>{t('children.saveChangesTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('children.saveChangesDesc')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={saving}>{t('children.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -618,7 +621,7 @@ export function ChildEditForm({ child }: { child: Child }) {
                 void saveSection(tab);
               }}
             >
-              Save
+              {t('children.save')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -628,13 +631,13 @@ export function ChildEditForm({ child }: { child: Child }) {
       <AlertDialog open={pendingTab !== null} onOpenChange={(o) => !o && setPendingTab(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+            <AlertDialogTitle>{t('children.unsavedTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved changes in this section. Save before continuing?
+              {t('children.unsavedTabDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:gap-2">
-            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={saving}>{t('children.cancel')}</AlertDialogCancel>
             <Button
               variant="outline"
               disabled={saving}
@@ -645,7 +648,7 @@ export function ChildEditForm({ child }: { child: Child }) {
                 if (target) setTab(target);
               }}
             >
-              Discard
+              {t('children.discard')}
             </Button>
             <AlertDialogAction
               disabled={saving}
@@ -657,7 +660,7 @@ export function ChildEditForm({ child }: { child: Child }) {
                 if (ok && target) setTab(target);
               }}
             >
-              Save and continue
+              {t('children.saveAndContinue')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -667,13 +670,13 @@ export function ChildEditForm({ child }: { child: Child }) {
       <AlertDialog open={removeRow !== null} onOpenChange={(o) => !o && setRemoveRow(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove this parent?</AlertDialogTitle>
+            <AlertDialogTitle>{t('children.removeParentTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              The parent record itself is kept — only the link to this child is removed (on save).
+              {t('children.removeParentDescEdit')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('children.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -682,7 +685,7 @@ export function ChildEditForm({ child }: { child: Child }) {
               }}
               style={{ background: 'var(--kc-error)', color: 'white' }}
             >
-              Remove
+              {t('children.remove')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -699,17 +702,18 @@ function PlainSelect({
 }: {
   value: string;
   onValueChange: (v: string) => void;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; labelKey: string }>;
 }) {
+  const { t } = useTranslation();
   return (
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select…" />
+        <SelectValue placeholder={t('children.selectPlaceholder')} />
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (
           <SelectItem key={o.value} value={o.value}>
-            {o.label}
+            {t(o.labelKey)}
           </SelectItem>
         ))}
       </SelectContent>
@@ -734,6 +738,7 @@ function ParentEditCard({
   onPrimary: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const [exSearch, setExSearch] = useState('');
   const selected = linkableParents.find((e) => e.id === row.parentId);
   const filtered = useMemo(() => {
@@ -745,7 +750,7 @@ function ParentEditCard({
     <div className="rounded-lg border p-4 space-y-4" style={{ borderColor: 'var(--kc-border)' }}>
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold" style={{ color: 'var(--kc-text-1)' }}>
-          Parent {index + 1}
+          {t('children.parentWord')} {index + 1}
           {row.linked && (
             <span className="ml-2 text-xs font-normal" style={{ color: 'var(--kc-text-3)' }}>
               {row.displayName}
@@ -753,7 +758,7 @@ function ParentEditCard({
           )}
         </span>
         {canRemove && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} aria-label="Remove parent">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} aria-label={t('children.removeParentAria')}>
             <Trash2 className="h-3.5 w-3.5" style={{ color: 'var(--kc-error)' }} />
           </Button>
         )}
@@ -761,10 +766,10 @@ function ParentEditCard({
 
       {row.linked ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Full name">
+          <Field label={t('children.fullName')}>
             <Input value={row.displayName} disabled />
           </Field>
-          <Field label="Email">
+          <Field label={t('children.email')}>
             <Input value={row.displayEmail} disabled />
           </Field>
         </div>
@@ -772,7 +777,7 @@ function ParentEditCard({
         <>
           <div className="flex gap-2">
             <Button variant={row.mode === 'new' ? 'default' : 'outline'} size="sm" onClick={() => onChange({ mode: 'new' })}>
-              New parent
+              {t('children.newParentBtn')}
             </Button>
             <Button
               variant={row.mode === 'existing' ? 'default' : 'outline'}
@@ -780,26 +785,26 @@ function ParentEditCard({
               onClick={() => onChange({ mode: 'existing' })}
               disabled={linkableParents.length === 0}
             >
-              Link existing
+              {t('children.linkExisting')}
             </Button>
           </div>
 
           {row.mode === 'existing' ? (
-            <Field label="Existing parent" required>
+            <Field label={t('children.existingParent')} required>
               {selected ? (
                 <div className="flex items-center justify-between gap-3 rounded-md border p-2.5" style={{ borderColor: 'var(--kc-border)' }}>
                   <span className="min-w-0 text-sm">
                     <span className="font-medium" style={{ color: 'var(--kc-text-1)' }}>{selected.name}</span>
                     <span className="ml-1 break-all" style={{ color: 'var(--kc-text-3)' }}>· {selected.email}</span>
                   </span>
-                  <Button variant="ghost" size="sm" onClick={() => onChange({ parentId: '' })}>Change</Button>
+                  <Button variant="ghost" size="sm" onClick={() => onChange({ parentId: '' })}>{t('children.change')}</Button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <SearchInput value={exSearch} onChange={setExSearch} placeholder="Search by name or email…" ariaLabel="Search existing parents" />
+                  <SearchInput value={exSearch} onChange={setExSearch} placeholder={t('children.searchByNameOrEmail')} ariaLabel={t('children.searchExistingParentsAria')} />
                   <div className="rounded-md border divide-y" style={{ borderColor: 'var(--kc-border)' }}>
                     {filtered.length === 0 ? (
-                      <p className="p-3 text-sm" style={{ color: 'var(--kc-text-3)' }}>No matching parents.</p>
+                      <p className="p-3 text-sm" style={{ color: 'var(--kc-text-3)' }}>{t('children.noMatchingParents')}</p>
                     ) : (
                       filtered.map((ep) => (
                         <button
@@ -820,26 +825,26 @@ function ParentEditCard({
           ) : (
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Full name" required className="sm:col-span-2">
-                  <NameInput value={row.fullName} onChange={(v) => onChange({ fullName: v })} placeholder="First and last name" />
+                <Field label={t('children.fullName')} required className="sm:col-span-2">
+                  <NameInput value={row.fullName} onChange={(v) => onChange({ fullName: v })} placeholder={t('children.fullNamePlaceholder')} />
                 </Field>
-                <Field label="Email" required>
+                <Field label={t('children.email')} required>
                   <Input type="email" value={row.email} onChange={(e) => onChange({ email: e.target.value })} />
                 </Field>
-                <Field label="Phone">
+                <Field label={t('children.phone')}>
                   <PhoneInput value={row.phone} onChange={(v) => onChange({ phone: v })} />
                 </Field>
               </div>
               <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
                 <Checkbox checked={row.isPrimary} onCheckedChange={() => onPrimary()} />
-                Primary contact
+                {t('children.primaryContact')}
               </label>
             </>
           )}
         </>
       )}
 
-      <Field label="Relationship" required className="sm:max-w-xs">
+      <Field label={t('children.relationship')} required className="sm:max-w-xs">
         <PlainSelect value={row.relationship} onValueChange={(v) => onChange({ relationship: v })} options={RELATIONSHIPS} />
       </Field>
 
@@ -847,12 +852,12 @@ function ParentEditCard({
         {(row.linked || row.mode === 'existing') && (
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
             <Checkbox checked={row.isPrimary} onCheckedChange={() => onPrimary()} />
-            Primary contact
+            {t('children.primaryContact')}
           </label>
         )}
         <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
           <Checkbox checked={row.livesWithChild} onCheckedChange={(c) => onChange({ livesWithChild: c === true })} />
-          Lives with child
+          {t('children.livesWithChild')}
         </label>
       </div>
 
@@ -860,7 +865,7 @@ function ParentEditCard({
         <>
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
             <Checkbox checked={row.sameAddressAsChild} onCheckedChange={(c) => onChange({ sameAddressAsChild: c === true })} />
-            Same address as the child
+            {t('children.sameAddressAsChild')}
           </label>
           {!row.sameAddressAsChild && (
             <div className="rounded-lg p-4" style={{ background: 'var(--kc-surface-2)' }}>
@@ -870,14 +875,14 @@ function ParentEditCard({
           <Collapsible open={row.showWork} onOpenChange={(o) => onChange({ showWork: o })}>
             <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium" style={{ color: 'var(--kc-p-600)' }}>
               <ChevronDown className={cn('h-4 w-4 transition-transform', row.showWork && 'rotate-180')} />
-              Work details (optional)
+              {t('children.workDetailsOptional')}
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4 pt-3">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Employer">
+                <Field label={t('children.employer')}>
                   <NameInput value={row.workEmployer} onChange={(v) => onChange({ workEmployer: v })} />
                 </Field>
-                <Field label="Work phone">
+                <Field label={t('children.workPhone')}>
                   <PhoneInput value={row.workPhone} onChange={(v) => onChange({ workPhone: v })} />
                 </Field>
               </div>

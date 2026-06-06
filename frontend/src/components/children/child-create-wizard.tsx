@@ -51,7 +51,8 @@ import { cn } from '@/lib/utils';
 import { parsePhoneDigits } from '@/lib/utils/phone';
 import { useCenterChildren, useCreateChild } from '@/lib/hooks/use-children';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
-import { relationshipLabel } from '@/lib/format-child';
+import { useTranslation } from '@/lib/i18n';
+import { genderLabel, relationshipLabel } from '@/lib/format-child';
 import {
   AddressFields,
   EditableList,
@@ -66,18 +67,23 @@ import type {
 } from '@/lib/api/children';
 import { ApiError } from '@/lib/api/client';
 
-const STEP_TITLES = ['Child', 'Parents', 'Medical', 'Review'];
+const STEP_TITLE_KEYS = [
+  'children.stepChild',
+  'children.stepParents',
+  'children.stepMedical',
+  'children.stepReview',
+];
 const MAX_PARENTS = 3;
 const GENDERS = [
-  { value: 'MALE', label: 'Male' },
-  { value: 'FEMALE', label: 'Female' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'MALE', labelKey: 'children.genderMale' },
+  { value: 'FEMALE', labelKey: 'children.genderFemale' },
+  { value: 'OTHER', labelKey: 'children.genderOther' },
 ];
 const RELATIONSHIPS = [
-  { value: 'MOTHER', label: 'Mother' },
-  { value: 'FATHER', label: 'Father' },
-  { value: 'GUARDIAN', label: 'Guardian' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'MOTHER', labelKey: 'children.relMother' },
+  { value: 'FATHER', labelKey: 'children.relFather' },
+  { value: 'GUARDIAN', labelKey: 'children.relGuardian' },
+  { value: 'OTHER', labelKey: 'children.relOther' },
 ];
 
 // Addr / emptyAddr / Field / AddressFields / EditableList now live in
@@ -219,6 +225,7 @@ function isFormDirty(f: ChildForm): boolean {
 
 export function ChildCreateWizard({ centerId }: { centerId: string }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<ChildForm>(emptyForm);
   const [touched, setTouched] = useState(false);
@@ -229,10 +236,7 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
   // Leave guard — covers sidebar links, the page back link, and browser
   // refresh/close (the canonical SAAS hook). Only active when there's data.
   const isDirty = useMemo(() => isFormDirty(form), [form]);
-  useUnsavedChangesPrompt(
-    isDirty,
-    'You have unsaved changes. Leaving will discard the information entered.',
-  );
+  useUnsavedChangesPrompt(isDirty, t('children.unsavedLeaveWizard'));
 
   // Jump straight to a step from the Review edit buttons.
   const goToStep = (s: number) => {
@@ -299,27 +303,27 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
   const stepErrors = (s: number): string[] => {
     const errs: string[] = [];
     if (s === 1) {
-      if (!form.firstName.trim()) errs.push('First name is required.');
-      if (!form.lastName.trim()) errs.push('Last name is required.');
-      if (!form.birthDate) errs.push('Birth date is required.');
-      else if (form.birthDate > todayStr) errs.push('Birth date cannot be in the future.');
-      if (!form.gender) errs.push('Gender is required.');
+      if (!form.firstName.trim()) errs.push(t('children.errFirstNameRequired'));
+      if (!form.lastName.trim()) errs.push(t('children.errLastNameRequired'));
+      if (!form.birthDate) errs.push(t('children.errBirthDateRequired'));
+      else if (form.birthDate > todayStr) errs.push(t('children.errBirthDateFuture'));
+      if (!form.gender) errs.push(t('children.errGenderRequired'));
     }
     if (s === 2) {
-      if (form.parents.length === 0) errs.push('At least one parent is required.');
+      if (form.parents.length === 0) errs.push(t('children.errAtLeastOneParent'));
       form.parents.forEach((p, idx) => {
-        const tag = `Parent ${idx + 1}`;
-        if (!p.relationship) errs.push(`${tag}: relationship is required.`);
+        const tag = `${t('children.parentWord')} ${idx + 1}`;
+        if (!p.relationship) errs.push(`${tag}: ${t('children.errRelationshipRequired')}`);
         if (p.mode === 'existing') {
-          if (!p.parentId) errs.push(`${tag}: pick an existing parent.`);
+          if (!p.parentId) errs.push(`${tag}: ${t('children.errPickExisting')}`);
         } else {
           const parts = p.fullName.trim().split(/\s+/).filter(Boolean);
-          if (parts.length < 2) errs.push(`${tag}: full name (first and last) is required.`);
-          if (!EMAIL_RE.test(p.email.trim())) errs.push(`${tag}: a valid email is required.`);
+          if (parts.length < 2) errs.push(`${tag}: ${t('children.errFullNameRequired')}`);
+          if (!EMAIL_RE.test(p.email.trim())) errs.push(`${tag}: ${t('children.errEmailRequired')}`);
         }
       });
       if (form.parents.length > 0 && !form.parents.some((p) => p.isPrimary)) {
-        errs.push('Mark one parent as primary.');
+        errs.push(t('children.errMarkPrimary'));
       }
     }
     return errs;
@@ -409,10 +413,10 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
     const { payload, medical } = buildPayload();
     try {
       const child = await createMutation.mutateAsync({ centerId, payload, medical });
-      toast.success('Child created');
+      toast.success(t('children.toastCreated'));
       router.push(`/children/${child.id}`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to create child');
+      toast.error(err instanceof ApiError ? err.message : t('children.toastCreateFailed'));
     }
   };
 
@@ -440,22 +444,22 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
         {/* Cancel is a Link → the unsaved-changes hook intercepts it when the
             form is dirty (branded confirm); clean form navigates straight. */}
         <Button asChild variant="ghost">
-          <Link href="/children">Cancel</Link>
+          <Link href="/children">{t('children.cancel')}</Link>
         </Button>
         <div className="flex gap-2">
           <Button variant="outline" onClick={prev} disabled={step === 1}>
             <ChevronLeft className="mr-1.5 h-4 w-4" />
-            Previous
+            {t('children.previous')}
           </Button>
           {step < 4 ? (
             <Button onClick={next}>
-              Next
+              {t('children.next')}
               <ChevronRight className="ml-1.5 h-4 w-4" />
             </Button>
           ) : (
             <Button onClick={() => setConfirmCreateOpen(true)} disabled={createMutation.isPending}>
               {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create child
+              {t('children.createChild')}
             </Button>
           )}
         </div>
@@ -465,13 +469,13 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
       <AlertDialog open={removeIndex !== null} onOpenChange={(o) => !o && setRemoveIndex(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove this parent?</AlertDialogTitle>
+            <AlertDialogTitle>{t('children.removeParentTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This parent has details entered. Removing the card discards them.
+              {t('children.removeParentDescWizard')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('children.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -480,7 +484,7 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
               }}
               style={{ background: 'var(--kc-error)', color: 'white' }}
             >
-              Remove
+              {t('children.remove')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -490,13 +494,15 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
       <AlertDialog open={confirmCreateOpen} onOpenChange={setConfirmCreateOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Create this child?</AlertDialogTitle>
+            <AlertDialogTitle>{t('children.createTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Create this child with the information you entered?
+              {t('children.createDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={createMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={createMutation.isPending}>
+              {t('children.cancel')}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -504,7 +510,7 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
                 void submit();
               }}
             >
-              Create
+              {t('children.create')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -516,13 +522,14 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
 // ───────────────────────────────────────────── progress + shared bits
 
 function ProgressBar({ step }: { step: number }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium" style={{ color: 'var(--kc-text-1)' }}>
-          Step {step} of 4
+          {t('children.stepXofY').replace('{n}', String(step))}
         </span>
-        <span style={{ color: 'var(--kc-text-3)' }}>{STEP_TITLES[step - 1]}</span>
+        <span style={{ color: 'var(--kc-text-3)' }}>{t(STEP_TITLE_KEYS[step - 1])}</span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--kc-surface-2)' }}>
         <div className="h-full rounded-full transition-all" style={{ width: `${(step / 4) * 100}%`, background: 'var(--kc-p-600)' }} />
@@ -564,32 +571,33 @@ function StepChild({
   errors: string[];
   today: string;
 }) {
+  const { t } = useTranslation();
   return (
-    <CardWithHeader title="Child details">
+    <CardWithHeader title={t('children.childDetails')}>
       <div className="space-y-4">
         <ErrorList errors={errors} show={showErrors} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="First name" required>
+          <Field label={t('children.firstName')} required>
             <NameInput value={form.firstName} onChange={(v) => set('firstName', v)} />
           </Field>
-          <Field label="Middle name">
+          <Field label={t('children.middleName')}>
             <NameInput value={form.middleName} onChange={(v) => set('middleName', v)} />
           </Field>
-          <Field label="Last name" required>
+          <Field label={t('children.lastName')} required>
             <NameInput value={form.lastName} onChange={(v) => set('lastName', v)} />
           </Field>
-          <Field label="Birth date" required>
+          <Field label={t('children.birthDate')} required>
             <DateField value={form.birthDate} onChange={(e) => set('birthDate', e.target.value)} max={today} />
           </Field>
-          <Field label="Gender" required>
+          <Field label={t('children.gender')} required>
             <Select value={form.gender} onValueChange={(v) => set('gender', v)}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select…" />
+                <SelectValue placeholder={t('children.selectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {GENDERS.map((g) => (
                   <SelectItem key={g.value} value={g.value}>
-                    {g.label}
+                    {t(g.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -600,22 +608,23 @@ function StepChild({
         {/* Child's address — visually grouped sub-block (the base address). */}
         <div className="rounded-lg p-4 space-y-4" style={{ background: 'var(--kc-surface-2)' }}>
           <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
-            Child&apos;s address
+            {t('children.childsAddress')}
           </p>
           <AddressFields value={form.address} onChange={(field, v) => set('address', { ...form.address, [field]: v })} />
         </div>
 
         {/* The two care dates share one row (stacked on mobile). */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Admission date">
+          <Field label={t('children.admissionDate')}>
             <DateField value={form.admissionDate} onChange={(e) => set('admissionDate', e.target.value)} />
           </Field>
-          <Field label="First day of care">
+          <Field label={t('children.firstDayOfCare')}>
             <DateField value={form.firstCareDay} onChange={(e) => set('firstCareDay', e.target.value)} />
           </Field>
         </div>
         <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
-          Enrollment status starts as <strong>Pending</strong>.
+          {t('children.enrollmentStartsAs')}{' '}
+          <strong>{t('children.statusPending')}</strong>.
         </p>
       </div>
     </CardWithHeader>
@@ -643,8 +652,9 @@ function StepParents({
   showErrors: boolean;
   errors: string[];
 }) {
+  const { t } = useTranslation();
   return (
-    <CardWithHeader title="Parents & guardians">
+    <CardWithHeader title={t('children.parentsGuardians')}>
       <div className="space-y-4">
         <ErrorList errors={errors} show={showErrors} />
         {form.parents.map((p, i) => (
@@ -662,7 +672,7 @@ function StepParents({
         {form.parents.length < MAX_PARENTS && (
           <Button variant="outline" onClick={addParent} className="w-full">
             <Plus className="mr-1.5 h-4 w-4" />
-            Add another parent
+            {t('children.addAnotherParent')}
           </Button>
         )}
       </div>
@@ -687,6 +697,7 @@ function ParentCard({
   onPrimary: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const [exSearch, setExSearch] = useState('');
   const selected = existingParents.find((e) => e.id === parent.parentId);
   const filtered = useMemo(() => {
@@ -701,10 +712,10 @@ function ParentCard({
     <div className="rounded-lg border p-4 space-y-4" style={{ borderColor: 'var(--kc-border)' }}>
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold" style={{ color: 'var(--kc-text-1)' }}>
-          Parent {index + 1}
+          {t('children.parentWord')} {index + 1}
         </span>
         {canRemove && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} aria-label="Remove parent">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} aria-label={t('children.removeParentAria')}>
             <Trash2 className="h-3.5 w-3.5" style={{ color: 'var(--kc-error)' }} />
           </Button>
         )}
@@ -712,7 +723,7 @@ function ParentCard({
 
       <div className="flex gap-2">
         <Button variant={parent.mode === 'new' ? 'default' : 'outline'} size="sm" onClick={() => onChange({ mode: 'new' })}>
-          New parent
+          {t('children.newParentBtn')}
         </Button>
         <Button
           variant={parent.mode === 'existing' ? 'default' : 'outline'}
@@ -720,26 +731,26 @@ function ParentCard({
           onClick={() => onChange({ mode: 'existing' })}
           disabled={existingParents.length === 0}
         >
-          Link existing
+          {t('children.linkExisting')}
         </Button>
       </div>
 
       {parent.mode === 'existing' ? (
-        <Field label="Existing parent" required>
+        <Field label={t('children.existingParent')} required>
           {selected ? (
             <div className="flex items-center justify-between gap-3 rounded-md border p-2.5" style={{ borderColor: 'var(--kc-border)' }}>
               <span className="min-w-0 text-sm">
                 <span className="font-medium" style={{ color: 'var(--kc-text-1)' }}>{selected.name}</span>
                 <span className="ml-1 break-all" style={{ color: 'var(--kc-text-3)' }}>· {selected.email}</span>
               </span>
-              <Button variant="ghost" size="sm" onClick={() => onChange({ parentId: '' })}>Change</Button>
+              <Button variant="ghost" size="sm" onClick={() => onChange({ parentId: '' })}>{t('children.change')}</Button>
             </div>
           ) : (
             <div className="space-y-2">
-              <SearchInput value={exSearch} onChange={setExSearch} placeholder="Search by name or email…" ariaLabel="Search existing parents" />
+              <SearchInput value={exSearch} onChange={setExSearch} placeholder={t('children.searchByNameOrEmail')} ariaLabel={t('children.searchExistingParentsAria')} />
               <div className="rounded-md border divide-y" style={{ borderColor: 'var(--kc-border)' }}>
                 {filtered.length === 0 ? (
-                  <p className="p-3 text-sm" style={{ color: 'var(--kc-text-3)' }}>No matching parents.</p>
+                  <p className="p-3 text-sm" style={{ color: 'var(--kc-text-3)' }}>{t('children.noMatchingParents')}</p>
                 ) : (
                   filtered.map((ep) => (
                     <button
@@ -760,17 +771,17 @@ function ParentCard({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Full name" required className="sm:col-span-2">
+            <Field label={t('children.fullName')} required className="sm:col-span-2">
               <NameInput
                 value={parent.fullName}
                 onChange={(v) => onChange({ fullName: v })}
-                placeholder="First and last name"
+                placeholder={t('children.fullNamePlaceholder')}
               />
             </Field>
-            <Field label="Email" required>
+            <Field label={t('children.email')} required>
               <Input type="email" value={parent.email} onChange={(e) => onChange({ email: e.target.value })} />
             </Field>
-            <Field label="Phone">
+            <Field label={t('children.phone')}>
               <PhoneInput value={parent.phone} onChange={(v) => onChange({ phone: v })} />
             </Field>
           </div>
@@ -778,22 +789,22 @@ function ParentCard({
               control that sets ChildParent.isPrimary (radio across parents). */}
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
             <Checkbox checked={parent.isPrimary} onCheckedChange={() => onPrimary()} />
-            Primary contact
+            {t('children.primaryContact')}
           </label>
           <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
-            A welcome email is sent so the parent can set their password.
+            {t('children.welcomeEmailHint')}
           </p>
         </>
       )}
 
-      <Field label="Relationship" required className="sm:max-w-xs">
+      <Field label={t('children.relationship')} required className="sm:max-w-xs">
         <Select value={parent.relationship} onValueChange={(v) => onChange({ relationship: v })}>
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select…" />
+            <SelectValue placeholder={t('children.selectPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
             {RELATIONSHIPS.map((r) => (
-              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+              <SelectItem key={r.value} value={r.value}>{t(r.labelKey)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -805,12 +816,12 @@ function ParentCard({
         {parent.mode === 'existing' && (
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
             <Checkbox checked={parent.isPrimary} onCheckedChange={() => onPrimary()} />
-            Primary contact
+            {t('children.primaryContact')}
           </label>
         )}
         <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
           <Checkbox checked={parent.livesWithChild} onCheckedChange={(c) => onChange({ livesWithChild: c === true })} />
-          Lives with child
+          {t('children.livesWithChild')}
         </label>
       </div>
 
@@ -818,7 +829,7 @@ function ParentCard({
         <>
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
             <Checkbox checked={parent.sameAddressAsChild} onCheckedChange={(c) => onChange({ sameAddressAsChild: c === true })} />
-            Same address as the child
+            {t('children.sameAddressAsChild')}
           </label>
 
           {!parent.sameAddressAsChild && (
@@ -830,14 +841,14 @@ function ParentCard({
           <Collapsible open={parent.showWork} onOpenChange={(o) => onChange({ showWork: o })}>
             <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium" style={{ color: 'var(--kc-p-600)' }}>
               <ChevronDown className={cn('h-4 w-4 transition-transform', parent.showWork && 'rotate-180')} />
-              Work details (optional)
+              {t('children.workDetailsOptional')}
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4 pt-3">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Employer">
+                <Field label={t('children.employer')}>
                   <NameInput value={parent.workEmployer} onChange={(v) => onChange({ workEmployer: v })} />
                 </Field>
-                <Field label="Work phone">
+                <Field label={t('children.workPhone')}>
                   <PhoneInput value={parent.workPhone} onChange={(v) => onChange({ workPhone: v })} />
                 </Field>
               </div>
@@ -859,36 +870,37 @@ function StepMedical({
   form: ChildForm;
   set: <K extends keyof ChildForm>(k: K, v: ChildForm[K]) => void;
 }) {
+  const { t } = useTranslation();
   const textareaCls = 'w-full min-h-[72px] rounded-md border px-3 py-2 text-sm';
   const textareaStyle = { borderColor: 'var(--kc-border)', background: 'var(--kc-bg)', color: 'var(--kc-text-1)' } as const;
   return (
-    <CardWithHeader title="Medical (optional)">
+    <CardWithHeader title={t('children.medicalOptional')}>
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Doctor name">
+          <Field label={t('children.doctorName')}>
             <NameInput value={form.doctorName} onChange={(v) => set('doctorName', v)} />
           </Field>
-          <Field label="Doctor phone">
+          <Field label={t('children.doctorPhone')}>
             <PhoneInput value={form.doctorPhone} onChange={(v) => set('doctorPhone', v)} />
           </Field>
         </div>
         <div className="rounded-lg p-4 space-y-4" style={{ background: 'var(--kc-surface-2)' }}>
           <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
-            Doctor address
+            {t('children.doctorAddress')}
           </p>
           <AddressFields value={form.doctorAddress} onChange={(field, v) => set('doctorAddress', { ...form.doctorAddress, [field]: v })} />
         </div>
 
-        <EditableList label="Allergies" items={form.allergies} onChange={(v) => set('allergies', v)} placeholder="Add an allergy…" />
-        <EditableList label="Medication allergies" items={form.medicationAllergies} onChange={(v) => set('medicationAllergies', v)} placeholder="Add a medication allergy…" />
-        <EditableList label="Medications" items={form.medications} onChange={(v) => set('medications', v)} placeholder="Add a medication…" />
+        <EditableList label={t('children.allergies')} items={form.allergies} onChange={(v) => set('allergies', v)} placeholder={t('children.addAllergy')} />
+        <EditableList label={t('children.medicationAllergies')} items={form.medicationAllergies} onChange={(v) => set('medicationAllergies', v)} placeholder={t('children.addMedicationAllergy')} />
+        <EditableList label={t('children.medications')} items={form.medications} onChange={(v) => set('medications', v)} placeholder={t('children.addMedication')} />
 
-        <Field label="Medical plan">
+        <Field label={t('children.medicalPlan')}>
           <textarea className={textareaCls} style={textareaStyle} value={form.medicalPlan} onChange={(e) => set('medicalPlan', e.target.value)} />
         </Field>
         <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
           <Checkbox checked={form.hasSpecialNeeds} onCheckedChange={(c) => set('hasSpecialNeeds', c === true)} />
-          Has special needs
+          {t('children.hasSpecialNeeds')}
         </label>
       </div>
     </CardWithHeader>
@@ -912,23 +924,24 @@ function StepReview({
   existingParents: Array<{ id: string; name: string; email: string }>;
   goToStep: (step: number) => void;
 }) {
+  const { t } = useTranslation();
   const childName = [form.firstName, form.middleName, form.lastName].filter(Boolean).join(' ');
 
   return (
     <div className="space-y-4">
-      <CardWithHeader icon={Baby} title="Child" action={<EditButton label="Edit child" onClick={() => goToStep(1)} />}>
+      <CardWithHeader icon={Baby} title={t('children.stepChild')} action={<EditButton label={t('children.editChildAria')} onClick={() => goToStep(1)} />}>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-          <ReviewRow label="Name" value={dash(childName)} />
-          <ReviewRow label="Birth date" value={dash(form.birthDate)} />
-          <ReviewRow label="Gender" value={dash(form.gender)} />
-          <ReviewRow label="Enrollment status" value="Pending" />
-          <ReviewRow label="Address" value={addrStr(form.address)} full />
-          <ReviewRow label="Admission date" value={dash(form.admissionDate)} />
-          <ReviewRow label="First day of care" value={dash(form.firstCareDay)} />
+          <ReviewRow label={t('children.colName')} value={dash(childName)} />
+          <ReviewRow label={t('children.birthDate')} value={dash(form.birthDate)} />
+          <ReviewRow label={t('children.gender')} value={form.gender ? genderLabel(form.gender, t) : '—'} />
+          <ReviewRow label={t('children.enrollmentStatus')} value={t('children.statusPending')} />
+          <ReviewRow label={t('children.address')} value={addrStr(form.address)} full />
+          <ReviewRow label={t('children.admissionDate')} value={dash(form.admissionDate)} />
+          <ReviewRow label={t('children.firstDayOfCare')} value={dash(form.firstCareDay)} />
         </dl>
       </CardWithHeader>
 
-      <CardWithHeader icon={Users} title={`Parents (${form.parents.length})`}>
+      <CardWithHeader icon={Users} title={`${t('children.colParents')} (${form.parents.length})`}>
         <div className="space-y-4">
           {form.parents.map((p, i) => {
             const existing = p.mode === 'existing' ? existingParents.find((e) => e.id === p.parentId) : undefined;
@@ -939,30 +952,30 @@ function StepReview({
                     FULL NAME row below (consistent with the other fields). */}
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
-                    Parent {i + 1}
+                    {t('children.parentWord')} {i + 1}
                   </span>
-                  <EditButton label="Edit parents" onClick={() => goToStep(2)} />
+                  <EditButton label={t('children.editParentsAria')} onClick={() => goToStep(2)} />
                 </div>
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-                  <ReviewRow label="Full name" value={dash(rawName)} full />
-                  <ReviewRow label="Type" value={p.mode === 'existing' ? 'Existing parent' : 'New parent'} />
-                  <ReviewRow label="Relationship" value={p.relationship ? relationshipLabel(p.relationship) : '—'} />
-                  <ReviewRow label="Primary contact" value={p.isPrimary ? 'Yes' : 'No'} />
-                  <ReviewRow label="Lives with child" value={p.livesWithChild ? 'Yes' : 'No'} />
+                  <ReviewRow label={t('children.fullName')} value={dash(rawName)} full />
+                  <ReviewRow label={t('children.type')} value={p.mode === 'existing' ? t('children.existingParent') : t('children.newParentBtn')} />
+                  <ReviewRow label={t('children.relationship')} value={p.relationship ? relationshipLabel(p.relationship, t) : '—'} />
+                  <ReviewRow label={t('children.primaryContact')} value={p.isPrimary ? t('children.yes') : t('children.no')} />
+                  <ReviewRow label={t('children.livesWithChild')} value={p.livesWithChild ? t('children.yes') : t('children.no')} />
                   {p.mode === 'existing' ? (
-                    <ReviewRow label="Email" value={dash(existing?.email)} full />
+                    <ReviewRow label={t('children.email')} value={dash(existing?.email)} full />
                   ) : (
                     <>
-                      <ReviewRow label="Email" value={dash(p.email)} />
-                      <ReviewRow label="Phone" value={dash(p.phone)} />
+                      <ReviewRow label={t('children.email')} value={dash(p.email)} />
+                      <ReviewRow label={t('children.phone')} value={dash(p.phone)} />
                       <ReviewRow
-                        label="Home address"
-                        value={p.sameAddressAsChild ? 'Same as child' : addrStr(p.home)}
+                        label={t('children.homeAddress')}
+                        value={p.sameAddressAsChild ? t('children.sameAsChild') : addrStr(p.home)}
                         full
                       />
-                      <ReviewRow label="Employer" value={dash(p.workEmployer)} />
-                      <ReviewRow label="Work phone" value={dash(p.workPhone)} />
-                      <ReviewRow label="Work address" value={addrStr(p.work)} full />
+                      <ReviewRow label={t('children.employer')} value={dash(p.workEmployer)} />
+                      <ReviewRow label={t('children.workPhone')} value={dash(p.workPhone)} />
+                      <ReviewRow label={t('children.workAddress')} value={addrStr(p.work)} full />
                     </>
                   )}
                 </dl>
@@ -972,16 +985,16 @@ function StepReview({
         </div>
       </CardWithHeader>
 
-      <CardWithHeader icon={HeartPulse} title="Medical" action={<EditButton label="Edit medical" onClick={() => goToStep(3)} />}>
+      <CardWithHeader icon={HeartPulse} title={t('children.medical')} action={<EditButton label={t('children.editMedicalAria')} onClick={() => goToStep(3)} />}>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-          <ReviewRow label="Doctor name" value={dash(form.doctorName)} />
-          <ReviewRow label="Doctor phone" value={dash(form.doctorPhone)} />
-          <ReviewRow label="Doctor address" value={addrStr(form.doctorAddress)} full />
-          <ReviewRow label="Allergies" value={listOr(form.allergies)} full />
-          <ReviewRow label="Medication allergies" value={listOr(form.medicationAllergies)} full />
-          <ReviewRow label="Medications" value={listOr(form.medications)} full />
-          <ReviewRow label="Medical plan" value={dash(form.medicalPlan)} full />
-          <ReviewRow label="Special needs" value={form.hasSpecialNeeds ? 'Yes' : 'No'} />
+          <ReviewRow label={t('children.doctorName')} value={dash(form.doctorName)} />
+          <ReviewRow label={t('children.doctorPhone')} value={dash(form.doctorPhone)} />
+          <ReviewRow label={t('children.doctorAddress')} value={addrStr(form.doctorAddress)} full />
+          <ReviewRow label={t('children.allergies')} value={listOr(form.allergies)} full />
+          <ReviewRow label={t('children.medicationAllergies')} value={listOr(form.medicationAllergies)} full />
+          <ReviewRow label={t('children.medications')} value={listOr(form.medications)} full />
+          <ReviewRow label={t('children.medicalPlan')} value={dash(form.medicalPlan)} full />
+          <ReviewRow label={t('children.specialNeeds')} value={form.hasSpecialNeeds ? t('children.yes') : t('children.no')} />
         </dl>
       </CardWithHeader>
     </div>

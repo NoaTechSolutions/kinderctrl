@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { NameInput } from '@/components/ui/name-input';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 // Shared form primitives for the Children create wizard AND the edit form, so
@@ -49,16 +50,18 @@ export function AddressFields({
   value: Addr;
   onChange: (field: keyof Addr, v: string) => void;
 }) {
+  // Address labels are shared SAAS copy — reuse the centers namespace keys.
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <Field label="Street">
+      <Field label={t('centers.street')}>
         <Input value={value.street} onChange={(e) => onChange('street', e.target.value)} placeholder="123 Main St" />
       </Field>
-      <Field label="City">
+      <Field label={t('centers.city')}>
         <NameInput value={value.city} onChange={(v) => onChange('city', v)} placeholder="San Francisco" />
       </Field>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="State">
+        <Field label={t('centers.state')}>
           <Input
             value={value.state}
             onChange={(e) => onChange('state', e.target.value.toUpperCase())}
@@ -66,7 +69,7 @@ export function AddressFields({
             placeholder="CA"
           />
         </Field>
-        <Field label="ZIP code">
+        <Field label={t('centers.zipCode')}>
           <NumericInput value={value.zip} onChange={(v) => onChange('zip', v)} maxLength={5} placeholder="94102" />
         </Field>
       </div>
@@ -86,6 +89,7 @@ export function EditableList({
   onChange: (items: string[]) => void;
   placeholder?: string;
 }) {
+  const { t } = useTranslation();
   const [buf, setBuf] = useState('');
   const add = () => {
     const v = buf.trim();
@@ -107,7 +111,7 @@ export function EditableList({
           placeholder={placeholder}
         />
         <Button type="button" variant="outline" onClick={add} className="flex-none">
-          Add
+          {t('children.add')}
         </Button>
       </div>
       {items.length > 0 && (
@@ -119,7 +123,7 @@ export function EditableList({
               style={{ background: 'var(--kc-surface-2)', color: 'var(--kc-text-2)' }}
             >
               {it}
-              <button type="button" onClick={() => onChange(items.filter((_, idx) => idx !== i))} aria-label={`Remove ${it}`}>
+              <button type="button" onClick={() => onChange(items.filter((_, idx) => idx !== i))} aria-label={`${t('children.removeAria')} ${it}`}>
                 <X className="h-3 w-3" style={{ color: 'var(--kc-text-3)' }} />
               </button>
             </span>
