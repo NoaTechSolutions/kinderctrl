@@ -8,7 +8,6 @@ import { ProfileSkeleton } from '@/components/skeletons/profile-skeleton';
 import { HeroCard } from '@/components/profile/hero-card';
 import { PersonalInfoSection } from '@/components/profile/personal-info-section';
 import { EmergencyContactSection } from '@/components/profile/emergency-contact-section';
-import { PreferencesSection } from '@/components/profile/preferences-section';
 import { SecuritySection } from '@/components/profile/security-section';
 import { useAuthStore } from '@/store/auth';
 
@@ -18,8 +17,11 @@ import { useAuthStore } from '@/store/auth';
 //   • Hero card — full width (all roles)
 //   • Asymmetric grid 60/40 on desktop, 1-column on mobile:
 //       Left col  (lg:col-span-7) — Personal Info + Emergency Contact
-//       Right col (lg:col-span-5) — Security + Preferences
+//       Right col (lg:col-span-5) — Security
 //   • STAFF "Additional info" legacy card — full width below
+//
+// Theme + Time Format (the old Preferences card) moved to /settings >
+// Personal in the Settings module — same dropdowns/persistence, new home.
 //
 // v2 dropped: Contact Info card + Center Info card. Email moved INTO
 // Personal Info (with inline destructive Change button). Timezone /
@@ -62,10 +64,9 @@ export default function ProfilePage() {
           <HeroCard profile={profile} />
 
           {/* Asymmetric 60/40 grid. On mobile (<lg) cards stack in
-              source order: Personal → Emergency → Security → Preferences.
-              On desktop the right column reads as "secondary" actions
-              (settings + security) next to the primary identity stack
-              on the left. */}
+              source order: Personal → Emergency → Security. On desktop the
+              right column reads as "secondary" (security) next to the primary
+              identity stack on the left. */}
           <div className="grid gap-6 lg:grid-cols-12">
             {/* min-w-0 on the grid columns: grid items default to min-width:auto,
                 which would let a wide child (long email row) force the track past
@@ -80,7 +81,6 @@ export default function ProfilePage() {
 
             <div className="min-w-0 space-y-6 lg:col-span-5">
               <SecuritySection />
-              <PreferencesSection />
             </div>
           </div>
 

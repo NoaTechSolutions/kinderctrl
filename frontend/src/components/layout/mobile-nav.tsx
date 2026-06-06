@@ -40,7 +40,9 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
   // entry list).
   const NAV_ENTRIES: (NavItem | NavGroup)[] = [
     ...useNavEntries(),
-    { title: 'Settings', href: '/settings', icon: Settings, active: false },
+    // Settings module (Fase 1) is live for every role — the page gates the
+    // sections each role sees.
+    { title: 'Settings', href: '/settings', icon: Settings, active: true },
   ];
 
   // Every rendered href — feeds the "most specific wins" active matcher so a

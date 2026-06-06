@@ -786,6 +786,18 @@ export const translations = {
       dateOfBirth: 'Date of birth',
     },
 
+    // Settings module (Fase 1) — role-gated sections. Theme + Time Format
+    // moved here from Profile > Preferences (same hooks/persistence).
+    settings: {
+      pageTitle: 'Settings',
+      personalTitle: 'Personal',
+      centerTitle: 'Center',
+      systemTitle: 'System',
+      theme: 'Theme',
+      timeFormat: 'Time format',
+      comingSoon: 'Coming soon',
+    },
+
     // v9 — sidebar collapse affordance copy
     sidebar: {
       expand: 'Expand sidebar',
@@ -1536,6 +1548,18 @@ export const translations = {
 
       // v14 — STAFF-only label de DOB (Personal Info card + modal)
       dateOfBirth: 'Fecha de nacimiento',
+    },
+
+    // Módulo Settings (Fase 1) — secciones gateadas por rol. Tema + Formato de
+    // hora movidos acá desde Perfil > Preferencias (mismos hooks/persistencia).
+    settings: {
+      pageTitle: 'Configuración',
+      personalTitle: 'Personal',
+      centerTitle: 'Centro',
+      systemTitle: 'Sistema',
+      theme: 'Tema',
+      timeFormat: 'Formato de hora',
+      comingSoon: 'Próximamente',
     },
 
     // v9 — affordance del sidebar colapsable

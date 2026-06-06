@@ -289,7 +289,9 @@ export function Sidebar() {
             title: 'Settings',
             href: '/settings',
             icon: Settings,
-            active: false,
+            // Settings module (Fase 1) is live for every role — the page
+            // itself gates which sections each role sees.
+            active: true,
           }}
           pathname={pathname}
           allHrefs={allHrefs}
