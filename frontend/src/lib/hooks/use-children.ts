@@ -1,10 +1,35 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  addChildParent,
+  createChild,
   getChild,
   getMyChildren,
   listCenterChildren,
+  removeChildParent,
+  updateChild,
+  updateChildMedical,
+  updateChildParentLink,
+} from '@/lib/api/children';
+import type {
+  ChildParentPayload,
+  CreateChildPayload,
+  MedicalInfoPayload,
+  UpdateChildPayload,
 } from '@/lib/api/children';
 import type { ChildrenQuery } from '@/lib/types/child';
+
+export interface ParentLinkUpdate {
+  parentId: string;
+  relationship?: string;
+  isPrimary?: boolean;
+  livesWithChild?: boolean;
+}
+
+export interface ParentOps {
+  add: ChildParentPayload[];
+  updateLinks: ParentLinkUpdate[];
+  remove: string[];
+}
 
 export const childrenQueryKeys = {
   all: ['children'] as const,
@@ -50,5 +75,134 @@ export function useChild(id: string | undefined) {
     queryKey: id ? childrenQueryKeys.detail(id) : (['children', 'unknown'] as const),
     queryFn: () => getChild(id as string),
     enabled: !!id,
+  });
+}
+
+// Whether the medical step has anything worth persisting (skips the 2nd call
+// when the user left it blank).
+function hasMedicalData(m: MedicalInfoPayload): boolean {
+  return (
+    (m.allergies?.length ?? 0) > 0 ||
+    (m.medications?.length ?? 0) > 0 ||
+    (m.medicalConditions?.length ?? 0) > 0 ||
+    !!m.doctorName ||
+    !!m.doctorPhone ||
+    !!m.doctorAddress ||
+    !!m.medicationAllergies ||
+    !!m.medicalPlan ||
+    m.hasSpecialNeeds === true
+  );
+}
+
+/**
+ * Create a child. Two backend calls: POST the child (+ parents), then PUT the
+ * medical record IF anything was entered (the create endpoint makes an empty
+ * one). Invalidates the children lists so the new row shows up.
+ */
+export function useCreateChild() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      centerId: string;
+      payload: CreateChildPayload;
+      medical?: MedicalInfoPayload;
+    }) => {
+      const child = await createChild(args.centerId, args.payload);
+      if (args.medical && hasMedicalData(args.medical)) {
+        await updateChildMedical(child.id, args.medical);
+      }
+      return child;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: childrenQueryKeys.all });
+    },
+  });
+}
+
+/**
+ * Edit a child. Sequential calls: PATCH the child, PUT the medical record, then
+ * apply parent ops. Order is add → update → remove so the backend's "a child
+ * must keep >= 1 parent" guard never trips while removing.
+ */
+export function useUpdateChild() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      childId: string;
+      child: UpdateChildPayload;
+      medical: MedicalInfoPayload;
+      parentOps: ParentOps;
+    }) => {
+      await updateChild(args.childId, args.child);
+      await updateChildMedical(args.childId, args.medical);
+      for (const a of args.parentOps.add) {
+        await addChildParent(args.childId, a);
+      }
+      for (const u of args.parentOps.updateLinks) {
+        await updateChildParentLink(args.childId, u.parentId, {
+          relationship: u.relationship,
+          isPrimary: u.isPrimary,
+          livesWithChild: u.livesWithChild,
+        });
+      }
+      for (const r of args.parentOps.remove) {
+        await removeChildParent(args.childId, r);
+      }
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: childrenQueryKeys.all });
+      qc.invalidateQueries({ queryKey: childrenQueryKeys.detail(vars.childId) });
+    },
+  });
+}
+
+// ── Per-section saves (tabbed edit form) ────────────────────────────────────
+
+function invalidateChild(qc: ReturnType<typeof useQueryClient>, childId: string) {
+  qc.invalidateQueries({ queryKey: childrenQueryKeys.all });
+  qc.invalidateQueries({ queryKey: childrenQueryKeys.detail(childId) });
+}
+
+/** PATCH /children/:id — Child details tab only. */
+export function useUpdateChildDetails() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { childId: string; payload: UpdateChildPayload }) =>
+      updateChild(args.childId, args.payload),
+    onSuccess: (_d, v) => invalidateChild(qc, v.childId),
+  });
+}
+
+/** PUT /children/:id/medical-info — Medical tab only. */
+export function useUpdateChildMedicalInfo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { childId: string; payload: MedicalInfoPayload }) =>
+      updateChildMedical(args.childId, args.payload),
+    onSuccess: (_d, v) => invalidateChild(qc, v.childId),
+  });
+}
+
+/**
+ * Parents tab — applies the diff (add → update → remove, the safe order) and
+ * returns the FRESH child so the caller can re-seed the tab (new parents get
+ * real ids only after the round-trip).
+ */
+export function useUpdateChildParents() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { childId: string; ops: ParentOps }) => {
+      for (const a of args.ops.add) await addChildParent(args.childId, a);
+      for (const u of args.ops.updateLinks) {
+        await updateChildParentLink(args.childId, u.parentId, {
+          relationship: u.relationship,
+          isPrimary: u.isPrimary,
+          livesWithChild: u.livesWithChild,
+        });
+      }
+      for (const r of args.ops.remove) await removeChildParent(args.childId, r);
+      return getChild(args.childId);
+    },
+    onSuccess: (_d, v) => invalidateChild(qc, v.childId),
   });
 }

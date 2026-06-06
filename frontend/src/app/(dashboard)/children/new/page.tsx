@@ -1,18 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Baby } from 'lucide-react';
+import { ArrowLeft, Building2 } from 'lucide-react';
 import { useRequireRole } from '@/lib/hooks/use-require-role';
+import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
+import { ChildCreateWizard } from '@/components/children/child-create-wizard';
 
-// Placeholder — the create wizard ships in Etapa 3. The "+ New Child" button
-// already points here so the nav is wired end-to-end.
 export default function NewChildPage() {
   const { ready, allowed } = useRequireRole(['DIRECTOR', 'SUPER_ADMIN']);
-  if (!ready || !allowed) return null;
+  const user = useAuthStore((s) => s.user);
+
+  if (!ready || !allowed || !user) return null;
+
+  const centerId = user.centerId;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link href="/children">
           <ArrowLeft className="mr-1 h-4 w-4" />
@@ -24,23 +28,28 @@ export default function NewChildPage() {
         New Child
       </h1>
 
-      <div
-        className="flex flex-col items-center justify-center rounded-lg border py-16 text-center"
-        style={{ borderColor: 'var(--kc-border)' }}
-      >
-        <div
-          className="flex h-16 w-16 items-center justify-center rounded-full"
-          style={{ background: 'var(--kc-surface-2)' }}
-        >
-          <Baby className="h-8 w-8" style={{ color: 'var(--kc-text-4)' }} />
+      {centerId ? (
+        <ChildCreateWizard centerId={centerId} />
+      ) : (
+        // SA without a primary center — children are center-scoped, so there's
+        // nothing to create against here (the per-center SA surface is a
+        // follow-up). Send them to pick a center.
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div
+            className="flex h-20 w-20 items-center justify-center rounded-full"
+            style={{ background: 'var(--kc-surface-2)' }}
+          >
+            <Building2 className="h-10 w-10" style={{ color: 'var(--kc-text-4)' }} />
+          </div>
+          <h3 className="mt-4 font-display text-lg font-semibold">Select a center</h3>
+          <p className="mt-2 max-w-sm text-sm" style={{ color: 'var(--kc-text-3)' }}>
+            Children are created within a center. Choose one first.
+          </p>
+          <Button asChild className="mt-6">
+            <Link href="/centers">Go to Centers</Link>
+          </Button>
         </div>
-        <p className="mt-4 text-sm font-medium" style={{ color: 'var(--kc-text-2)' }}>
-          The new-child wizard is coming next (Etapa 3).
-        </p>
-        <p className="mt-1 text-xs" style={{ color: 'var(--kc-text-3)' }}>
-          The backend create endpoint is already live.
-        </p>
-      </div>
+      )}
     </div>
   );
 }
