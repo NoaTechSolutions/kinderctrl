@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import { useRequireRole } from '@/lib/hooks/use-require-role';
 import { useAuthStore } from '@/store/auth';
@@ -10,10 +11,13 @@ import { ChildCreateWizard } from '@/components/children/child-create-wizard';
 export default function NewChildPage() {
   const { ready, allowed } = useRequireRole(['DIRECTOR', 'SUPER_ADMIN']);
   const user = useAuthStore((s) => s.user);
+  const searchParams = useSearchParams();
 
   if (!ready || !allowed || !user) return null;
 
-  const centerId = user.centerId;
+  // SA creates from a center's Children tab (→ ?centerId); DIRECTOR defaults to
+  // their own center. The backend re-checks access either way.
+  const centerId = searchParams.get('centerId') ?? user.centerId;
 
   return (
     <div className="space-y-6">

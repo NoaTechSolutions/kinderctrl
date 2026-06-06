@@ -39,6 +39,7 @@ import { SetupPendingBanner } from '@/components/centers/setup-pending-banner';
 import { AdminActionsMenu } from '@/components/centers/admin-actions-menu';
 import { ChangeDirectorDialog } from '@/components/centers/change-director-dialog';
 import { CenterStaffList } from '@/components/staff/center-staff-list';
+import { CenterChildrenList } from '@/components/children/center-children-list';
 import { TeamClockView } from '@/components/attendance/team-clock-view';
 import { SchedulesView } from '@/components/attendance/schedules-view';
 import { CorrectionsView } from '@/components/attendance/corrections-view';
@@ -53,9 +54,9 @@ import type { CenterStats } from '@/lib/api/centers';
 import type { PayrollSettings } from '@/lib/api/attendance';
 import type { Center } from '@/lib/types/center';
 
-type TabValue = 'overview' | 'staff' | 'attendance' | 'settings' | 'reports';
+type TabValue = 'overview' | 'staff' | 'children' | 'attendance' | 'settings' | 'reports';
 
-const TAB_VALUES: ReadonlyArray<TabValue> = ['overview', 'staff', 'attendance', 'settings', 'reports'];
+const TAB_VALUES: ReadonlyArray<TabValue> = ['overview', 'staff', 'children', 'attendance', 'settings', 'reports'];
 
 function parseTab(raw: string | null): TabValue {
   return (TAB_VALUES as readonly string[]).includes(raw ?? '')
@@ -105,6 +106,7 @@ export default function CenterDetailPage() {
     () => [
       { value: 'overview', label: 'Overview' },
       { value: 'staff', label: 'Staff' },
+      { value: 'children', label: 'Children' },
       { value: 'attendance', label: 'Attendance' },
       { value: 'settings', label: 'Settings' },
       { value: 'reports', label: 'Reports' },
@@ -211,6 +213,7 @@ export default function CenterDetailPage() {
             <OverviewTab center={center} canManage={canManage} isSuperAdmin={isSuperAdmin} />
           )}
           {tab === 'staff' && <StaffTab centerId={center.id} />}
+          {tab === 'children' && <ChildrenTab centerId={center.id} />}
           {tab === 'attendance' && <AttendanceTab centerId={center.id} />}
           {tab === 'settings' && <SettingsTab center={center} canManage={canManage} />}
           {tab === 'reports' && <ReportsTab centerId={center.id} />}
@@ -501,6 +504,14 @@ function InfoRow({
 
 function StaffTab({ centerId }: { centerId: string }) {
   return <CenterStaffList centerId={centerId} />;
+}
+
+// ============================================================ CHILDREN
+
+// SUPER_ADMIN parity — same roster component the Director sees at /children,
+// scoped to this center. "+ New Child" / detail / edit all carry the centerId.
+function ChildrenTab({ centerId }: { centerId: string }) {
+  return <CenterChildrenList centerId={centerId} />;
 }
 
 // ============================================================ REPORTS (SUPER_ADMIN only)
