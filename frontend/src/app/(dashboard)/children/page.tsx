@@ -5,6 +5,7 @@ import { Building2 } from 'lucide-react';
 import { useRequireRole } from '@/lib/hooks/use-require-role';
 import { useAuthStore } from '@/store/auth';
 import { useMyChildren } from '@/lib/hooks/use-children';
+import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CenterChildrenList } from '@/components/children/center-children-list';
@@ -25,6 +26,7 @@ export default function ChildrenPage() {
     'PARENT',
   ]);
   const user = useAuthStore((s) => s.user);
+  const { t } = useTranslation();
 
   if (!ready || !allowed || !user) return null;
 
@@ -35,7 +37,7 @@ export default function ChildrenPage() {
         centerId={user.centerId}
         heading={
           <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight">
-            Children
+            {t('children.title')}
           </h1>
         }
       />
@@ -47,12 +49,13 @@ export default function ChildrenPage() {
 // ───────────────────────────────────── Parent read-only view
 
 function ParentChildren() {
+  const { t } = useTranslation();
   const { data: children, isLoading, error } = useMyChildren();
 
   return (
     <div className="space-y-6">
       <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight">
-        My Children
+        {t('children.myChildren')}
       </h1>
 
       {error && <LoadError message={error.message} />}
@@ -75,10 +78,11 @@ function ParentChildren() {
 // ───────────────────────────────────── SA without a center
 
 function PickACenter() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight">
-        Children
+        {t('children.title')}
       </h1>
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div
@@ -87,12 +91,14 @@ function PickACenter() {
         >
           <Building2 className="h-10 w-10" style={{ color: 'var(--kc-text-4)' }} />
         </div>
-        <h3 className="mt-4 font-display text-lg font-semibold">Select a center</h3>
+        <h3 className="mt-4 font-display text-lg font-semibold">
+          {t('children.selectCenter')}
+        </h3>
         <p className="mt-2 max-w-sm text-sm" style={{ color: 'var(--kc-text-3)' }}>
-          Children are managed per center. Open a center and use its Children tab.
+          {t('children.selectCenterManaged')}
         </p>
         <Button asChild className="mt-6">
-          <Link href="/centers">Go to Centers</Link>
+          <Link href="/centers">{t('children.goToCenters')}</Link>
         </Button>
       </div>
     </div>
@@ -102,6 +108,7 @@ function PickACenter() {
 // ───────────────────────────────────── shared bits
 
 function LoadError({ message }: { message?: string }) {
+  const { t } = useTranslation();
   return (
     <div
       role="alert"
@@ -112,7 +119,8 @@ function LoadError({ message }: { message?: string }) {
       }}
     >
       <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
-        Could not load children{message ? ` — ${message}` : ''}
+        {t('children.loadError')}
+        {message ? ` — ${message}` : ''}
       </p>
     </div>
   );

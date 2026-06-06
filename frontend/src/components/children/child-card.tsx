@@ -11,11 +11,13 @@ import {
   relationshipLabel,
   sortedParents,
 } from '@/lib/format-child';
+import { useTranslation } from '@/lib/i18n';
 import type { Child } from '@/lib/types/child';
 
 // Used on phones (Director roster) AND for the parent's read-only view. Both
 // navigate to the detail page (parents can view their own child read-only).
 export function ChildCard({ child }: { child: Child }) {
+  const { t } = useTranslation();
   const parents = sortedParents(child);
 
   return (
@@ -49,14 +51,14 @@ export function ChildCard({ child }: { child: Child }) {
             </div>
 
             <p className="mt-0.5 text-sm tabular-nums" style={{ color: 'var(--kc-text-3)' }}>
-              {formatAge(child.dateOfBirth)}
+              {formatAge(child.dateOfBirth, t)}
             </p>
 
             {parents.length > 0 && (
               <p className="mt-1.5 truncate text-sm" style={{ color: 'var(--kc-text-2)' }}>
                 {parentFullName(parents[0])}{' '}
                 <span style={{ color: 'var(--kc-text-3)' }}>
-                  ({relationshipLabel(parents[0].relationship)})
+                  ({relationshipLabel(parents[0].relationship, t)})
                 </span>
                 {parents.length > 1 && (
                   <span style={{ color: 'var(--kc-text-3)' }}> +{parents.length - 1}</span>

@@ -7,6 +7,7 @@ import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 import { useCenterChildren } from '@/lib/hooks/use-children';
+import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,6 +29,7 @@ export function CenterChildrenList({
   centerId: string;
   heading?: ReactNode;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const search = useDebouncedValue(query, 300).trim();
   const hasSearch = search.length > 0;
@@ -50,7 +52,7 @@ export function CenterChildrenList({
         <Button asChild className="self-start">
           <Link href={`/children/new?centerId=${centerId}`}>
             <Plus className="mr-1.5 h-4 w-4" />
-            New Child
+            {t('children.newChild')}
           </Link>
         </Button>
       </div>
@@ -65,7 +67,8 @@ export function CenterChildrenList({
           }}
         >
           <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
-            Could not load children{error.message ? ` — ${error.message}` : ''}
+            {t('children.loadError')}
+            {error.message ? ` — ${error.message}` : ''}
           </p>
         </div>
       )}
@@ -75,8 +78,8 @@ export function CenterChildrenList({
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search by name…"
-            ariaLabel="Search children"
+            placeholder={t('children.searchPlaceholder')}
+            ariaLabel={t('children.searchAria')}
           />
         </div>
       )}
@@ -96,7 +99,8 @@ export function CenterChildrenList({
         (hasSearch ? (
           <div className="py-12 text-center" style={{ color: 'var(--kc-text-3)' }}>
             <p className="text-sm">
-              No children match <span className="font-mono">&quot;{search}&quot;</span>
+              {t('children.noMatchPrefix')}{' '}
+              <span className="font-mono">&quot;{search}&quot;</span>
             </p>
           </div>
         ) : (

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import { useRequireRole } from '@/lib/hooks/use-require-role';
 import { useAuthStore } from '@/store/auth';
+import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { ChildCreateWizard } from '@/components/children/child-create-wizard';
 
@@ -12,6 +13,7 @@ export default function NewChildPage() {
   const { ready, allowed } = useRequireRole(['DIRECTOR', 'SUPER_ADMIN']);
   const user = useAuthStore((s) => s.user);
   const searchParams = useSearchParams();
+  const { t } = useTranslation();
 
   if (!ready || !allowed || !user) return null;
 
@@ -24,12 +26,12 @@ export default function NewChildPage() {
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link href="/children">
           <ArrowLeft className="mr-1 h-4 w-4" />
-          Children
+          {t('children.title')}
         </Link>
       </Button>
 
       <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight">
-        New Child
+        {t('children.newChild')}
       </h1>
 
       {centerId ? (
@@ -45,12 +47,14 @@ export default function NewChildPage() {
           >
             <Building2 className="h-10 w-10" style={{ color: 'var(--kc-text-4)' }} />
           </div>
-          <h3 className="mt-4 font-display text-lg font-semibold">Select a center</h3>
+          <h3 className="mt-4 font-display text-lg font-semibold">
+            {t('children.selectCenter')}
+          </h3>
           <p className="mt-2 max-w-sm text-sm" style={{ color: 'var(--kc-text-3)' }}>
-            Children are created within a center. Choose one first.
+            {t('children.selectCenterCreate')}
           </p>
           <Button asChild className="mt-6">
-            <Link href="/centers">Go to Centers</Link>
+            <Link href="/centers">{t('children.goToCenters')}</Link>
           </Button>
         </div>
       )}

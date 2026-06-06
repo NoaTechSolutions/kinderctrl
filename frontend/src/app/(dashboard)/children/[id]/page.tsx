@@ -21,19 +21,22 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRequireRole } from '@/lib/hooks/use-require-role';
 import { useAuthStore } from '@/store/auth';
 import { useChild } from '@/lib/hooks/use-children';
+import { useTranslation } from '@/lib/i18n';
 import { ChildStatusBadge } from '@/components/children/child-status-badge';
 import {
   childFullName,
   formatAge,
+  genderLabel,
   parentFullName,
   relationshipLabel,
   sortedParents,
 } from '@/lib/format-child';
 import type { ChildParentLink } from '@/lib/types/child';
+import type { Locale } from '@/lib/i18n';
 
-function fmtDate(iso: string | null): string {
+function fmtDate(iso: string | null, locale: Locale): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', {
+  return new Date(iso).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -56,6 +59,7 @@ export default function ChildDetailPage() {
   const { data: child, isLoading, error } = useChild(id);
   const role = useAuthStore((s) => s.user?.role);
   const canManage = role === 'DIRECTOR' || role === 'SUPER_ADMIN';
+  const { t, locale } = useTranslation();
 
   if (!ready || !allowed) return null;
 
@@ -82,7 +86,7 @@ export default function ChildDetailPage() {
           }}
         >
           <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
-            Child not found, or you don&apos;t have access to it.
+            {t('children.notFound')}
           </p>
         </div>
       </div>
@@ -121,7 +125,7 @@ export default function ChildDetailPage() {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <ChildStatusBadge status={child.enrollmentStatus} />
               <span className="text-sm" style={{ color: 'var(--kc-text-3)' }}>
-                {formatAge(child.dateOfBirth)}
+                {formatAge(child.dateOfBirth, t)}
               </span>
             </div>
           </div>
@@ -131,7 +135,7 @@ export default function ChildDetailPage() {
           <Button asChild variant="outline" className="self-start">
             <Link href={`/children/${child.id}/edit`}>
               <Edit className="mr-1.5 h-3.5 w-3.5" />
-              Edit
+              {t('children.edit')}
             </Link>
           </Button>
         )}
@@ -139,51 +143,51 @@ export default function ChildDetailPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Child info */}
-        <CardWithHeader icon={Baby} title="Child Information">
+        <CardWithHeader icon={Baby} title={t('children.childInformation')}>
           <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <InfoRow icon={Cake} label="Date of birth">
-              {fmtDate(child.dateOfBirth)}
+            <InfoRow icon={Cake} label={t('children.dateOfBirth')}>
+              {fmtDate(child.dateOfBirth, locale)}
             </InfoRow>
-            <InfoRow icon={Baby} label="Gender">
-              {relationshipLabel(child.gender)}
+            <InfoRow icon={Baby} label={t('children.gender')}>
+              {genderLabel(child.gender, t)}
             </InfoRow>
-            <InfoRow icon={MapPin} label="Address">
+            <InfoRow icon={MapPin} label={t('children.address')}>
               {childAddress ?? '—'}
             </InfoRow>
-            <InfoRow icon={Phone} label="Phone">
+            <InfoRow icon={Phone} label={t('children.phone')}>
               {child.phone ?? '—'}
             </InfoRow>
-            <InfoRow icon={Cake} label="Admission date">
-              {fmtDate(child.admissionDate)}
+            <InfoRow icon={Cake} label={t('children.admissionDate')}>
+              {fmtDate(child.admissionDate, locale)}
             </InfoRow>
-            <InfoRow icon={Cake} label="First day of care">
-              {fmtDate(child.firstCareDay)}
+            <InfoRow icon={Cake} label={t('children.firstDayOfCare')}>
+              {fmtDate(child.firstCareDay, locale)}
             </InfoRow>
           </dl>
         </CardWithHeader>
 
         {/* Medical */}
-        <CardWithHeader icon={HeartPulse} title="Medical">
+        <CardWithHeader icon={HeartPulse} title={t('children.medical')}>
           {!med ? (
             <p className="text-sm" style={{ color: 'var(--kc-text-3)' }}>
-              No medical info on file.
+              {t('children.noMedical')}
             </p>
           ) : (
             <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-              <InfoRow icon={Stethoscope} label="Doctor">
+              <InfoRow icon={Stethoscope} label={t('children.doctor')}>
                 {med.doctorName ?? '—'}
               </InfoRow>
-              <InfoRow icon={Phone} label="Doctor phone">
+              <InfoRow icon={Phone} label={t('children.doctorPhone')}>
                 {med.doctorPhone ?? '—'}
               </InfoRow>
-              <InfoRow icon={HeartPulse} label="Special needs">
-                {med.hasSpecialNeeds ? 'Yes' : 'No'}
+              <InfoRow icon={HeartPulse} label={t('children.specialNeeds')}>
+                {med.hasSpecialNeeds ? t('children.yes') : t('children.no')}
               </InfoRow>
-              <InfoRow icon={HeartPulse} label="Medication allergies">
+              <InfoRow icon={HeartPulse} label={t('children.medicationAllergies')}>
                 {med.medicationAllergies ?? '—'}
               </InfoRow>
               <div className="sm:col-span-2">
-                <InfoRow icon={HeartPulse} label="Medical plan">
+                <InfoRow icon={HeartPulse} label={t('children.medicalPlan')}>
                   {med.medicalPlan ?? '—'}
                 </InfoRow>
               </div>
@@ -193,10 +197,10 @@ export default function ChildDetailPage() {
       </div>
 
       {/* Parents */}
-      <CardWithHeader icon={Users} title="Parents & Guardians">
+      <CardWithHeader icon={Users} title={t('children.parentsGuardians')}>
         {parents.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--kc-text-3)' }}>
-            No parents linked.
+            {t('children.noParentsLinked')}
           </p>
         ) : (
           <div className="space-y-3">
@@ -211,6 +215,7 @@ export default function ChildDetailPage() {
 }
 
 function ParentRow({ link }: { link: ChildParentLink }) {
+  const { t } = useTranslation();
   const homeAddr = joinAddress([
     link.parent.homeAddressNumber,
     link.parent.homeAddressStreet,
@@ -229,7 +234,7 @@ function ParentRow({ link }: { link: ChildParentLink }) {
         {parentFullName(link)}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs" style={{ color: 'var(--kc-text-3)' }}>
-        <span>{relationshipLabel(link.relationship)}</span>
+        <span>{relationshipLabel(link.relationship, t)}</span>
         {link.isPrimary && (
           <>
             <span aria-hidden>·</span>
@@ -240,7 +245,7 @@ function ParentRow({ link }: { link: ChildParentLink }) {
                 color: 'var(--kc-p-700)',
               }}
             >
-              Primary
+              {t('children.primary')}
             </span>
           </>
         )}
@@ -248,7 +253,7 @@ function ParentRow({ link }: { link: ChildParentLink }) {
           <>
             <span aria-hidden>·</span>
             <span className="inline-flex items-center gap-1">
-              <Home className="h-3 w-3" /> Lives with child
+              <Home className="h-3 w-3" /> {t('children.livesWithChild')}
             </span>
           </>
         )}
@@ -300,11 +305,12 @@ function InfoRow({
 }
 
 function BackLink() {
+  const { t } = useTranslation();
   return (
     <Button asChild variant="ghost" size="sm" className="-ml-2">
       <Link href="/children">
         <ArrowLeft className="mr-1 h-4 w-4" />
-        Children
+        {t('children.title')}
       </Link>
     </Button>
   );

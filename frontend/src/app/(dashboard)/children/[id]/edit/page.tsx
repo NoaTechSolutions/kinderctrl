@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { useRequireRole } from '@/lib/hooks/use-require-role';
 import { useChild } from '@/lib/hooks/use-children';
+import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChildEditForm } from '@/components/children/child-edit-form';
@@ -14,6 +15,7 @@ export default function EditChildPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
   const { data: child, isLoading, error } = useChild(id);
+  const { t } = useTranslation();
 
   if (!ready || !allowed) return null;
 
@@ -33,7 +35,7 @@ export default function EditChildPage() {
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link href="/children">
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Children
+            {t('children.title')}
           </Link>
         </Button>
         <div
@@ -45,7 +47,7 @@ export default function EditChildPage() {
           }}
         >
           <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
-            Child not found, or you don&apos;t have access to it.
+            {t('children.notFound')}
           </p>
         </div>
       </div>
@@ -57,12 +59,12 @@ export default function EditChildPage() {
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link href={`/children/${id}`}>
           <ArrowLeft className="mr-1 h-4 w-4" />
-          Back
+          {t('children.back')}
         </Link>
       </Button>
 
       <h1 className="mx-auto max-w-2xl font-display text-3xl sm:text-4xl font-semibold tracking-tight">
-        Edit Child
+        {t('children.editChild')}
       </h1>
 
       <ChildEditForm child={child} />

@@ -17,12 +17,14 @@ import {
   relationshipLabel,
   sortedParents,
 } from '@/lib/format-child';
+import { useTranslation } from '@/lib/i18n';
 import type { Child } from '@/lib/types/child';
 
 // Director/SA roster table (tablet+). Mirrors CenterTable: whole row is a link
 // to the detail page, keyboard-activatable.
 export function ChildTable({ children }: { children: Child[] }) {
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <div
@@ -32,10 +34,12 @@ export function ChildTable({ children }: { children: Child[] }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Age</TableHead>
-            <TableHead className="hidden md:table-cell">Parents</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>{t('children.colName')}</TableHead>
+            <TableHead>{t('children.colAge')}</TableHead>
+            <TableHead className="hidden md:table-cell">
+              {t('children.colParents')}
+            </TableHead>
+            <TableHead>{t('children.colStatus')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -48,7 +52,7 @@ export function ChildTable({ children }: { children: Child[] }) {
                 key={child.id}
                 role="link"
                 tabIndex={0}
-                aria-label={`View ${childFullName(child)}`}
+                aria-label={`${t('children.viewAria')} ${childFullName(child)}`}
                 className="cursor-pointer focus-visible:outline-none focus-visible:bg-muted/50"
                 onClick={navigate}
                 onKeyDown={(e) => {
@@ -68,7 +72,7 @@ export function ChildTable({ children }: { children: Child[] }) {
                   className="tabular-nums"
                   style={{ color: 'var(--kc-text-2)' }}
                 >
-                  {formatAge(child.dateOfBirth)}
+                  {formatAge(child.dateOfBirth, t)}
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   {parents.length === 0 ? (
@@ -77,7 +81,7 @@ export function ChildTable({ children }: { children: Child[] }) {
                     <span className="text-sm" style={{ color: 'var(--kc-text-2)' }}>
                       {parentFullName(parents[0])}{' '}
                       <span style={{ color: 'var(--kc-text-3)' }}>
-                        ({relationshipLabel(parents[0].relationship)})
+                        ({relationshipLabel(parents[0].relationship, t)})
                       </span>
                       {parents.length > 1 && (
                         <span style={{ color: 'var(--kc-text-3)' }}>
