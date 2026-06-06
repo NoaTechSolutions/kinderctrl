@@ -568,11 +568,32 @@ model Parent {
   firstName      String  @map("first_name")
   lastName       String  @map("last_name")
   email          String
-  phonePrimary   String  @map("phone_primary")
+  // Relaxed to optional in Children Fase 1: the new parent-create flow uses the
+  // structured HOME/WORK fields below; these legacy columns stay for back-compat
+  // (existing rows + future billing) but are no longer required at create time.
+  phonePrimary   String? @map("phone_primary")
   phoneSecondary String? @map("phone_secondary")
+  // Legacy free-form address (kept, now optional). Superseded by the discrete
+  // HOME columns below.
+  address Json?
 
-  // Address stored as JSON
-  address Json
+  // Children Fase 1 — structured HOME contact (all optional). Discrete columns
+  // mirror Child's address + the Center/Staff street/city/state/zip pattern.
+  homePhone         String? @map("home_phone") @db.VarChar(20)
+  homeAddressNumber String? @map("home_address_number")
+  homeAddressStreet String? @map("home_address_street")
+  homeAddressCity   String? @map("home_address_city")
+  homeAddressState  String? @map("home_address_state") @db.VarChar(2)
+  homeAddressZip    String? @map("home_address_zip") @db.VarChar(10)
+
+  // Children Fase 1 — WORK contact (all optional, contemplated from the start).
+  workPhone         String? @map("work_phone") @db.VarChar(20)
+  workEmployer      String? @map("work_employer")
+  workAddressNumber String? @map("work_address_number")
+  workAddressStreet String? @map("work_address_street")
+  workAddressCity   String? @map("work_address_city")
+  workAddressState  String? @map("work_address_state") @db.VarChar(2)
+  workAddressZip    String? @map("work_address_zip") @db.VarChar(10)
 
   status ParentStatus @default(INVITED)
 
@@ -603,13 +624,39 @@ model Child {
   centerId String @map("center_id") @db.Uuid
   center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
 
+  // Children Fase 1 — who created the record (audit). Stored as a plain Uuid
+  // (no relation) following the codebase pattern for user-id audit columns
+  // (Attendance.checkedInBy, Document.uploadedBy, ChildMilestone.markedBy).
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
   firstName   String   @map("first_name")
+  // Fase 1 — optional middle name.
+  middleName  String?  @map("middle_name")
   lastName    String   @map("last_name")
   dateOfBirth DateTime @map("date_of_birth") @db.Date
+  // Free-text-with-whitelist (MALE/FEMALE/OTHER) validated at the DTO boundary,
+  // mirroring the codebase's choice to avoid enums for small whitelists
+  // (Staff.emergencyContactRelationship, ChildParent.relationship) so new
+  // values are a no-migration change.
   gender      String
   photoUrl    String?  @map("photo_url")
 
-  status ChildStatus @default(ACTIVE)
+  // Fase 1 — child's own address + phone (all optional). Discrete columns per
+  // the spec (number/street/city/state/zip), snake_cased to match Center/Staff.
+  addressNumber String? @map("address_number")
+  addressStreet String? @map("address_street")
+  addressCity   String? @map("address_city")
+  addressState  String? @map("address_state") @db.VarChar(2)
+  addressZip    String? @map("address_zip") @db.VarChar(10)
+  phone         String? @db.VarChar(20)
+
+  // Renamed from `status` (ChildStatus ACTIVE/WITHDRAWN/GRADUATED, default
+  // ACTIVE) to match the spec: enrollment lifecycle, initial PENDING.
+  enrollmentStatus ChildStatus @default(PENDING) @map("enrollment_status")
+
+  // Fase 1 — admission + first day of care (both optional, date-only).
+  admissionDate DateTime? @map("admission_date") @db.Date
+  firstCareDay  DateTime? @map("first_care_day") @db.Date
 
   // Relations
   childParents      ChildParent[]
@@ -621,15 +668,28 @@ model Child {
   medicalInfo       ChildMedicalInfo?
   invoices          Invoice[]
 
+  // Pre-existing column kept for back-compat (centers stats / future billing).
+  // admissionDate is the spec's enrollment-intent date; this stays the
+  // record-creation default until a later phase reconciles the two.
   enrollmentDate DateTime @default(now()) @map("enrollment_date")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
+  @@index([centerId, enrollmentStatus])
   @@map("children")
 }
 
 enum ChildStatus {
+  // Spec Fase 1 — enrollment lifecycle: PENDING (new default), ACTIVE,
+  // INACTIVE, WITHDRAWN. GRADUATED is unused in code and not part of the spec,
+  // but kept as a tail value: dropping it WHILE renaming status →
+  // enrollment_status in the same `db push` breaks Prisma's step ordering
+  // (it recreates the enum type and references the not-yet-created column).
+  // Adding values is a safe ALTER TYPE ADD VALUE; the dead value can be pruned
+  // later in an isolated migration.
+  PENDING
   ACTIVE
+  INACTIVE
   WITHDRAWN
   GRADUATED
 }
@@ -643,10 +703,18 @@ model ChildParent {
   parentId String @map("parent_id") @db.Uuid
   parent   Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
 
-  relationship    String // mother, father, guardian
+  // Free-text-with-whitelist (MOTHER/FATHER/GUARDIAN/OTHER) validated at the
+  // DTO boundary — same no-enum convention as Child.gender.
+  relationship    String
   isPrimary       Boolean @default(false) @map("is_primary")
+  // Fase 1 — whether the parent lives with the child.
+  livesWithChild  Boolean @default(false) @map("lives_with_child")
+  // Pre-existing pickup/updates flags kept (additive; no code depends on them
+  // yet, but they're harmless and may surface in a later phase).
   canPickup       Boolean @default(true) @map("can_pickup")
   receivesUpdates Boolean @default(true) @map("receives_updates")
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([childId, parentId])
   @@map("child_parents")
@@ -661,8 +729,17 @@ model ChildMedicalInfo {
   medications       Json // array of objects
   medicalConditions Json // array of strings
 
-  doctorName  String? @map("doctor_name")
-  doctorPhone String? @map("doctor_phone")
+  doctorName    String? @map("doctor_name")
+  doctorPhone   String? @map("doctor_phone")
+  // Fase 1 — added per spec.
+  doctorAddress String? @map("doctor_address")
+
+  // Fase 1 — free-text fields per spec. `medicationAllergies` is distinct from
+  // `allergies` (the latter stays the structured Json list); `medicalPlan`
+  // captures the care/action plan; `hasSpecialNeeds` is the boolean flag.
+  medicationAllergies String?  @map("medication_allergies")
+  medicalPlan         String?  @map("medical_plan")
+  hasSpecialNeeds     Boolean  @default(false) @map("has_special_needs")
 
   insuranceProvider String? @map("insurance_provider")
   insurancePolicy   String? @map("insurance_policy")

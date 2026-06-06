@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsOptional,
   IsString,
   MaxLength,
@@ -12,7 +13,7 @@ export class UpdateMedicalInfoDto {
 
   @IsArray()
   @IsOptional()
-  medications?: any[];
+  medications?: unknown[];
 
   @IsArray()
   @IsOptional()
@@ -27,6 +28,26 @@ export class UpdateMedicalInfoDto {
   @IsOptional()
   @MaxLength(20)
   doctorPhone?: string;
+
+  // Fase 1 — added per spec.
+  @IsString()
+  @IsOptional()
+  @MaxLength(300)
+  doctorAddress?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  medicationAllergies?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
+  medicalPlan?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  hasSpecialNeeds?: boolean;
 
   @IsString()
   @IsOptional()

@@ -291,7 +291,7 @@ export class CentersService {
     const childrenCount = await this.prisma.child.count({
       where: {
         centerId: id,
-        status: 'ACTIVE',
+        enrollmentStatus: 'ACTIVE',
       },
     });
 
@@ -394,7 +394,7 @@ export class CentersService {
       staffWithoutClockInCount,
     ] = await Promise.all([
       this.prisma.staff.count({ where: { centerId, status: 'ACTIVE' } }),
-      this.prisma.child.count({ where: { centerId, status: 'ACTIVE' } }),
+      this.prisma.child.count({ where: { centerId, enrollmentStatus: 'ACTIVE' } }),
       this.prisma.schedule.count({ where: { centerId } }),
       this.prisma.correctionRequest.count({
         where: { centerId, status: 'PENDING' },
@@ -455,7 +455,7 @@ export class CentersService {
     ] = await Promise.all([
       this.prisma.center.count(),
       this.prisma.staff.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.child.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.child.count({ where: { enrollmentStatus: 'ACTIVE' } }),
       this.prisma.user.count({ where: { role: 'DIRECTOR' } }),
       this.prisma.center.findMany({
         select: {
@@ -478,7 +478,7 @@ export class CentersService {
       }),
       this.prisma.child.groupBy({
         by: ['centerId'],
-        where: { status: 'ACTIVE' },
+        where: { enrollmentStatus: 'ACTIVE' },
         _count: { _all: true },
       }),
       this.prisma.correctionRequest.count({

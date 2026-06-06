@@ -3,6 +3,8 @@ import { Transform } from 'class-transformer';
 import { ChildStatus } from '@prisma/client';
 
 export class QueryChildrenDto {
+  // ?enrollmentStatus=ACTIVE,PENDING or ?enrollmentStatus=all. Omitted →
+  // service defaults to non-WITHDRAWN (the soft-delete tombstone is hidden).
   @IsOptional()
   @IsArray()
   @Transform(({ value }) => {
@@ -10,7 +12,7 @@ export class QueryChildrenDto {
     if (typeof value === 'string') return value.split(',');
     return value;
   })
-  status?: ChildStatus[];
+  enrollmentStatus?: ChildStatus[];
 
   @IsOptional()
   @IsString()
