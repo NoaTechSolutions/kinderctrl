@@ -223,28 +223,34 @@ function ParentRow({ link }: { link: ChildParentLink }) {
       className="rounded-lg border p-3"
       style={{ borderColor: 'var(--kc-border)' }}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-          {parentFullName(link)}
-        </span>
-        <span className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
-          {relationshipLabel(link.relationship)}
-        </span>
+      {/* Name on its own line; relationship · Primary · Lives-with on a
+          separate line below, with "·" separators so nothing runs together. */}
+      <p className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
+        {parentFullName(link)}
+      </p>
+      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs" style={{ color: 'var(--kc-text-3)' }}>
+        <span>{relationshipLabel(link.relationship)}</span>
         {link.isPrimary && (
-          <span
-            className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
-            style={{
-              background: 'color-mix(in oklch, var(--kc-p-100), transparent 30%)',
-              color: 'var(--kc-p-700)',
-            }}
-          >
-            Primary
-          </span>
+          <>
+            <span aria-hidden>·</span>
+            <span
+              className="rounded px-1.5 py-0.5 font-semibold"
+              style={{
+                background: 'color-mix(in oklch, var(--kc-p-100), transparent 30%)',
+                color: 'var(--kc-p-700)',
+              }}
+            >
+              Primary
+            </span>
+          </>
         )}
         {link.livesWithChild && (
-          <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'var(--kc-text-3)' }}>
-            <Home className="h-3 w-3" /> Lives with child
-          </span>
+          <>
+            <span aria-hidden>·</span>
+            <span className="inline-flex items-center gap-1">
+              <Home className="h-3 w-3" /> Lives with child
+            </span>
+          </>
         )}
       </div>
       <div className="mt-1.5 flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-4 text-sm" style={{ color: 'var(--kc-text-2)' }}>
