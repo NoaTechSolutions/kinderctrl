@@ -266,12 +266,20 @@ export function useNavEntries(): SidebarEntry[] {
           }
         : { title: 'Attendance', href: '/attendance', icon: Calendar, active: false };
 
+  // Children (Etapa 2): live for DIRECTOR / SUPER_ADMIN (center roster) and
+  // PARENT (their own kids → read-only). STAFF has no access — the backend
+  // denies it too, so we hide the entry entirely rather than show it disabled.
+  const childrenItem: NavItem | null =
+    user?.role === 'STAFF'
+      ? null
+      : { title: 'Children', href: '/children', icon: Baby, active: true };
+
   return [
     { title: 'Dashboard', href: '/dashboard', icon: Home, active: true },
     profileItem,
     ...(usersGroup ? [usersGroup] : []),
     ...(centerItem ? [centerItem] : []),
-    { title: 'Children', href: '/children', icon: Baby, active: false },
+    ...(childrenItem ? [childrenItem] : []),
     ...(staffGroup ? [staffGroup] : []),
     ...(parentsFlatItem ? [parentsFlatItem] : []),
     attendanceEntry,
