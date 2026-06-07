@@ -667,6 +667,7 @@ model Child {
   immunizations     Immunization[]
   medicalInfo       ChildMedicalInfo?
   contacts          ChildContact[]
+  development       ChildDevelopment?
   invoices          Invoice[]
 
   // Pre-existing column kept for back-compat (centers stats / future billing).
@@ -814,6 +815,56 @@ model ChildContact {
 
   @@index([childId, contactType])
   @@map("child_contacts")
+}
+
+// Fase 2 (2B) — developmental & daily-care intake profile for a child. ONE 1:1
+// satellite (mirrors ChildMedicalInfo's single-table design) holding three
+// logical sections: developmental milestones, daily routines, and toileting.
+// They're all one-record-per-child intake data filled on the same edit surface,
+// so — per the ChildContact note above ("3 separate tables would only triple
+// the surface area for no gain") — they live in one table grouped by comment,
+// not three. Written via a full-replace upsert (PUT /children/:id/development),
+// exactly like ChildMedicalInfo.
+model ChildDevelopment {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @unique @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  // ── DESARROLLO — self-reported developmental milestones (intake history).
+  // Deliberately DISTINCT from the ChildMilestone / MilestoneConfig system
+  // (ongoing CDC-style assessment): these are one-time historical facts the
+  // family reports at enrollment — "age in months when the child first did X".
+  // Nullable ints, range-checked 0..120 at the DTO boundary.
+  walkedAtMonths        Int?    @map("walked_at_months")
+  talkedAtMonths        Int?    @map("talked_at_months")
+  toiletTrainedAtMonths Int?    @map("toilet_trained_at_months")
+  developmentNotes      String? @map("development_notes")
+
+  // ── RUTINAS DIARIAS — daily routine. Times are "HH:mm" strings (no tz),
+  // matching the codebase convention for clock-times (CenterHours.openTime,
+  // ScheduleDay.startTime). Nap is a boolean + an optional window.
+  wakeUpTime   String? @map("wake_up_time")
+  bedTime      String? @map("bed_time")
+  takesNap     Boolean @default(false) @map("takes_nap")
+  napStartTime String? @map("nap_start_time")
+  napEndTime   String? @map("nap_end_time")
+  diet         String? // diet / restrictions (free-text)
+  mealTimes    String? @map("meal_times")
+
+  // ── TOILET / BAÑO.
+  toiletTrained   Boolean @default(false) @map("toilet_trained")
+  // Words the child uses to signal the need (free-text).
+  toiletWords     String? @map("toilet_words")
+  // Level of help the child needs — free-text-with-whitelist (CHILD_TOILET_HELP_LEVELS),
+  // validated at the DTO boundary; same no-enum convention as contactType.
+  toiletHelpLevel String? @map("toilet_help_level")
+  // Accidents: frequency / notes (free-text).
+  toiletAccidents String? @map("toilet_accidents")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("child_development")
 }
 
 // ============================================

@@ -24,6 +24,7 @@ import { ChildrenSeedService } from './children-seed.service';
 import { CreateChildDto } from './dto/create-child.dto';
 import { UpdateChildDto } from './dto/update-child.dto';
 import { UpdateMedicalInfoDto } from './dto/update-medical-info.dto';
+import { UpdateDevelopmentDto } from './dto/update-development.dto';
 import { QueryChildrenDto } from './dto/query-children.dto';
 import { ChildParentInputDto } from './dto/child-parent-input.dto';
 import { UpdateChildParentDto } from './dto/update-child-parent.dto';
@@ -141,6 +142,20 @@ export class ChildrenController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.childrenService.updateMedicalInfo(id, dto, user.id, user.role);
+  }
+
+  // ── Development / routines / toilet (Fase 2 · 2B) ───────────────────────
+  // Single 1:1 satellite, partial-MERGE upsert (PATCH, not PUT): the three
+  // edit tabs each Save independently, sending only their own fields, so the
+  // handler must merge rather than full-replace.
+  @Patch('children/:id/development')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  updateDevelopment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDevelopmentDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.childrenService.updateDevelopment(id, dto, user.id, user.role);
   }
 
   // ── Parent links (DIRECTOR own / SA) ────────────────────────────────────

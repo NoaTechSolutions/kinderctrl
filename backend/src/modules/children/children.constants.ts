@@ -55,3 +55,15 @@ export const CHILD_PAST_ILLNESSES = [
   'THREE_DAY_MEASLES',
 ] as const;
 export type ChildPastIllness = (typeof CHILD_PAST_ILLNESSES)[number];
+
+// Children Fase 2 (2B) — how much help the child needs with toileting. Stored
+// on ChildDevelopment.toiletHelpLevel; free-text-with-whitelist (no Prisma
+// enum) so adjusting the scale later is a no-migration change.
+export const CHILD_TOILET_HELP_LEVELS = [
+  'INDEPENDENT',
+  'NEEDS_REMINDERS',
+  'NEEDS_ASSISTANCE',
+  'FULL_ASSISTANCE',
+  'IN_DIAPERS',
+] as const;
+export type ChildToiletHelpLevel = (typeof CHILD_TOILET_HELP_LEVELS)[number];

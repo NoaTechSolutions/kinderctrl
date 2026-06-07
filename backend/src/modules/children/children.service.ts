@@ -11,6 +11,7 @@ import { AuthService } from '../auth/auth.service';
 import { CreateChildDto } from './dto/create-child.dto';
 import { UpdateChildDto } from './dto/update-child.dto';
 import { UpdateMedicalInfoDto } from './dto/update-medical-info.dto';
+import { UpdateDevelopmentDto } from './dto/update-development.dto';
 import { QueryChildrenDto } from './dto/query-children.dto';
 import { ChildParentInputDto } from './dto/child-parent-input.dto';
 import { UpdateChildParentDto } from './dto/update-child-parent.dto';
@@ -28,6 +29,9 @@ const CHILD_DETAIL_INCLUDE = {
   contacts: {
     orderBy: [{ contactType: 'asc' }, { createdAt: 'asc' }],
   },
+  // Fase 2 (2B) — development/routines/toilet satellite travels with the child
+  // detail too, so the edit-form tabs read it from the same shape.
+  development: true,
   childParents: {
     orderBy: { isPrimary: 'desc' },
     include: {
@@ -320,6 +324,53 @@ export class ChildrenService {
     };
 
     return this.prisma.childMedicalInfo.upsert({
+      where: { childId: id },
+      create: { childId: id, ...data },
+      update: data,
+    });
+  }
+
+  /**
+   * PATCH /children/:id/development — partial MERGE upsert of the 1:1
+   * development/routines/toilet satellite. The three edit-form tabs
+   * (Development / Routines / Toilet) each save independently, sending only
+   * THEIR fields — so this must NOT full-replace (that would wipe the other
+   * tabs' columns). Prisma ignores `undefined`, so passing the dto straight
+   * through gives exactly merge semantics: an omitted field keeps its stored
+   * value on update (or takes the column default on create), while an explicit
+   * `null` clears the column. If no row exists yet it's created with whatever
+   * arrived (the rest fall back to schema defaults / null).
+   */
+  async updateDevelopment(
+    id: string,
+    dto: UpdateDevelopmentDto,
+    userId: string,
+    userRole: UserRole,
+  ) {
+    await this.loadForManage(id, userId, userRole);
+
+    const data = {
+      // Desarrollo.
+      walkedAtMonths: dto.walkedAtMonths,
+      talkedAtMonths: dto.talkedAtMonths,
+      toiletTrainedAtMonths: dto.toiletTrainedAtMonths,
+      developmentNotes: dto.developmentNotes,
+      // Rutinas.
+      wakeUpTime: dto.wakeUpTime,
+      bedTime: dto.bedTime,
+      takesNap: dto.takesNap,
+      napStartTime: dto.napStartTime,
+      napEndTime: dto.napEndTime,
+      diet: dto.diet,
+      mealTimes: dto.mealTimes,
+      // Toilet.
+      toiletTrained: dto.toiletTrained,
+      toiletWords: dto.toiletWords,
+      toiletHelpLevel: dto.toiletHelpLevel,
+      toiletAccidents: dto.toiletAccidents,
+    };
+
+    return this.prisma.childDevelopment.upsert({
       where: { childId: id },
       create: { childId: id, ...data },
       update: data,

@@ -85,6 +85,24 @@ const SEED_CHILDREN: Array<{
     addressState?: string;
     addressZip?: string;
   }>;
+  // Fase 2 (2B) — optional development/routines/toilet profile for testing.
+  development?: {
+    walkedAtMonths?: number;
+    talkedAtMonths?: number;
+    toiletTrainedAtMonths?: number;
+    developmentNotes?: string;
+    wakeUpTime?: string;
+    bedTime?: string;
+    takesNap?: boolean;
+    napStartTime?: string;
+    napEndTime?: string;
+    diet?: string;
+    mealTimes?: string;
+    toiletTrained?: boolean;
+    toiletWords?: string;
+    toiletHelpLevel?: string;
+    toiletAccidents?: string;
+  };
 }> = [
   {
     firstName: 'Liam',
@@ -136,6 +154,24 @@ const SEED_CHILDREN: Array<{
         phone: '5554440001',
       },
     ],
+    // Full 2B sample: milestones, full daily routine with nap, toilet trained.
+    development: {
+      walkedAtMonths: 12,
+      talkedAtMonths: 14,
+      toiletTrainedAtMonths: 30,
+      developmentNotes: 'Meeting milestones on track. Very social.',
+      wakeUpTime: '07:00',
+      bedTime: '20:00',
+      takesNap: true,
+      napStartTime: '13:00',
+      napEndTime: '15:00',
+      diet: 'No nuts. Vegetarian.',
+      mealTimes: 'Breakfast 08:00, Lunch 12:00, Snack 15:30.',
+      toiletTrained: true,
+      toiletWords: 'Uses "potty".',
+      toiletHelpLevel: 'NEEDS_REMINDERS',
+      toiletAccidents: 'Rare, mostly during naps.',
+    },
   },
   {
     // Sibling of Liam — same parent, exercises the "parent with multiple kids".
@@ -212,6 +248,17 @@ const SEED_CHILDREN: Array<{
         addressZip: '94010',
       },
     ],
+    // Younger child — not toilet trained yet (in diapers), no nap window set.
+    development: {
+      walkedAtMonths: 13,
+      developmentNotes: 'Just started forming two-word phrases.',
+      wakeUpTime: '06:30',
+      bedTime: '19:30',
+      takesNap: true,
+      diet: 'No dairy.',
+      toiletTrained: false,
+      toiletHelpLevel: 'IN_DIAPERS',
+    },
   },
 ];
 
@@ -268,6 +315,7 @@ export class ChildrenSeedService {
       let contactsCreated = 0;
       for (const c of SEED_CHILDREN) {
         const m = c.medical;
+        const d = c.development;
         const child = await tx.child.create({
           data: {
             centerId,
@@ -306,6 +354,10 @@ export class ChildrenSeedService {
                 otherIllnesses: m?.otherIllnesses ?? null,
               },
             },
+            // Fase 2 (2B) — development/routines/toilet satellite when present.
+            // Field names align 1:1 with the model, so a direct spread is safe;
+            // schema defaults cover the unset booleans (takesNap, toiletTrained).
+            development: d ? { create: { ...d } } : undefined,
           },
           select: { id: true },
         });
