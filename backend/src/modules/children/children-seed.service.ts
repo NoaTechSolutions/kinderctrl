@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { ChildStatus, UserRole, UserStatus } from '@prisma/client';
+import { ChildStatus, Prisma, UserRole, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -52,6 +52,39 @@ const SEED_CHILDREN: Array<{
     isPrimary: boolean;
     livesWithChild: boolean;
   }>;
+  // Fase 2 (2A) — optional extended medical history + contacts for testing.
+  medical?: {
+    doctorName?: string;
+    doctorPhone?: string;
+    isUnderDoctorCare?: boolean;
+    doctorLastExamDate?: string;
+    prescribedMedicationDetails?: string;
+    medicationSideEffects?: string;
+    dentistName?: string;
+    dentistPhone?: string;
+    dentistAddressStreet?: string;
+    dentistAddressCity?: string;
+    dentistAddressState?: string;
+    dentistAddressZip?: string;
+    dentalPlan?: string;
+    specialDevices?: string;
+    frequentColds?: boolean;
+    frequentColdsCount?: number;
+    pastIllnesses?: Record<string, { checked: boolean; date?: string }>;
+    otherIllnesses?: string;
+  };
+  contacts?: Array<{
+    contactType: string;
+    name: string;
+    relationship?: string;
+    phone?: string;
+    homePhone?: string;
+    workPhone?: string;
+    addressStreet?: string;
+    addressCity?: string;
+    addressState?: string;
+    addressZip?: string;
+  }>;
 }> = [
   {
     firstName: 'Liam',
@@ -61,6 +94,47 @@ const SEED_CHILDREN: Array<{
     enrollmentStatus: ChildStatus.ACTIVE,
     parents: [
       { key: 'sarah', relationship: 'MOTHER', isPrimary: true, livesWithChild: true },
+    ],
+    // Full extended-medical sample: doctor care, dentist, devices, colds,
+    // past-illness checklist (a couple checked with dates).
+    medical: {
+      doctorName: 'Dr. Alan Pierce',
+      doctorPhone: '5552220001',
+      isUnderDoctorCare: true,
+      doctorLastExamDate: '2025-11-20',
+      prescribedMedicationDetails: 'Albuterol inhaler, as needed for asthma.',
+      medicationSideEffects: 'Mild drowsiness possible.',
+      dentistName: 'Dr. Mary Stone',
+      dentistPhone: '5553330001',
+      dentistAddressStreet: '88 Elm Street',
+      dentistAddressCity: 'Springfield',
+      dentistAddressState: 'CA',
+      dentistAddressZip: '94010',
+      dentalPlan: 'Delta Dental Family',
+      specialDevices: 'Glasses (full-time).',
+      frequentColds: true,
+      frequentColdsCount: 4,
+      pastIllnesses: {
+        CHICKEN_POX: { checked: true, date: '2024-02-10' },
+        ASTHMA: { checked: true },
+        THREE_DAY_MEASLES: { checked: false },
+      },
+      otherIllnesses: 'Seasonal allergies (spring).',
+    },
+    contacts: [
+      {
+        contactType: 'EMERGENCY',
+        name: 'Sarah Johnson',
+        relationship: 'Mother',
+        phone: '5551110001',
+        homePhone: '5551110001',
+      },
+      {
+        contactType: 'AUTHORIZED_PICKUP',
+        name: 'Grandma Johnson',
+        relationship: 'Grandmother',
+        phone: '5554440001',
+      },
     ],
   },
   {
@@ -104,6 +178,39 @@ const SEED_CHILDREN: Array<{
     parents: [
       { key: 'emily', relationship: 'MOTHER', isPrimary: true, livesWithChild: true },
       { key: 'michael', relationship: 'GUARDIAN', isPrimary: false, livesWithChild: false },
+    ],
+    // One of each contact type — exercises the full discriminator set.
+    medical: {
+      isUnderDoctorCare: false,
+      frequentColds: false,
+      pastIllnesses: {
+        HAY_FEVER: { checked: true, date: '2023-05-01' },
+      },
+    },
+    contacts: [
+      {
+        contactType: 'EMERGENCY',
+        name: 'Emily Rodriguez',
+        relationship: 'Mother',
+        phone: '5551110003',
+      },
+      {
+        contactType: 'AUTHORIZED_PICKUP',
+        name: 'Michael Chen',
+        relationship: 'Guardian',
+        phone: '5551110002',
+        workPhone: '5556660002',
+      },
+      {
+        contactType: 'RESPONSIBLE',
+        name: 'Aunt Carla',
+        relationship: 'Aunt',
+        phone: '5557770003',
+        addressStreet: '12 Maple Ave',
+        addressCity: 'Springfield',
+        addressState: 'CA',
+        addressZip: '94010',
+      },
     ],
   },
 ];
@@ -155,10 +262,12 @@ export class ChildrenSeedService {
         parentIdByKey.set(p.key, parent.id);
       }
 
-      // 2. Children + medical + parent links.
+      // 2. Children + medical + parent links + contacts.
       let childrenCreated = 0;
       let linksCreated = 0;
+      let contactsCreated = 0;
       for (const c of SEED_CHILDREN) {
+        const m = c.medical;
         const child = await tx.child.create({
           data: {
             centerId,
@@ -169,7 +278,33 @@ export class ChildrenSeedService {
             enrollmentStatus: c.enrollmentStatus,
             admissionDate: new Date(`${c.birthDate}T00:00:00.000Z`),
             medicalInfo: {
-              create: { allergies: [], medications: [], medicalConditions: [] },
+              create: {
+                allergies: [],
+                medications: [],
+                medicalConditions: [],
+                // Fase 2 (2A) — extended fields when the seed child has them.
+                doctorName: m?.doctorName ?? null,
+                doctorPhone: m?.doctorPhone ?? null,
+                isUnderDoctorCare: m?.isUnderDoctorCare ?? false,
+                doctorLastExamDate: m?.doctorLastExamDate
+                  ? new Date(`${m.doctorLastExamDate}T00:00:00.000Z`)
+                  : null,
+                prescribedMedicationDetails:
+                  m?.prescribedMedicationDetails ?? null,
+                medicationSideEffects: m?.medicationSideEffects ?? null,
+                dentistName: m?.dentistName ?? null,
+                dentistPhone: m?.dentistPhone ?? null,
+                dentistAddressStreet: m?.dentistAddressStreet ?? null,
+                dentistAddressCity: m?.dentistAddressCity ?? null,
+                dentistAddressState: m?.dentistAddressState ?? null,
+                dentistAddressZip: m?.dentistAddressZip ?? null,
+                dentalPlan: m?.dentalPlan ?? null,
+                specialDevices: m?.specialDevices ?? null,
+                frequentColds: m?.frequentColds ?? false,
+                frequentColdsCount: m?.frequentColdsCount ?? null,
+                pastIllnesses: m?.pastIllnesses ?? Prisma.JsonNull,
+                otherIllnesses: m?.otherIllnesses ?? null,
+              },
             },
           },
           select: { id: true },
@@ -187,9 +322,20 @@ export class ChildrenSeedService {
           });
           linksCreated++;
         }
+        if (c.contacts?.length) {
+          await tx.childContact.createMany({
+            data: c.contacts.map((ct) => ({ childId: child.id, ...ct })),
+          });
+          contactsCreated += c.contacts.length;
+        }
       }
 
-      return { childrenCreated, parentsCreated: SEED_PARENTS.length, linksCreated };
+      return {
+        childrenCreated,
+        parentsCreated: SEED_PARENTS.length,
+        linksCreated,
+        contactsCreated,
+      };
     });
 
     return {

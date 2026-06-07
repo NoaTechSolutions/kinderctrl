@@ -14,6 +14,8 @@ import { UpdateMedicalInfoDto } from './dto/update-medical-info.dto';
 import { QueryChildrenDto } from './dto/query-children.dto';
 import { ChildParentInputDto } from './dto/child-parent-input.dto';
 import { UpdateChildParentDto } from './dto/update-child-parent.dto';
+import { CreateChildContactDto } from './dto/create-child-contact.dto';
+import { UpdateChildContactDto } from './dto/update-child-contact.dto';
 
 // Everything a child detail returns: center, medical, and the linked parents
 // (with their HOME/WORK contact + the User account status). Keeps the payload
@@ -21,6 +23,11 @@ import { UpdateChildParentDto } from './dto/update-child-parent.dto';
 const CHILD_DETAIL_INCLUDE = {
   center: { select: { id: true, name: true } },
   medicalInfo: true,
+  // Fase 2 (2A) — contacts travel with the child detail so the edit-form tabs
+  // read one shape (ordered by type, then creation for a stable list).
+  contacts: {
+    orderBy: [{ contactType: 'asc' }, { createdAt: 'asc' }],
+  },
   childParents: {
     orderBy: { isPrimary: 'desc' },
     include: {
@@ -291,6 +298,25 @@ export class ChildrenService {
       hasSpecialNeeds: dto.hasSpecialNeeds ?? false,
       insuranceProvider: dto.insuranceProvider ?? null,
       insurancePolicy: dto.insurancePolicy ?? null,
+      // Fase 2 (2A) — extended medical history.
+      isUnderDoctorCare: dto.isUnderDoctorCare ?? false,
+      doctorLastExamDate: dto.doctorLastExamDate ?? null,
+      prescribedMedicationDetails: dto.prescribedMedicationDetails ?? null,
+      medicationSideEffects: dto.medicationSideEffects ?? null,
+      dentistName: dto.dentistName ?? null,
+      dentistPhone: dto.dentistPhone ?? null,
+      dentistAddressStreet: dto.dentistAddressStreet ?? null,
+      dentistAddressCity: dto.dentistAddressCity ?? null,
+      dentistAddressState: dto.dentistAddressState ?? null,
+      dentistAddressZip: dto.dentistAddressZip ?? null,
+      dentalPlan: dto.dentalPlan ?? null,
+      specialDevices: dto.specialDevices ?? null,
+      frequentColds: dto.frequentColds ?? false,
+      frequentColdsCount: dto.frequentColdsCount ?? null,
+      // Nullable Json — Prisma needs the JsonNull sentinel to write SQL NULL.
+      pastIllnesses: (dto.pastIllnesses ??
+        Prisma.JsonNull) as Prisma.InputJsonValue,
+      otherIllnesses: dto.otherIllnesses ?? null,
     };
 
     return this.prisma.childMedicalInfo.upsert({
@@ -409,6 +435,101 @@ export class ChildrenService {
     await this.prisma.childParent.delete({ where: { id: target.id } });
   }
 
+  // ───────────────────────────────────────────── CONTACTS (Fase 2 · 2A)
+  //
+  // Emergency / authorized-pickup / responsible contacts, one ChildContact row
+  // each (single table, `contactType` discriminator). VIEW follows the child
+  // (DIRECTOR own · SA · PARENT own-child); WRITE is manage-only (DIRECTOR/SA).
+
+  /** GET /children/:id/contacts — list a child's contacts. */
+  async listContacts(childId: string, userId: string, userRole: UserRole) {
+    await this.loadForView(childId, userId, userRole);
+    return this.prisma.childContact.findMany({
+      where: { childId },
+      orderBy: [{ contactType: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  /** POST /children/:id/contacts — add a contact. */
+  async addContact(
+    childId: string,
+    dto: CreateChildContactDto,
+    userId: string,
+    userRole: UserRole,
+  ) {
+    await this.loadForManage(childId, userId, userRole);
+    return this.prisma.childContact.create({
+      data: {
+        childId,
+        contactType: dto.contactType,
+        name: dto.name,
+        relationship: dto.relationship ?? null,
+        phone: dto.phone ?? null,
+        homePhone: dto.homePhone ?? null,
+        workPhone: dto.workPhone ?? null,
+        addressStreet: dto.addressStreet ?? null,
+        addressCity: dto.addressCity ?? null,
+        addressState: dto.addressState ?? null,
+        addressZip: dto.addressZip ?? null,
+      },
+    });
+  }
+
+  /** PATCH /children/:id/contacts/:contactId — edit a contact (partial). */
+  async updateContact(
+    childId: string,
+    contactId: string,
+    dto: UpdateChildContactDto,
+    userId: string,
+    userRole: UserRole,
+  ) {
+    await this.loadForManage(childId, userId, userRole);
+    // Scope the contact to THIS child so a valid contactId from another child
+    // can't be edited through this route.
+    const existing = await this.prisma.childContact.findFirst({
+      where: { id: contactId, childId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Contact not found for this child');
+    }
+    // PATCH semantics: only the provided keys change (undefined is ignored by
+    // Prisma); a passed-through null clears a nullable column.
+    return this.prisma.childContact.update({
+      where: { id: existing.id },
+      data: {
+        contactType: dto.contactType,
+        name: dto.name,
+        relationship: dto.relationship,
+        phone: dto.phone,
+        homePhone: dto.homePhone,
+        workPhone: dto.workPhone,
+        addressStreet: dto.addressStreet,
+        addressCity: dto.addressCity,
+        addressState: dto.addressState,
+        addressZip: dto.addressZip,
+      },
+    });
+  }
+
+  /** DELETE /children/:id/contacts/:contactId — remove a contact. */
+  async removeContact(
+    childId: string,
+    contactId: string,
+    userId: string,
+    userRole: UserRole,
+  ): Promise<void> {
+    await this.loadForManage(childId, userId, userRole);
+    const existing = await this.prisma.childContact.findFirst({
+      where: { id: contactId, childId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Contact not found for this child');
+    }
+    await this.prisma.childContact.delete({ where: { id: existing.id } });
+  }
+
   // ───────────────────────────────────────────── PERMISSION MATRIX
   //
   // VIEW   : DIRECTOR (own center) · SUPER_ADMIN (any) · PARENT (own child via
@@ -523,6 +644,27 @@ export class ChildrenService {
     }
     await this.assertCanManageChild(
       { centerId: child.centerId },
+      userId,
+      userRole,
+    );
+    return child;
+  }
+
+  /** Load a child (id + centerId) + assert the caller may VIEW it (PARENT ok). */
+  private async loadForView(
+    id: string,
+    userId: string,
+    userRole: UserRole,
+  ): Promise<{ id: string; centerId: string }> {
+    const child = await this.prisma.child.findUnique({
+      where: { id },
+      select: { id: true, centerId: true },
+    });
+    if (!child) {
+      throw new NotFoundException('Child not found');
+    }
+    await this.assertCanViewChild(
+      { id: child.id, centerId: child.centerId },
       userId,
       userRole,
     );

@@ -27,3 +27,31 @@ export const CHILD_ENROLLMENT_STATUSES = [
 ] as const;
 export type ChildEnrollmentStatus =
   (typeof CHILD_ENROLLMENT_STATUSES)[number];
+
+// Children Fase 2 (2A) — contact types for the single ChildContact table.
+// Whitelist validated at the DTO boundary (no Prisma enum) so a new contact
+// kind is a no-migration change.
+export const CHILD_CONTACT_TYPES = [
+  'EMERGENCY',
+  'AUTHORIZED_PICKUP',
+  'RESPONSIBLE',
+] as const;
+export type ChildContactType = (typeof CHILD_CONTACT_TYPES)[number];
+
+// Children Fase 2 (2A) — past-illness checklist keys. Stored as a Json object
+// on ChildMedicalInfo.pastIllnesses, each value { checked, date? }. Same
+// no-enum convention: editing the list never needs a migration.
+export const CHILD_PAST_ILLNESSES = [
+  'CHICKEN_POX',
+  'ASTHMA',
+  'RHEUMATIC_FEVER',
+  'HAY_FEVER',
+  'DIABETES',
+  'EPILEPSY',
+  'WHOOPING_COUGH',
+  'MUMPS',
+  'POLIOMYELITIS',
+  'TEN_DAY_MEASLES',
+  'THREE_DAY_MEASLES',
+] as const;
+export type ChildPastIllness = (typeof CHILD_PAST_ILLNESSES)[number];

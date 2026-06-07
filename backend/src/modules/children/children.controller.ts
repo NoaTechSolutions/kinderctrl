@@ -27,6 +27,8 @@ import { UpdateMedicalInfoDto } from './dto/update-medical-info.dto';
 import { QueryChildrenDto } from './dto/query-children.dto';
 import { ChildParentInputDto } from './dto/child-parent-input.dto';
 import { UpdateChildParentDto } from './dto/update-child-parent.dto';
+import { CreateChildContactDto } from './dto/create-child-contact.dto';
+import { UpdateChildContactDto } from './dto/update-child-contact.dto';
 
 interface AuthUser {
   id: string;
@@ -179,5 +181,56 @@ export class ChildrenController {
     @CurrentUser() user: AuthUser,
   ): Promise<void> {
     await this.childrenService.removeParent(id, parentId, user.id, user.role);
+  }
+
+  // ── Contacts (Fase 2 · 2A) ──────────────────────────────────────────────
+  // GET follows the child (PARENT can read their own child's contacts); the
+  // write verbs are manage-only (DIRECTOR own / SA).
+
+  @Get('children/:id/contacts')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN, UserRole.PARENT)
+  listContacts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.childrenService.listContacts(id, user.id, user.role);
+  }
+
+  @Post('children/:id/contacts')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  addContact(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateChildContactDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.childrenService.addContact(id, dto, user.id, user.role);
+  }
+
+  @Patch('children/:id/contacts/:contactId')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  updateContact(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('contactId', ParseUUIDPipe) contactId: string,
+    @Body() dto: UpdateChildContactDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.childrenService.updateContact(
+      id,
+      contactId,
+      dto,
+      user.id,
+      user.role,
+    );
+  }
+
+  @Delete('children/:id/contacts/:contactId')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeContact(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('contactId', ParseUUIDPipe) contactId: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<void> {
+    await this.childrenService.removeContact(id, contactId, user.id, user.role);
   }
 }

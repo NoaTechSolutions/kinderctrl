@@ -666,6 +666,7 @@ model Child {
   milestones        ChildMilestone[]
   immunizations     Immunization[]
   medicalInfo       ChildMedicalInfo?
+  contacts          ChildContact[]
   invoices          Invoice[]
 
   // Pre-existing column kept for back-compat (centers stats / future billing).
@@ -744,10 +745,75 @@ model ChildMedicalInfo {
   insuranceProvider String? @map("insurance_provider")
   insurancePolicy   String? @map("insurance_policy")
 
+  // Fase 2 (2A) — extended medical history per SPEC-Children-Fase2-2A.
+  // Doctor's care + last exam.
+  isUnderDoctorCare  Boolean   @default(false) @map("is_under_doctor_care")
+  doctorLastExamDate DateTime? @map("doctor_last_exam_date") @db.Date
+
+  // LIC 702 splits medication into "what kind" + "any side effects", so these
+  // are two distinct free-text columns. Both are separate from the structured
+  // `medications` Json list (Fase 1) and from `medicationAllergies`.
+  prescribedMedicationDetails String? @map("prescribed_medication_details")
+  medicationSideEffects       String? @map("medication_side_effects")
+
+  // Dentist contact + dental plan. Address is structured (street/city/state/zip)
+  // via the shared AddressFields layout — discrete columns, unlike the Fase 1
+  // doctorAddress single text field (kept as-is).
+  dentistName         String? @map("dentist_name")
+  dentistPhone        String? @map("dentist_phone")
+  dentistAddressStreet String? @map("dentist_address_street")
+  dentistAddressCity   String? @map("dentist_address_city")
+  dentistAddressState  String? @map("dentist_address_state") @db.VarChar(2)
+  dentistAddressZip    String? @map("dentist_address_zip") @db.VarChar(10)
+  dentalPlan          String? @map("dental_plan")
+
+  // Special devices the child uses (glasses, hearing aids, braces, etc.).
+  specialDevices String? @map("special_devices")
+
+  // Frequent colds flag + how many per year.
+  frequentColds      Boolean @default(false) @map("frequent_colds")
+  frequentColdsCount Int?    @map("frequent_colds_count")
+
+  // Past-illness checklist. Json object keyed by the CHILD_PAST_ILLNESSES
+  // whitelist (Chicken Pox, Asthma, … Three-Day Measles), each value
+  // { checked: boolean, date?: string }. Nullable so legacy rows stay untouched
+  // and adding/removing list items is a no-migration change.
+  pastIllnesses  Json?   @map("past_illnesses")
+  otherIllnesses String? @map("other_illnesses")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("child_medical_info")
+}
+
+// Fase 2 (2A) — emergency / authorized-pickup / responsible contacts for a
+// child. Single table with a `contactType` discriminator (all three types share
+// the same fields, so 3 separate tables would only triple the surface area for
+// no gain). `contactType` is a free-text-with-whitelist string validated at the
+// DTO boundary (EMERGENCY/AUTHORIZED_PICKUP/RESPONSIBLE) — same no-enum
+// convention as Child.gender / ChildParent.relationship.
+model ChildContact {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  contactType  String  @map("contact_type")
+  name         String
+  relationship String?
+  phone        String? @db.VarChar(20)
+  homePhone    String? @map("home_phone") @db.VarChar(20)
+  workPhone    String? @map("work_phone") @db.VarChar(20)
+  // Structured address (street/city/state/zip) via the shared AddressFields.
+  addressStreet String? @map("address_street")
+  addressCity   String? @map("address_city")
+  addressState  String? @map("address_state") @db.VarChar(2)
+  addressZip    String? @map("address_zip") @db.VarChar(10)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([childId, contactType])
+  @@map("child_contacts")
 }
 
 // ============================================
