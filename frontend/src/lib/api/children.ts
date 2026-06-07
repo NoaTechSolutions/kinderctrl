@@ -1,5 +1,11 @@
 import { apiRequest } from './client';
-import type { Child, ChildrenQuery } from '@/lib/types/child';
+import type {
+  Child,
+  ChildContact,
+  ChildContactType,
+  ChildrenQuery,
+  PastIllnesses,
+} from '@/lib/types/child';
 
 // Director/SA — a center's roster. Backend: GET /centers/:centerId/children.
 // Returns a plain array (no pagination in Fase 1).
@@ -84,6 +90,23 @@ export interface MedicalInfoPayload {
   medicationAllergies?: string;
   medicalPlan?: string;
   hasSpecialNeeds?: boolean;
+  // Fase 2 (2A) — extended medical history.
+  isUnderDoctorCare?: boolean;
+  doctorLastExamDate?: string; // ISO date
+  prescribedMedicationDetails?: string;
+  medicationSideEffects?: string;
+  dentistName?: string;
+  dentistPhone?: string;
+  dentistAddressStreet?: string;
+  dentistAddressCity?: string;
+  dentistAddressState?: string;
+  dentistAddressZip?: string;
+  dentalPlan?: string;
+  specialDevices?: string;
+  frequentColds?: boolean;
+  frequentColdsCount?: number;
+  pastIllnesses?: PastIllnesses;
+  otherIllnesses?: string;
 }
 
 export function createChild(
@@ -149,6 +172,56 @@ export function removeChildParent(
   parentId: string,
 ): Promise<void> {
   return apiRequest<void>(`/children/${childId}/parents/${parentId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ── Contacts (Director/SA) — Fase 2 · 2A ────────────────────────────────────
+// Matches the backend CreateChildContactDto. `contactType` is the discriminator
+// (EMERGENCY / AUTHORIZED_PICKUP / RESPONSIBLE); the rest are optional.
+export interface ChildContactPayload {
+  contactType: ChildContactType;
+  name: string;
+  relationship?: string;
+  phone?: string;
+  homePhone?: string;
+  workPhone?: string;
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressZip?: string;
+}
+
+export function listChildContacts(childId: string): Promise<ChildContact[]> {
+  return apiRequest<ChildContact[]>(`/children/${childId}/contacts`);
+}
+
+export function addChildContact(
+  childId: string,
+  payload: ChildContactPayload,
+): Promise<ChildContact> {
+  return apiRequest<ChildContact>(`/children/${childId}/contacts`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function updateChildContact(
+  childId: string,
+  contactId: string,
+  payload: Partial<ChildContactPayload>,
+): Promise<ChildContact> {
+  return apiRequest<ChildContact>(
+    `/children/${childId}/contacts/${contactId}`,
+    { method: 'PATCH', body: payload },
+  );
+}
+
+export function removeChildContact(
+  childId: string,
+  contactId: string,
+): Promise<void> {
+  return apiRequest<void>(`/children/${childId}/contacts/${contactId}`, {
     method: 'DELETE',
   });
 }

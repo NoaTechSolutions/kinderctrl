@@ -1,16 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  addChildContact,
   addChildParent,
   createChild,
   getChild,
   getMyChildren,
   listCenterChildren,
+  removeChildContact,
   removeChildParent,
   updateChild,
+  updateChildContact,
   updateChildMedical,
   updateChildParentLink,
 } from '@/lib/api/children';
 import type {
+  ChildContactPayload,
   ChildParentPayload,
   CreateChildPayload,
   MedicalInfoPayload,
@@ -28,6 +32,17 @@ export interface ParentLinkUpdate {
 export interface ParentOps {
   add: ChildParentPayload[];
   updateLinks: ParentLinkUpdate[];
+  remove: string[];
+}
+
+export interface ContactUpdate {
+  id: string;
+  payload: Partial<ChildContactPayload>;
+}
+
+export interface ContactOps {
+  add: ChildContactPayload[];
+  update: ContactUpdate[];
   remove: string[];
 }
 
@@ -201,6 +216,26 @@ export function useUpdateChildParents() {
         });
       }
       for (const r of args.ops.remove) await removeChildParent(args.childId, r);
+      return getChild(args.childId);
+    },
+    onSuccess: (_d, v) => invalidateChild(qc, v.childId),
+  });
+}
+
+/**
+ * Contacts tab (Fase 2 · 2A) — applies the diff (add → update → remove) and
+ * returns the FRESH child so the caller can re-seed the tab (new contacts get
+ * real ids only after the round-trip), mirroring the Parents tab.
+ */
+export function useUpdateChildContacts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { childId: string; ops: ContactOps }) => {
+      for (const a of args.ops.add) await addChildContact(args.childId, a);
+      for (const u of args.ops.update) {
+        await updateChildContact(args.childId, u.id, u.payload);
+      }
+      for (const r of args.ops.remove) await removeChildContact(args.childId, r);
       return getChild(args.childId);
     },
     onSuccess: (_d, v) => invalidateChild(qc, v.childId),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronDown, Loader2, Plus, Trash2 } from 'lucide-react';
@@ -10,6 +10,7 @@ import { FilterTabs, type FilterTab } from '@/components/ui/filter-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NameInput } from '@/components/ui/name-input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { SearchInput } from '@/components/ui/search-input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -40,9 +41,11 @@ import { cn } from '@/lib/utils';
 import { formatPhoneUS, parsePhoneDigits } from '@/lib/utils/phone';
 import {
   useCenterChildren,
+  useUpdateChildContacts,
   useUpdateChildDetails,
   useUpdateChildMedicalInfo,
   useUpdateChildParents,
+  type ContactOps,
   type ParentOps,
 } from '@/lib/hooks/use-children';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
@@ -57,13 +60,39 @@ import {
 } from './child-form-fields';
 import { ApiError } from '@/lib/api/client';
 import type {
+  ChildContactPayload,
   ChildParentPayload,
   MedicalInfoPayload,
   UpdateChildPayload,
 } from '@/lib/api/children';
-import type { Child } from '@/lib/types/child';
+import type {
+  Child,
+  ChildContactType,
+  PastIllnesses,
+} from '@/lib/types/child';
 
-type EditTab = 'child' | 'parents' | 'medical';
+type EditTab = 'child' | 'parents' | 'medical' | 'contacts';
+
+// Past-illness checklist (Fase 2 · 2A). Codes mirror the backend
+// CHILD_PAST_ILLNESSES whitelist; labels are i18n keys.
+const PAST_ILLNESSES = [
+  { code: 'CHICKEN_POX', labelKey: 'children.illnessChickenPox' },
+  { code: 'ASTHMA', labelKey: 'children.illnessAsthma' },
+  { code: 'RHEUMATIC_FEVER', labelKey: 'children.illnessRheumaticFever' },
+  { code: 'HAY_FEVER', labelKey: 'children.illnessHayFever' },
+  { code: 'DIABETES', labelKey: 'children.illnessDiabetes' },
+  { code: 'EPILEPSY', labelKey: 'children.illnessEpilepsy' },
+  { code: 'WHOOPING_COUGH', labelKey: 'children.illnessWhoopingCough' },
+  { code: 'MUMPS', labelKey: 'children.illnessMumps' },
+  { code: 'POLIOMYELITIS', labelKey: 'children.illnessPoliomyelitis' },
+  { code: 'TEN_DAY_MEASLES', labelKey: 'children.illnessTenDayMeasles' },
+  { code: 'THREE_DAY_MEASLES', labelKey: 'children.illnessThreeDayMeasles' },
+] as const;
+
+interface IllnessEntryState {
+  checked: boolean;
+  date: string;
+}
 
 const GENDERS = [
   { value: 'MALE', labelKey: 'children.genderMale' },
@@ -107,11 +136,39 @@ interface MedicalState {
   doctorName: string;
   doctorPhone: string;
   doctorAddress: string;
+  doctorLastExamDate: string;
+  isUnderDoctorCare: boolean;
+  prescribedMedicationDetails: string;
+  medicationSideEffects: string;
   allergies: string[];
   medicationAllergies: string[];
   medications: string[];
   medicalPlan: string;
   hasSpecialNeeds: boolean;
+  // Dentist (structured address).
+  dentistName: string;
+  dentistPhone: string;
+  dentistAddress: Addr;
+  dentalPlan: string;
+  // Health.
+  specialDevices: string;
+  frequentColds: boolean;
+  frequentColdsCount: string; // kept as text for the input; parsed on save
+  pastIllnesses: Record<string, IllnessEntryState>;
+  otherIllnesses: string;
+}
+
+// Build the per-illness checklist state from saved data, defaulting every code
+// in the whitelist to unchecked/no-date so the form always renders all rows.
+function buildIllnessState(
+  saved: PastIllnesses | null,
+): Record<string, IllnessEntryState> {
+  const out: Record<string, IllnessEntryState> = {};
+  for (const it of PAST_ILLNESSES) {
+    const s = saved?.[it.code];
+    out[it.code] = { checked: s?.checked ?? false, date: s?.date ?? '' };
+  }
+  return out;
 }
 
 // One parent row. `linked` rows came from the loaded child (name/email
@@ -167,6 +224,72 @@ function emptyNewRow(key: string): ParentRow {
   };
 }
 
+// ── Contacts (Fase 2 · 2A) ──────────────────────────────────────────────────
+// One editable contact row. `id` empty = a new (unsaved) contact.
+interface ContactRow {
+  rowKey: string;
+  id: string;
+  contactType: ChildContactType;
+  name: string;
+  relationship: string;
+  phone: string;
+  homePhone: string;
+  workPhone: string;
+  address: Addr;
+  orig: string; // field signature at seed time → detect edits on existing rows
+}
+
+// The three contact groups + which fields each one shows.
+const CONTACT_GROUPS = [
+  {
+    type: 'EMERGENCY' as ChildContactType,
+    titleKey: 'children.sectionEmergency',
+    noteKey: null,
+    fields: ['relationship', 'phone', 'address'] as const,
+  },
+  {
+    type: 'AUTHORIZED_PICKUP' as ChildContactType,
+    titleKey: 'children.sectionAuthorizedPickup',
+    noteKey: 'children.authorizedPickupNote',
+    fields: ['relationship'] as const,
+  },
+  {
+    type: 'RESPONSIBLE' as ChildContactType,
+    titleKey: 'children.sectionResponsible',
+    noteKey: null,
+    fields: ['homePhone', 'workPhone'] as const,
+  },
+] as const;
+
+type ContactField = (typeof CONTACT_GROUPS)[number]['fields'][number];
+
+// Comparable signature of a contact's editable fields (dirty / diff).
+function contactSig(r: Omit<ContactRow, 'rowKey' | 'orig'>): string {
+  return JSON.stringify({
+    contactType: r.contactType,
+    name: r.name.trim(),
+    relationship: r.relationship.trim(),
+    phone: r.phone,
+    homePhone: r.homePhone,
+    workPhone: r.workPhone,
+    address: r.address,
+  });
+}
+
+function emptyContactRow(key: string, type: ChildContactType): ContactRow {
+  const base = {
+    id: '',
+    contactType: type,
+    name: '',
+    relationship: '',
+    phone: '',
+    homePhone: '',
+    workPhone: '',
+    address: emptyAddr(),
+  };
+  return { rowKey: key, ...base, orig: contactSig(base) };
+}
+
 function seed(child: Child) {
   const med = child.medicalInfo ?? null;
   const childState: ChildState = {
@@ -189,11 +312,32 @@ function seed(child: Child) {
     doctorName: med?.doctorName ?? '',
     doctorPhone: med?.doctorPhone ? formatPhoneUS(med.doctorPhone) : '',
     doctorAddress: med?.doctorAddress ?? '',
+    doctorLastExamDate: med?.doctorLastExamDate
+      ? med.doctorLastExamDate.slice(0, 10)
+      : '',
+    isUnderDoctorCare: med?.isUnderDoctorCare ?? false,
+    prescribedMedicationDetails: med?.prescribedMedicationDetails ?? '',
+    medicationSideEffects: med?.medicationSideEffects ?? '',
     allergies: toStrArray(med?.allergies),
     medicationAllergies: splitCsv(med?.medicationAllergies),
     medications: toStrArray(med?.medications),
     medicalPlan: med?.medicalPlan ?? '',
     hasSpecialNeeds: med?.hasSpecialNeeds ?? false,
+    dentistName: med?.dentistName ?? '',
+    dentistPhone: med?.dentistPhone ? formatPhoneUS(med.dentistPhone) : '',
+    dentistAddress: {
+      street: med?.dentistAddressStreet ?? '',
+      city: med?.dentistAddressCity ?? '',
+      state: med?.dentistAddressState ?? '',
+      zip: med?.dentistAddressZip ?? '',
+    },
+    dentalPlan: med?.dentalPlan ?? '',
+    specialDevices: med?.specialDevices ?? '',
+    frequentColds: med?.frequentColds ?? false,
+    frequentColdsCount:
+      med?.frequentColdsCount != null ? String(med.frequentColdsCount) : '',
+    pastIllnesses: buildIllnessState(med?.pastIllnesses ?? null),
+    otherIllnesses: med?.otherIllnesses ?? '',
   };
   const parents: ParentRow[] = (child.childParents ?? []).map((link, i) => ({
     ...emptyNewRow(`linked-${link.parentId}-${i}`),
@@ -208,7 +352,25 @@ function seed(child: Child) {
     origIsPrimary: link.isPrimary,
     origLivesWithChild: link.livesWithChild,
   }));
-  return { childState, medical, parents };
+  const contacts: ContactRow[] = (child.contacts ?? []).map((c, i) => {
+    const base = {
+      id: c.id,
+      contactType: c.contactType,
+      name: c.name,
+      relationship: c.relationship ?? '',
+      phone: c.phone ? formatPhoneUS(c.phone) : '',
+      homePhone: c.homePhone ? formatPhoneUS(c.homePhone) : '',
+      workPhone: c.workPhone ? formatPhoneUS(c.workPhone) : '',
+      address: {
+        street: c.addressStreet ?? '',
+        city: c.addressCity ?? '',
+        state: c.addressState ?? '',
+        zip: c.addressZip ?? '',
+      },
+    };
+    return { rowKey: `c-${c.id}-${i}`, ...base, orig: contactSig(base) };
+  });
+  return { childState, medical, parents, contacts };
 }
 
 export function ChildEditForm({ child }: { child: Child }) {
@@ -220,6 +382,7 @@ export function ChildEditForm({ child }: { child: Child }) {
     { value: 'child', label: t('children.childDetails') },
     { value: 'parents', label: t('children.colParents') },
     { value: 'medical', label: t('children.medical') },
+    { value: 'contacts', label: t('children.contacts') },
   ];
 
   const [tab, setTab] = useState<EditTab>('child');
@@ -235,15 +398,28 @@ export function ChildEditForm({ child }: { child: Child }) {
   );
   const [rowSeq, setRowSeq] = useState(0);
 
+  const [contacts, setContacts] = useState<ContactRow[]>(seeded.contacts);
+  const [removedContactIds, setRemovedContactIds] = useState<string[]>([]);
+  const [contactsBaseline, setContactsBaseline] = useState(() =>
+    JSON.stringify({ c: seeded.contacts, r: [] as string[] }),
+  );
+  const [contactSeq, setContactSeq] = useState(0);
+
   const [touched, setTouched] = useState(false);
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
   const [removeRow, setRemoveRow] = useState<ParentRow | null>(null);
+  const [removeContact, setRemoveContact] = useState<ContactRow | null>(null);
   const [pendingTab, setPendingTab] = useState<EditTab | null>(null);
 
   const detailsMut = useUpdateChildDetails();
   const medicalMut = useUpdateChildMedicalInfo();
   const parentsMut = useUpdateChildParents();
-  const saving = detailsMut.isPending || medicalMut.isPending || parentsMut.isPending;
+  const contactsMut = useUpdateChildContacts();
+  const saving =
+    detailsMut.isPending ||
+    medicalMut.isPending ||
+    parentsMut.isPending ||
+    contactsMut.isPending;
   const todayStr = new Date().toLocaleDateString('en-CA');
 
   const { data: roster } = useCenterChildren(child.centerId);
@@ -268,8 +444,15 @@ export function ChildEditForm({ child }: { child: Child }) {
   const childDirty = JSON.stringify(childState) !== childBaseline;
   const medicalDirty = JSON.stringify(medical) !== medicalBaseline;
   const parentsDirty = JSON.stringify({ p: parents, r: removedLinkedIds }) !== parentsBaseline;
-  const anyDirty = childDirty || medicalDirty || parentsDirty;
-  const currentDirty = tab === 'child' ? childDirty : tab === 'parents' ? parentsDirty : medicalDirty;
+  const contactsDirty = JSON.stringify({ c: contacts, r: removedContactIds }) !== contactsBaseline;
+  const dirtyByTab: Record<EditTab, boolean> = {
+    child: childDirty,
+    parents: parentsDirty,
+    medical: medicalDirty,
+    contacts: contactsDirty,
+  };
+  const anyDirty = childDirty || medicalDirty || parentsDirty || contactsDirty;
+  const currentDirty = dirtyByTab[tab];
 
   // Module-exit guard (sidebar / back / refresh) — active if ANY tab is dirty.
   useUnsavedChangesPrompt(anyDirty, t('children.unsavedLeaveEdit'));
@@ -278,6 +461,14 @@ export function ChildEditForm({ child }: { child: Child }) {
     setChildState((s) => ({ ...s, [k]: v }));
   const setM = <K extends keyof MedicalState>(k: K, v: MedicalState[K]) =>
     setMedical((s) => ({ ...s, [k]: v }));
+  const setIllness = (code: string, patch: Partial<IllnessEntryState>) =>
+    setMedical((s) => ({
+      ...s,
+      pastIllnesses: {
+        ...s.pastIllnesses,
+        [code]: { ...s.pastIllnesses[code], ...patch },
+      },
+    }));
   const setRow = (key: string, patch: Partial<ParentRow>) =>
     setParents((ps) => ps.map((p) => (p.rowKey === key ? { ...p, ...patch } : p)));
   const setPrimary = (key: string) =>
@@ -301,6 +492,32 @@ export function ChildEditForm({ child }: { child: Child }) {
     if (isEmptyNew) doRemoveRow(row);
     else setRemoveRow(row);
   };
+
+  // ── Contacts handlers ──
+  const setContact = (key: string, patch: Partial<ContactRow>) =>
+    setContacts((cs) => cs.map((c) => (c.rowKey === key ? { ...c, ...patch } : c)));
+  const addContactRow = (type: ChildContactType) => {
+    const key = `nc-${contactSeq}`;
+    setContactSeq((n) => n + 1);
+    setContacts((cs) => [...cs, emptyContactRow(key, type)]);
+  };
+  const doRemoveContact = (row: ContactRow) => {
+    setContacts((cs) => cs.filter((c) => c.rowKey !== row.rowKey));
+    if (row.id) setRemovedContactIds((ids) => [...ids, row.id]);
+  };
+  const requestRemoveContact = (row: ContactRow) => {
+    const isEmptyNew = !row.id && !row.name.trim();
+    if (isEmptyNew) doRemoveContact(row);
+    else setRemoveContact(row);
+  };
+
+  const contactErrors = useMemo(() => {
+    const e: string[] = [];
+    contacts.forEach((c) => {
+      if (!c.name.trim()) e.push(t('children.errContactNameRequired'));
+    });
+    return [...new Set(e)];
+  }, [contacts, t]);
 
   const childErrors = useMemo(() => {
     const e: string[] = [];
@@ -328,7 +545,14 @@ export function ChildEditForm({ child }: { child: Child }) {
     return e;
   }, [parents, t]);
 
-  const currentErrors = tab === 'child' ? childErrors : tab === 'parents' ? parentErrors : [];
+  const currentErrors =
+    tab === 'child'
+      ? childErrors
+      : tab === 'parents'
+        ? parentErrors
+        : tab === 'contacts'
+          ? contactErrors
+          : [];
 
   const buildChildPayload = (): UpdateChildPayload => ({
     firstName: childState.firstName.trim(),
@@ -356,6 +580,30 @@ export function ChildEditForm({ child }: { child: Child }) {
       : undefined,
     medicalPlan: undef(medical.medicalPlan),
     hasSpecialNeeds: medical.hasSpecialNeeds,
+    // Fase 2 (2A) — extended medical history.
+    isUnderDoctorCare: medical.isUnderDoctorCare,
+    doctorLastExamDate: medical.doctorLastExamDate || undefined,
+    prescribedMedicationDetails: undef(medical.prescribedMedicationDetails),
+    medicationSideEffects: undef(medical.medicationSideEffects),
+    dentistName: undef(medical.dentistName),
+    dentistPhone: phoneDigits(medical.dentistPhone),
+    dentistAddressStreet: undef(medical.dentistAddress.street),
+    dentistAddressCity: undef(medical.dentistAddress.city),
+    dentistAddressState: undef(medical.dentistAddress.state),
+    dentistAddressZip: undef(medical.dentistAddress.zip),
+    dentalPlan: undef(medical.dentalPlan),
+    specialDevices: undef(medical.specialDevices),
+    frequentColds: medical.frequentColds,
+    frequentColdsCount: medical.frequentColdsCount.trim()
+      ? Number(medical.frequentColdsCount)
+      : undefined,
+    // Only persist checked illnesses (date optional); unchecked are omitted.
+    pastIllnesses: PAST_ILLNESSES.reduce<PastIllnesses>((acc, it) => {
+      const e = medical.pastIllnesses[it.code];
+      if (e?.checked) acc[it.code] = { checked: true, date: e.date || null };
+      return acc;
+    }, {}),
+    otherIllnesses: undef(medical.otherIllnesses),
   });
 
   const buildParentOps = (): ParentOps => {
@@ -412,6 +660,31 @@ export function ChildEditForm({ child }: { child: Child }) {
     return ops;
   };
 
+  const buildContactOps = (): ContactOps => {
+    const ops: ContactOps = { add: [], update: [], remove: [...removedContactIds] };
+    for (const c of contacts) {
+      const payload: ChildContactPayload = {
+        contactType: c.contactType,
+        name: c.name.trim(),
+        relationship: undef(c.relationship),
+        phone: phoneDigits(c.phone),
+        homePhone: phoneDigits(c.homePhone),
+        workPhone: phoneDigits(c.workPhone),
+        addressStreet: undef(c.address.street),
+        addressCity: undef(c.address.city),
+        addressState: undef(c.address.state),
+        addressZip: undef(c.address.zip),
+      };
+      if (!c.id) {
+        ops.add.push(payload);
+      } else if (contactSig(c) !== c.orig) {
+        // Only PATCH existing contacts whose fields actually changed.
+        ops.update.push({ id: c.id, payload });
+      }
+    }
+    return ops;
+  };
+
   // Save the current section. Returns true on success.
   const saveSection = async (section: EditTab): Promise<boolean> => {
     try {
@@ -428,6 +701,19 @@ export function ChildEditForm({ child }: { child: Child }) {
         await medicalMut.mutateAsync({ childId: child.id, payload: buildMedicalPayload() });
         setMedicalBaseline(JSON.stringify(medical));
         toast.success(t('children.toastMedicalSaved'));
+      } else if (section === 'contacts') {
+        if (contactErrors.length) {
+          setTouched(true);
+          toast.error(contactErrors[0]);
+          return false;
+        }
+        const fresh = await contactsMut.mutateAsync({ childId: child.id, ops: buildContactOps() });
+        // Re-seed contacts from fresh data: new contacts now have real ids.
+        const reseeded = seed(fresh).contacts;
+        setContacts(reseeded);
+        setRemovedContactIds([]);
+        setContactsBaseline(JSON.stringify({ c: reseeded, r: [] }));
+        toast.success(t('children.toastContactsSaved'));
       } else {
         if (parentErrors.length) {
           setTouched(true);
@@ -453,7 +739,11 @@ export function ChildEditForm({ child }: { child: Child }) {
   const discardCurrentTab = () => {
     if (tab === 'child') setChildState(JSON.parse(childBaseline) as ChildState);
     else if (tab === 'medical') setMedical(JSON.parse(medicalBaseline) as MedicalState);
-    else {
+    else if (tab === 'contacts') {
+      const b = JSON.parse(contactsBaseline) as { c: ContactRow[]; r: string[] };
+      setContacts(b.c);
+      setRemovedContactIds(b.r);
+    } else {
       const b = JSON.parse(parentsBaseline) as { p: ParentRow[]; r: string[] };
       setParents(b.p);
       setRemovedLinkedIds(b.r);
@@ -471,7 +761,14 @@ export function ChildEditForm({ child }: { child: Child }) {
     setTab(next);
   };
 
-  const saveLabel = tab === 'child' ? t('children.saveDetails') : tab === 'parents' ? t('children.saveParents') : t('children.saveMedical');
+  const saveLabel =
+    tab === 'child'
+      ? t('children.saveDetails')
+      : tab === 'parents'
+        ? t('children.saveParents')
+        : tab === 'contacts'
+          ? t('children.saveContacts')
+          : t('children.saveMedical');
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -558,33 +855,150 @@ export function ChildEditForm({ child }: { child: Child }) {
 
       {tab === 'medical' && (
         <CardWithHeader title={t('children.medical')}>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label={t('children.doctorName')}>
-                <NameInput value={medical.doctorName} onChange={(v) => setM('doctorName', v)} />
-              </Field>
-              <Field label={t('children.doctorPhone')}>
-                <PhoneInput value={medical.doctorPhone} onChange={(v) => setM('doctorPhone', v)} />
-              </Field>
-              <Field label={t('children.doctorAddress')} className="sm:col-span-2">
-                <Input value={medical.doctorAddress} onChange={(e) => setM('doctorAddress', e.target.value)} />
-              </Field>
-            </div>
-            <EditableList label={t('children.allergies')} items={medical.allergies} onChange={(v) => setM('allergies', v)} placeholder={t('children.addAllergy')} />
-            <EditableList label={t('children.medicationAllergies')} items={medical.medicationAllergies} onChange={(v) => setM('medicationAllergies', v)} placeholder={t('children.addMedicationAllergy')} />
-            <EditableList label={t('children.medications')} items={medical.medications} onChange={(v) => setM('medications', v)} placeholder={t('children.addMedication')} />
-            <Field label={t('children.medicalPlan')}>
-              <textarea
-                className="w-full min-h-[72px] rounded-md border px-3 py-2 text-sm"
-                style={{ borderColor: 'var(--kc-border)', background: 'var(--kc-bg)', color: 'var(--kc-text-1)' }}
-                value={medical.medicalPlan}
-                onChange={(e) => setM('medicalPlan', e.target.value)}
+          <div className="space-y-6">
+            {/* ── Doctor ─────────────────────────────────────────────── */}
+            <section className="space-y-4">
+              <SectionLabel>{t('children.sectionDoctor')}</SectionLabel>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label={t('children.doctorName')}>
+                  <NameInput value={medical.doctorName} onChange={(v) => setM('doctorName', v)} />
+                </Field>
+                <Field label={t('children.doctorPhone')}>
+                  <PhoneInput value={medical.doctorPhone} onChange={(v) => setM('doctorPhone', v)} />
+                </Field>
+                <Field label={t('children.doctorAddress')} className="sm:col-span-2">
+                  <Input value={medical.doctorAddress} onChange={(e) => setM('doctorAddress', e.target.value)} />
+                </Field>
+                <Field label={t('children.doctorLastExamDate')}>
+                  <DateField value={medical.doctorLastExamDate} onChange={(e) => setM('doctorLastExamDate', e.target.value)} max={todayStr} />
+                </Field>
+              </div>
+              <CheckboxRow
+                checked={medical.isUnderDoctorCare}
+                onChange={(c) => setM('isUnderDoctorCare', c)}
+                label={t('children.isUnderDoctorCare')}
               />
-            </Field>
-            <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
-              <Checkbox checked={medical.hasSpecialNeeds} onCheckedChange={(c) => setM('hasSpecialNeeds', c === true)} />
-              {t('children.hasSpecialNeeds')}
-            </label>
+              <Field label={t('children.prescribedMedicationDetails')}>
+                <MedTextarea value={medical.prescribedMedicationDetails} onChange={(v) => setM('prescribedMedicationDetails', v)} />
+              </Field>
+              <Field label={t('children.medicationSideEffects')}>
+                <MedTextarea value={medical.medicationSideEffects} onChange={(v) => setM('medicationSideEffects', v)} />
+              </Field>
+            </section>
+
+            {/* ── Allergies & medications (lists) ────────────────────── */}
+            <section className="space-y-4">
+              <EditableList label={t('children.allergies')} items={medical.allergies} onChange={(v) => setM('allergies', v)} placeholder={t('children.addAllergy')} />
+              <EditableList label={t('children.medicationAllergies')} items={medical.medicationAllergies} onChange={(v) => setM('medicationAllergies', v)} placeholder={t('children.addMedicationAllergy')} />
+              <EditableList label={t('children.medications')} items={medical.medications} onChange={(v) => setM('medications', v)} placeholder={t('children.addMedication')} />
+              <Field label={t('children.medicalPlan')}>
+                <MedTextarea value={medical.medicalPlan} onChange={(v) => setM('medicalPlan', v)} />
+              </Field>
+            </section>
+
+            {/* ── Dentist ────────────────────────────────────────────── */}
+            <section className="space-y-4">
+              <SectionLabel>{t('children.sectionDentist')}</SectionLabel>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label={t('children.dentistName')}>
+                  <NameInput value={medical.dentistName} onChange={(v) => setM('dentistName', v)} />
+                </Field>
+                <Field label={t('children.dentistPhone')}>
+                  <PhoneInput value={medical.dentistPhone} onChange={(v) => setM('dentistPhone', v)} />
+                </Field>
+                <Field label={t('children.dentalPlan')} className="sm:col-span-2">
+                  <Input value={medical.dentalPlan} onChange={(e) => setM('dentalPlan', e.target.value)} />
+                </Field>
+              </div>
+              <div className="rounded-lg p-4 space-y-4" style={{ background: 'var(--kc-surface-2)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
+                  {t('children.dentistAddress')}
+                </p>
+                <AddressFields value={medical.dentistAddress} onChange={(f, v) => setM('dentistAddress', { ...medical.dentistAddress, [f]: v })} />
+              </div>
+            </section>
+
+            {/* ── Health ─────────────────────────────────────────────── */}
+            <section className="space-y-4">
+              <SectionLabel>{t('children.sectionHealth')}</SectionLabel>
+              <Field label={t('children.specialDevices')}>
+                <MedTextarea value={medical.specialDevices} onChange={(v) => setM('specialDevices', v)} />
+              </Field>
+              <div className="flex flex-wrap items-end gap-4">
+                <CheckboxRow
+                  checked={medical.frequentColds}
+                  onChange={(c) => setM('frequentColds', c)}
+                  label={t('children.frequentColds')}
+                />
+                {medical.frequentColds && (
+                  <Field label={t('children.frequentColdsCount')} className="w-28">
+                    <NumericInput value={medical.frequentColdsCount} onChange={(v) => setM('frequentColdsCount', v)} maxLength={3} />
+                  </Field>
+                )}
+              </div>
+              <CheckboxRow
+                checked={medical.hasSpecialNeeds}
+                onChange={(c) => setM('hasSpecialNeeds', c)}
+                label={t('children.hasSpecialNeeds')}
+              />
+            </section>
+
+            {/* ── Past illnesses (checklist) ─────────────────────────── */}
+            <section className="space-y-3">
+              <SectionLabel>{t('children.sectionPastIllnesses')}</SectionLabel>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {PAST_ILLNESSES.map((it) => (
+                  <PastIllnessRow
+                    key={it.code}
+                    label={t(it.labelKey)}
+                    entry={medical.pastIllnesses[it.code]}
+                    onToggle={(c) => setIllness(it.code, { checked: c })}
+                    onDate={(d) => setIllness(it.code, { date: d })}
+                    max={todayStr}
+                    dateAria={t('children.illnessDateAria')}
+                  />
+                ))}
+              </div>
+              <Field label={t('children.otherIllnesses')}>
+                <MedTextarea value={medical.otherIllnesses} onChange={(v) => setM('otherIllnesses', v)} />
+              </Field>
+            </section>
+          </div>
+        </CardWithHeader>
+      )}
+
+      {tab === 'contacts' && (
+        <CardWithHeader title={t('children.contacts')}>
+          <div className="space-y-6">
+            {CONTACT_GROUPS.map((g) => {
+              const rows = contacts.filter((c) => c.contactType === g.type);
+              return (
+                <section key={g.type} className="space-y-3">
+                  <SectionLabel>{t(g.titleKey)}</SectionLabel>
+                  {g.noteKey && (
+                    <p
+                      className="rounded-md px-3 py-2 text-xs"
+                      style={{ background: 'var(--kc-warning-bg, var(--kc-surface-2))', color: 'var(--kc-text-2)' }}
+                    >
+                      {t(g.noteKey)}
+                    </p>
+                  )}
+                  {rows.map((c) => (
+                    <ContactCard
+                      key={c.rowKey}
+                      row={c}
+                      fields={g.fields}
+                      onChange={(patch) => setContact(c.rowKey, patch)}
+                      onRemove={() => requestRemoveContact(c)}
+                    />
+                  ))}
+                  <Button variant="outline" onClick={() => addContactRow(g.type)} className="w-full">
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    {t('children.addContact')}
+                  </Button>
+                </section>
+              );
+            })}
           </div>
         </CardWithHeader>
       )}
@@ -690,6 +1104,31 @@ export function ChildEditForm({ child }: { child: Child }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Remove-contact confirm */}
+      <AlertDialog open={removeContact !== null} onOpenChange={(o) => !o && setRemoveContact(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('children.removeContactTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('children.removeContactDesc')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('children.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (removeContact) doRemoveContact(removeContact);
+                setRemoveContact(null);
+              }}
+              style={{ background: 'var(--kc-error)', color: 'white' }}
+            >
+              {t('children.remove')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -718,6 +1157,155 @@ function PlainSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+// Uppercase section divider used inside the Medical tab.
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
+      {children}
+    </p>
+  );
+}
+
+// Themed multi-line text input (matches the existing medicalPlan textarea).
+function MedTextarea({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <textarea
+      className="w-full min-h-[72px] rounded-md border px-3 py-2 text-sm"
+      style={{ borderColor: 'var(--kc-border)', background: 'var(--kc-bg)', color: 'var(--kc-text-1)' }}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+
+// Checkbox + label row (the recurring pattern in this form).
+function CheckboxRow({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
+      <Checkbox checked={checked} onCheckedChange={(c) => onChange(c === true)} />
+      {label}
+    </label>
+  );
+}
+
+// One past-illness row: checkbox + label, with an optional date once checked.
+function PastIllnessRow({
+  label,
+  entry,
+  onToggle,
+  onDate,
+  max,
+  dateAria,
+}: {
+  label: string;
+  entry: IllnessEntryState;
+  onToggle: (checked: boolean) => void;
+  onDate: (date: string) => void;
+  max: string;
+  dateAria: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-md border p-2.5" style={{ borderColor: 'var(--kc-border)' }}>
+      <label className="flex flex-1 items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
+        <Checkbox checked={entry.checked} onCheckedChange={(c) => onToggle(c === true)} />
+        {label}
+      </label>
+      {entry.checked && (
+        <div className="w-40 flex-none">
+          <DateField
+            value={entry.date}
+            onChange={(e) => onDate(e.target.value)}
+            max={max}
+            aria-label={`${dateAria} ${label}`}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// One contact card. `fields` controls which inputs show (per contact group).
+function ContactCard({
+  row,
+  fields,
+  onChange,
+  onRemove,
+}: {
+  row: ContactRow;
+  fields: ReadonlyArray<ContactField>;
+  onChange: (patch: Partial<ContactRow>) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation();
+  const has = (f: ContactField) => fields.includes(f);
+  return (
+    <div className="rounded-lg border p-4 space-y-4" style={{ borderColor: 'var(--kc-border)' }}>
+      <div className="flex items-start gap-3">
+        <Field label={t('children.contactName')} required className="flex-1">
+          <NameInput value={row.name} onChange={(v) => onChange({ name: v })} />
+        </Field>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="mt-6 h-7 w-7 flex-none"
+          onClick={onRemove}
+          aria-label={t('children.removeContactAria')}
+        >
+          <Trash2 className="h-3.5 w-3.5" style={{ color: 'var(--kc-error)' }} />
+        </Button>
+      </div>
+
+      {(has('relationship') || has('phone') || has('homePhone') || has('workPhone')) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {has('relationship') && (
+            <Field label={t('children.relationship')}>
+              <Input value={row.relationship} onChange={(e) => onChange({ relationship: e.target.value })} />
+            </Field>
+          )}
+          {has('phone') && (
+            <Field label={t('children.phone')}>
+              <PhoneInput value={row.phone} onChange={(v) => onChange({ phone: v })} />
+            </Field>
+          )}
+          {has('homePhone') && (
+            <Field label={t('children.homePhone')}>
+              <PhoneInput value={row.homePhone} onChange={(v) => onChange({ homePhone: v })} />
+            </Field>
+          )}
+          {has('workPhone') && (
+            <Field label={t('children.workPhone')}>
+              <PhoneInput value={row.workPhone} onChange={(v) => onChange({ workPhone: v })} />
+            </Field>
+          )}
+        </div>
+      )}
+
+      {has('address') && (
+        <div className="rounded-lg p-4 space-y-4" style={{ background: 'var(--kc-surface-2)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
+            {t('children.contactAddress')}
+          </p>
+          <AddressFields value={row.address} onChange={(f, v) => onChange({ address: { ...row.address, [f]: v } })} />
+        </div>
+      )}
+    </div>
   );
 }
 
