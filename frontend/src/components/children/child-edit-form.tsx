@@ -15,6 +15,7 @@ import { PhoneInput } from '@/components/ui/phone-input';
 import { SearchInput } from '@/components/ui/search-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DateField } from '@/components/ui/date-field';
+import { TimeField } from '@/components/ui/time-field';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +44,7 @@ import {
   useCenterChildren,
   useUpdateChildContacts,
   useUpdateChildDetails,
+  useUpdateChildDevelopment,
   useUpdateChildMedicalInfo,
   useUpdateChildParents,
   type ContactOps,
@@ -62,6 +64,7 @@ import { ApiError } from '@/lib/api/client';
 import type {
   ChildContactPayload,
   ChildParentPayload,
+  DevelopmentPayload,
   MedicalInfoPayload,
   UpdateChildPayload,
 } from '@/lib/api/children';
@@ -71,7 +74,14 @@ import type {
   PastIllnesses,
 } from '@/lib/types/child';
 
-type EditTab = 'child' | 'parents' | 'medical' | 'contacts';
+type EditTab =
+  | 'child'
+  | 'parents'
+  | 'medical'
+  | 'contacts'
+  | 'development'
+  | 'routines'
+  | 'toilet';
 
 // Past-illness checklist (Fase 2 · 2A). Codes mirror the backend
 // CHILD_PAST_ILLNESSES whitelist; labels are i18n keys.
@@ -111,9 +121,21 @@ const ENROLLMENT_STATUSES = [
   { value: 'INACTIVE', labelKey: 'children.statusInactive' },
   { value: 'WITHDRAWN', labelKey: 'children.statusWithdrawn' },
 ];
+// Fase 2 (2B) — toilet help-level whitelist (mirrors CHILD_TOILET_HELP_LEVELS).
+const TOILET_HELP_LEVELS = [
+  { value: 'INDEPENDENT', labelKey: 'children.toiletHelpIndependent' },
+  { value: 'NEEDS_REMINDERS', labelKey: 'children.toiletHelpNeedsReminders' },
+  { value: 'NEEDS_ASSISTANCE', labelKey: 'children.toiletHelpNeedsAssistance' },
+  { value: 'FULL_ASSISTANCE', labelKey: 'children.toiletHelpFullAssistance' },
+  { value: 'IN_DIAPERS', labelKey: 'children.toiletHelpInDiapers' },
+];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const undef = (v: string): string | undefined => (v.trim() ? v.trim() : undefined);
+// PATCH-merge helpers (2B): an emptied field sends `null` to CLEAR the column
+// (vs `undef`'s undefined, which the merge would treat as "leave unchanged").
+const orNull = (v: string): string | null => (v.trim() ? v.trim() : null);
+const numOrNull = (v: string): number | null => (v.trim() ? Number(v) : null);
 const phoneDigits = (v: string): string | undefined => parsePhoneDigits(v) || undefined;
 const toStrArray = (v: unknown): string[] =>
   Array.isArray(v) ? v.map((x) => String(x)).filter(Boolean) : [];
@@ -156,6 +178,33 @@ interface MedicalState {
   frequentColdsCount: string; // kept as text for the input; parsed on save
   pastIllnesses: Record<string, IllnessEntryState>;
   otherIllnesses: string;
+}
+
+// Fase 2 (2B) — each tab keeps its own slice so per-tab dirty/save is clean.
+// Month ages live as strings for the NumericInput (parsed on save, like
+// frequentColdsCount).
+interface DevelopmentState {
+  walkedAtMonths: string;
+  talkedAtMonths: string;
+  toiletTrainedAtMonths: string;
+  developmentNotes: string;
+}
+
+interface RoutinesState {
+  wakeUpTime: string;
+  bedTime: string;
+  takesNap: boolean;
+  napStartTime: string;
+  napEndTime: string;
+  diet: string;
+  mealTimes: string;
+}
+
+interface ToiletState {
+  toiletTrained: boolean;
+  toiletWords: string;
+  toiletHelpLevel: string;
+  toiletAccidents: string;
 }
 
 // Build the per-illness checklist state from saved data, defaulting every code
@@ -370,7 +419,31 @@ function seed(child: Child) {
     };
     return { rowKey: `c-${c.id}-${i}`, ...base, orig: contactSig(base) };
   });
-  return { childState, medical, parents, contacts };
+  // Fase 2 (2B) — development / routines / toilet slices.
+  const dev = child.development ?? null;
+  const development: DevelopmentState = {
+    walkedAtMonths: dev?.walkedAtMonths != null ? String(dev.walkedAtMonths) : '',
+    talkedAtMonths: dev?.talkedAtMonths != null ? String(dev.talkedAtMonths) : '',
+    toiletTrainedAtMonths:
+      dev?.toiletTrainedAtMonths != null ? String(dev.toiletTrainedAtMonths) : '',
+    developmentNotes: dev?.developmentNotes ?? '',
+  };
+  const routines: RoutinesState = {
+    wakeUpTime: dev?.wakeUpTime ?? '',
+    bedTime: dev?.bedTime ?? '',
+    takesNap: dev?.takesNap ?? false,
+    napStartTime: dev?.napStartTime ?? '',
+    napEndTime: dev?.napEndTime ?? '',
+    diet: dev?.diet ?? '',
+    mealTimes: dev?.mealTimes ?? '',
+  };
+  const toilet: ToiletState = {
+    toiletTrained: dev?.toiletTrained ?? false,
+    toiletWords: dev?.toiletWords ?? '',
+    toiletHelpLevel: dev?.toiletHelpLevel ?? '',
+    toiletAccidents: dev?.toiletAccidents ?? '',
+  };
+  return { childState, medical, parents, contacts, development, routines, toilet };
 }
 
 export function ChildEditForm({ child }: { child: Child }) {
@@ -383,6 +456,9 @@ export function ChildEditForm({ child }: { child: Child }) {
     { value: 'parents', label: t('children.colParents') },
     { value: 'medical', label: t('children.medical') },
     { value: 'contacts', label: t('children.contacts') },
+    { value: 'development', label: t('children.development') },
+    { value: 'routines', label: t('children.routines') },
+    { value: 'toilet', label: t('children.toilet') },
   ];
 
   const [tab, setTab] = useState<EditTab>('child');
@@ -405,6 +481,20 @@ export function ChildEditForm({ child }: { child: Child }) {
   );
   const [contactSeq, setContactSeq] = useState(0);
 
+  // Fase 2 (2B) — development / routines / toilet (each saves on its own tab).
+  const [development, setDevelopment] = useState<DevelopmentState>(seeded.development);
+  const [developmentBaseline, setDevelopmentBaseline] = useState(() =>
+    JSON.stringify(seeded.development),
+  );
+  const [routines, setRoutines] = useState<RoutinesState>(seeded.routines);
+  const [routinesBaseline, setRoutinesBaseline] = useState(() =>
+    JSON.stringify(seeded.routines),
+  );
+  const [toilet, setToilet] = useState<ToiletState>(seeded.toilet);
+  const [toiletBaseline, setToiletBaseline] = useState(() =>
+    JSON.stringify(seeded.toilet),
+  );
+
   const [touched, setTouched] = useState(false);
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
   const [removeRow, setRemoveRow] = useState<ParentRow | null>(null);
@@ -415,11 +505,15 @@ export function ChildEditForm({ child }: { child: Child }) {
   const medicalMut = useUpdateChildMedicalInfo();
   const parentsMut = useUpdateChildParents();
   const contactsMut = useUpdateChildContacts();
+  // One mutation shared by Development / Routines / Toilet — each tab sends
+  // only its own fields (PATCH-merge), so they never clobber each other.
+  const devMut = useUpdateChildDevelopment();
   const saving =
     detailsMut.isPending ||
     medicalMut.isPending ||
     parentsMut.isPending ||
-    contactsMut.isPending;
+    contactsMut.isPending ||
+    devMut.isPending;
   const todayStr = new Date().toLocaleDateString('en-CA');
 
   const { data: roster } = useCenterChildren(child.centerId);
@@ -445,13 +539,26 @@ export function ChildEditForm({ child }: { child: Child }) {
   const medicalDirty = JSON.stringify(medical) !== medicalBaseline;
   const parentsDirty = JSON.stringify({ p: parents, r: removedLinkedIds }) !== parentsBaseline;
   const contactsDirty = JSON.stringify({ c: contacts, r: removedContactIds }) !== contactsBaseline;
+  const developmentDirty = JSON.stringify(development) !== developmentBaseline;
+  const routinesDirty = JSON.stringify(routines) !== routinesBaseline;
+  const toiletDirty = JSON.stringify(toilet) !== toiletBaseline;
   const dirtyByTab: Record<EditTab, boolean> = {
     child: childDirty,
     parents: parentsDirty,
     medical: medicalDirty,
     contacts: contactsDirty,
+    development: developmentDirty,
+    routines: routinesDirty,
+    toilet: toiletDirty,
   };
-  const anyDirty = childDirty || medicalDirty || parentsDirty || contactsDirty;
+  const anyDirty =
+    childDirty ||
+    medicalDirty ||
+    parentsDirty ||
+    contactsDirty ||
+    developmentDirty ||
+    routinesDirty ||
+    toiletDirty;
   const currentDirty = dirtyByTab[tab];
 
   // Module-exit guard (sidebar / back / refresh) — active if ANY tab is dirty.
@@ -469,6 +576,12 @@ export function ChildEditForm({ child }: { child: Child }) {
         [code]: { ...s.pastIllnesses[code], ...patch },
       },
     }));
+  const setDev = <K extends keyof DevelopmentState>(k: K, v: DevelopmentState[K]) =>
+    setDevelopment((s) => ({ ...s, [k]: v }));
+  const setRou = <K extends keyof RoutinesState>(k: K, v: RoutinesState[K]) =>
+    setRoutines((s) => ({ ...s, [k]: v }));
+  const setToi = <K extends keyof ToiletState>(k: K, v: ToiletState[K]) =>
+    setToilet((s) => ({ ...s, [k]: v }));
   const setRow = (key: string, patch: Partial<ParentRow>) =>
     setParents((ps) => ps.map((p) => (p.rowKey === key ? { ...p, ...patch } : p)));
   const setPrimary = (key: string) =>
@@ -545,6 +658,21 @@ export function ChildEditForm({ child }: { child: Child }) {
     return e;
   }, [parents, t]);
 
+  // Routines: the only validation is nap end-after-start (HH:mm string compare
+  // works because the format is zero-padded 24h).
+  const routinesErrors = useMemo(() => {
+    const e: string[] = [];
+    if (
+      routines.takesNap &&
+      routines.napStartTime &&
+      routines.napEndTime &&
+      routines.napEndTime <= routines.napStartTime
+    ) {
+      e.push(t('children.errNapEndBeforeStart'));
+    }
+    return e;
+  }, [routines, t]);
+
   const currentErrors =
     tab === 'child'
       ? childErrors
@@ -552,7 +680,9 @@ export function ChildEditForm({ child }: { child: Child }) {
         ? parentErrors
         : tab === 'contacts'
           ? contactErrors
-          : [];
+          : tab === 'routines'
+            ? routinesErrors
+            : [];
 
   const buildChildPayload = (): UpdateChildPayload => ({
     firstName: childState.firstName.trim(),
@@ -660,6 +790,34 @@ export function ChildEditForm({ child }: { child: Child }) {
     return ops;
   };
 
+  // Fase 2 (2B) — one builder per tab. Each returns ONLY its own fields so the
+  // PATCH merge leaves the other two tabs' columns untouched. Emptied fields go
+  // out as `null` (clear), never `undefined` (which merge reads as "keep").
+  const buildDevelopmentPayload = (): DevelopmentPayload => ({
+    walkedAtMonths: numOrNull(development.walkedAtMonths),
+    talkedAtMonths: numOrNull(development.talkedAtMonths),
+    toiletTrainedAtMonths: numOrNull(development.toiletTrainedAtMonths),
+    developmentNotes: orNull(development.developmentNotes),
+  });
+
+  const buildRoutinesPayload = (): DevelopmentPayload => ({
+    wakeUpTime: orNull(routines.wakeUpTime),
+    bedTime: orNull(routines.bedTime),
+    takesNap: routines.takesNap,
+    // Nap window only persists while takesNap is on; turning it off clears them.
+    napStartTime: routines.takesNap ? orNull(routines.napStartTime) : null,
+    napEndTime: routines.takesNap ? orNull(routines.napEndTime) : null,
+    diet: orNull(routines.diet),
+    mealTimes: orNull(routines.mealTimes),
+  });
+
+  const buildToiletPayload = (): DevelopmentPayload => ({
+    toiletTrained: toilet.toiletTrained,
+    toiletWords: orNull(toilet.toiletWords),
+    toiletHelpLevel: toilet.toiletHelpLevel || null,
+    toiletAccidents: orNull(toilet.toiletAccidents),
+  });
+
   const buildContactOps = (): ContactOps => {
     const ops: ContactOps = { add: [], update: [], remove: [...removedContactIds] };
     for (const c of contacts) {
@@ -714,6 +872,23 @@ export function ChildEditForm({ child }: { child: Child }) {
         setRemovedContactIds([]);
         setContactsBaseline(JSON.stringify({ c: reseeded, r: [] }));
         toast.success(t('children.toastContactsSaved'));
+      } else if (section === 'development') {
+        await devMut.mutateAsync({ childId: child.id, payload: buildDevelopmentPayload() });
+        setDevelopmentBaseline(JSON.stringify(development));
+        toast.success(t('children.toastDevelopmentSaved'));
+      } else if (section === 'routines') {
+        if (routinesErrors.length) {
+          setTouched(true);
+          toast.error(routinesErrors[0]);
+          return false;
+        }
+        await devMut.mutateAsync({ childId: child.id, payload: buildRoutinesPayload() });
+        setRoutinesBaseline(JSON.stringify(routines));
+        toast.success(t('children.toastRoutinesSaved'));
+      } else if (section === 'toilet') {
+        await devMut.mutateAsync({ childId: child.id, payload: buildToiletPayload() });
+        setToiletBaseline(JSON.stringify(toilet));
+        toast.success(t('children.toastToiletSaved'));
       } else {
         if (parentErrors.length) {
           setTouched(true);
@@ -739,6 +914,11 @@ export function ChildEditForm({ child }: { child: Child }) {
   const discardCurrentTab = () => {
     if (tab === 'child') setChildState(JSON.parse(childBaseline) as ChildState);
     else if (tab === 'medical') setMedical(JSON.parse(medicalBaseline) as MedicalState);
+    else if (tab === 'development')
+      setDevelopment(JSON.parse(developmentBaseline) as DevelopmentState);
+    else if (tab === 'routines')
+      setRoutines(JSON.parse(routinesBaseline) as RoutinesState);
+    else if (tab === 'toilet') setToilet(JSON.parse(toiletBaseline) as ToiletState);
     else if (tab === 'contacts') {
       const b = JSON.parse(contactsBaseline) as { c: ContactRow[]; r: string[] };
       setContacts(b.c);
@@ -761,14 +941,16 @@ export function ChildEditForm({ child }: { child: Child }) {
     setTab(next);
   };
 
-  const saveLabel =
-    tab === 'child'
-      ? t('children.saveDetails')
-      : tab === 'parents'
-        ? t('children.saveParents')
-        : tab === 'contacts'
-          ? t('children.saveContacts')
-          : t('children.saveMedical');
+  const SAVE_LABEL_KEYS: Record<EditTab, string> = {
+    child: 'children.saveDetails',
+    parents: 'children.saveParents',
+    medical: 'children.saveMedical',
+    contacts: 'children.saveContacts',
+    development: 'children.saveDevelopment',
+    routines: 'children.saveRoutines',
+    toilet: 'children.saveToilet',
+  };
+  const saveLabel = t(SAVE_LABEL_KEYS[tab]);
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -999,6 +1181,76 @@ export function ChildEditForm({ child }: { child: Child }) {
                 </section>
               );
             })}
+          </div>
+        </CardWithHeader>
+      )}
+
+      {tab === 'development' && (
+        <CardWithHeader title={t('children.development')}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <Field label={t('children.walkedAtMonths')}>
+                <NumericInput value={development.walkedAtMonths} onChange={(v) => setDev('walkedAtMonths', v)} maxLength={3} />
+              </Field>
+              <Field label={t('children.talkedAtMonths')}>
+                <NumericInput value={development.talkedAtMonths} onChange={(v) => setDev('talkedAtMonths', v)} maxLength={3} />
+              </Field>
+              <Field label={t('children.toiletTrainedAtMonths')}>
+                <NumericInput value={development.toiletTrainedAtMonths} onChange={(v) => setDev('toiletTrainedAtMonths', v)} maxLength={3} />
+              </Field>
+            </div>
+            <Field label={t('children.developmentNotes')}>
+              <MedTextarea value={development.developmentNotes} onChange={(v) => setDev('developmentNotes', v)} />
+            </Field>
+          </div>
+        </CardWithHeader>
+      )}
+
+      {tab === 'routines' && (
+        <CardWithHeader title={t('children.routines')}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label={t('children.wakeUpTime')}>
+                <TimeField value={routines.wakeUpTime} onChange={(e) => setRou('wakeUpTime', e.target.value)} />
+              </Field>
+              <Field label={t('children.bedTime')}>
+                <TimeField value={routines.bedTime} onChange={(e) => setRou('bedTime', e.target.value)} />
+              </Field>
+            </div>
+            <CheckboxRow checked={routines.takesNap} onChange={(c) => setRou('takesNap', c)} label={t('children.takesNap')} />
+            {routines.takesNap && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label={t('children.napStartTime')}>
+                  <TimeField value={routines.napStartTime} onChange={(e) => setRou('napStartTime', e.target.value)} />
+                </Field>
+                <Field label={t('children.napEndTime')}>
+                  <TimeField value={routines.napEndTime} onChange={(e) => setRou('napEndTime', e.target.value)} />
+                </Field>
+              </div>
+            )}
+            <Field label={t('children.diet')}>
+              <MedTextarea value={routines.diet} onChange={(v) => setRou('diet', v)} />
+            </Field>
+            <Field label={t('children.mealTimes')}>
+              <MedTextarea value={routines.mealTimes} onChange={(v) => setRou('mealTimes', v)} />
+            </Field>
+          </div>
+        </CardWithHeader>
+      )}
+
+      {tab === 'toilet' && (
+        <CardWithHeader title={t('children.toilet')}>
+          <div className="space-y-4">
+            <CheckboxRow checked={toilet.toiletTrained} onChange={(c) => setToi('toiletTrained', c)} label={t('children.toiletTrained')} />
+            <Field label={t('children.toiletHelpLevel')} className="sm:max-w-xs">
+              <PlainSelect value={toilet.toiletHelpLevel} onValueChange={(v) => setToi('toiletHelpLevel', v)} options={TOILET_HELP_LEVELS} />
+            </Field>
+            <Field label={t('children.toiletWords')}>
+              <Input value={toilet.toiletWords} onChange={(e) => setToi('toiletWords', e.target.value)} />
+            </Field>
+            <Field label={t('children.toiletAccidents')}>
+              <MedTextarea value={toilet.toiletAccidents} onChange={(v) => setToi('toiletAccidents', v)} />
+            </Field>
           </div>
         </CardWithHeader>
       )}

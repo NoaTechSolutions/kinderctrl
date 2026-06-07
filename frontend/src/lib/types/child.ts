@@ -98,6 +98,40 @@ export interface ChildContact {
   createdAt: string;
 }
 
+// Fase 2 (2B) — how much help the child needs with toileting. Mirrors the
+// backend CHILD_TOILET_HELP_LEVELS whitelist.
+export type ChildToiletHelpLevel =
+  | 'INDEPENDENT'
+  | 'NEEDS_REMINDERS'
+  | 'NEEDS_ASSISTANCE'
+  | 'FULL_ASSISTANCE'
+  | 'IN_DIAPERS';
+
+// Fase 2 (2B) — single 1:1 development/routines/toilet satellite. Times are
+// "HH:mm" strings; milestone ages are months. Mirrors ChildDevelopment on the
+// backend.
+export interface ChildDevelopment {
+  id: string;
+  // Development.
+  walkedAtMonths: number | null;
+  talkedAtMonths: number | null;
+  toiletTrainedAtMonths: number | null;
+  developmentNotes: string | null;
+  // Routines.
+  wakeUpTime: string | null;
+  bedTime: string | null;
+  takesNap: boolean;
+  napStartTime: string | null;
+  napEndTime: string | null;
+  diet: string | null;
+  mealTimes: string | null;
+  // Toilet.
+  toiletTrained: boolean;
+  toiletWords: string | null;
+  toiletHelpLevel: ChildToiletHelpLevel | null;
+  toiletAccidents: string | null;
+}
+
 export interface Child {
   id: string;
   centerId: string;
@@ -123,6 +157,7 @@ export interface Child {
   medicalInfo?: ChildMedicalInfo | null;
   childParents?: ChildParentLink[];
   contacts?: ChildContact[];
+  development?: ChildDevelopment | null;
 }
 
 export interface ChildrenQuery {

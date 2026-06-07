@@ -10,6 +10,7 @@ import {
   removeChildParent,
   updateChild,
   updateChildContact,
+  updateChildDevelopment,
   updateChildMedical,
   updateChildParentLink,
 } from '@/lib/api/children';
@@ -17,6 +18,7 @@ import type {
   ChildContactPayload,
   ChildParentPayload,
   CreateChildPayload,
+  DevelopmentPayload,
   MedicalInfoPayload,
   UpdateChildPayload,
 } from '@/lib/api/children';
@@ -194,6 +196,20 @@ export function useUpdateChildMedicalInfo() {
   return useMutation({
     mutationFn: (args: { childId: string; payload: MedicalInfoPayload }) =>
       updateChildMedical(args.childId, args.payload),
+    onSuccess: (_d, v) => invalidateChild(qc, v.childId),
+  });
+}
+
+/**
+ * PATCH /children/:id/development — Development / Routines / Toilet tabs. The
+ * three tabs share this one mutation (same satellite, same merge endpoint),
+ * each sending only ITS fields so a per-tab save never clobbers the others.
+ */
+export function useUpdateChildDevelopment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { childId: string; payload: DevelopmentPayload }) =>
+      updateChildDevelopment(args.childId, args.payload),
     onSuccess: (_d, v) => invalidateChild(qc, v.childId),
   });
 }

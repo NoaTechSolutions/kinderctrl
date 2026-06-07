@@ -225,3 +225,37 @@ export function removeChildContact(
     method: 'DELETE',
   });
 }
+
+// ── Development / routines / toilet (Director/SA) — Fase 2 · 2B ──────────────
+// Single 1:1 satellite, partial-MERGE PATCH: each of the three edit tabs sends
+// only ITS fields. Anything omitted is left untouched server-side. Matches the
+// backend UpdateDevelopmentDto.
+// `null` clears a column (merge), `undefined`/omitted leaves it. Booleans are
+// never null — they always carry the current toggle state.
+export interface DevelopmentPayload {
+  walkedAtMonths?: number | null;
+  talkedAtMonths?: number | null;
+  toiletTrainedAtMonths?: number | null;
+  developmentNotes?: string | null;
+  wakeUpTime?: string | null;
+  bedTime?: string | null;
+  takesNap?: boolean;
+  napStartTime?: string | null;
+  napEndTime?: string | null;
+  diet?: string | null;
+  mealTimes?: string | null;
+  toiletTrained?: boolean;
+  toiletWords?: string | null;
+  toiletHelpLevel?: string | null;
+  toiletAccidents?: string | null;
+}
+
+export function updateChildDevelopment(
+  childId: string,
+  payload: DevelopmentPayload,
+): Promise<unknown> {
+  return apiRequest(`/children/${childId}/development`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
