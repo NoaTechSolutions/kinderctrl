@@ -215,6 +215,19 @@ export function useUpdateChildDevelopment() {
 }
 
 /**
+ * Syncs the primary contact's phone from the Child tab — writes the primary
+ * parent's homePhone via the parent-link PATCH (Parent satellite, not Child).
+ */
+export function useUpdatePrimaryContactPhone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { childId: string; parentId: string; homePhone: string }) =>
+      updateChildParentLink(args.childId, args.parentId, { homePhone: args.homePhone }),
+    onSuccess: (_d, v) => invalidateChild(qc, v.childId),
+  });
+}
+
+/**
  * Parents tab — applies the diff (add → update → remove, the safe order) and
  * returns the FRESH child so the caller can re-seed the tab (new parents get
  * real ids only after the round-trip).

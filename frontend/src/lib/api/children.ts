@@ -80,33 +80,39 @@ export interface CreateChildPayload {
   parents: ChildParentPayload[];
 }
 
+// PATCH-merge (detail refactor): the Medical tab's cards each send ONLY their
+// fields. `null` clears a column, `undefined`/omitted leaves it. Arrays/object
+// set the value when sent (the owning card always sends them). Booleans carry
+// the current toggle state.
 export interface MedicalInfoPayload {
   allergies?: string[];
   medications?: string[];
   medicalConditions?: string[];
-  doctorName?: string;
-  doctorPhone?: string;
-  doctorAddress?: string;
-  medicationAllergies?: string;
-  medicalPlan?: string;
+  doctorName?: string | null;
+  doctorPhone?: string | null;
+  doctorAddress?: string | null;
+  medicationAllergies?: string | null;
+  medicalPlan?: string | null;
   hasSpecialNeeds?: boolean;
+  insuranceProvider?: string | null;
+  insurancePolicy?: string | null;
   // Fase 2 (2A) — extended medical history.
   isUnderDoctorCare?: boolean;
-  doctorLastExamDate?: string; // ISO date
-  prescribedMedicationDetails?: string;
-  medicationSideEffects?: string;
-  dentistName?: string;
-  dentistPhone?: string;
-  dentistAddressStreet?: string;
-  dentistAddressCity?: string;
-  dentistAddressState?: string;
-  dentistAddressZip?: string;
-  dentalPlan?: string;
-  specialDevices?: string;
+  doctorLastExamDate?: string | null; // ISO date
+  prescribedMedicationDetails?: string | null;
+  medicationSideEffects?: string | null;
+  dentistName?: string | null;
+  dentistPhone?: string | null;
+  dentistAddressStreet?: string | null;
+  dentistAddressCity?: string | null;
+  dentistAddressState?: string | null;
+  dentistAddressZip?: string | null;
+  dentalPlan?: string | null;
+  specialDevices?: string | null;
   frequentColds?: boolean;
-  frequentColdsCount?: number;
+  frequentColdsCount?: number | null;
   pastIllnesses?: PastIllnesses;
-  otherIllnesses?: string;
+  otherIllnesses?: string | null;
 }
 
 export function createChild(
@@ -124,7 +130,7 @@ export function updateChildMedical(
   payload: MedicalInfoPayload,
 ): Promise<unknown> {
   return apiRequest(`/children/${childId}/medical-info`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: payload,
   });
 }
@@ -159,6 +165,9 @@ export function updateChildParentLink(
     relationship?: string;
     isPrimary?: boolean;
     livesWithChild?: boolean;
+    // Detail refactor — syncs the primary contact's phone (Parent satellite),
+    // not the pivot. '' clears it; omit to leave unchanged.
+    homePhone?: string;
   },
 ): Promise<Child> {
   return apiRequest<Child>(`/children/${childId}/parents/${parentId}`, {
