@@ -24,6 +24,8 @@ import { CreateChildDto } from './dto/create-child.dto';
 import { UpdateChildDto } from './dto/update-child.dto';
 import { UpdateMedicalInfoDto } from './dto/update-medical-info.dto';
 import { UpdateDevelopmentDto } from './dto/update-development.dto';
+import { UpdatePersonalityDto } from './dto/update-personality.dto';
+import { UpdateConsentsDto } from './dto/update-consents.dto';
 import { QueryChildrenDto } from './dto/query-children.dto';
 import { ChildParentInputDto } from './dto/child-parent-input.dto';
 import { UpdateChildParentDto } from './dto/update-child-parent.dto';
@@ -157,6 +159,29 @@ export class ChildrenController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.childrenService.updateDevelopment(id, dto, user.id, user.role);
+  }
+
+  // ── Personality + Consents (Fase 2 · 2C) ────────────────────────────────
+  // Both single 1:1 satellites, partial-merge upsert (PATCH), same as
+  // development. For consents the service stamps signedBy/signedAt server-side.
+  @Patch('children/:id/personality')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  updatePersonality(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePersonalityDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.childrenService.updatePersonality(id, dto, user.id, user.role);
+  }
+
+  @Patch('children/:id/consents')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  updateConsents(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateConsentsDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.childrenService.updateConsents(id, dto, user.id, user.role);
   }
 
   // ── Parent links (DIRECTOR own / SA) ────────────────────────────────────

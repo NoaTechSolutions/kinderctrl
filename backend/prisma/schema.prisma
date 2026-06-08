@@ -668,6 +668,8 @@ model Child {
   medicalInfo       ChildMedicalInfo?
   contacts          ChildContact[]
   development       ChildDevelopment?
+  personality       ChildPersonality?
+  consents          ChildConsent?
   invoices          Invoice[]
 
   // Pre-existing column kept for back-compat (centers stats / future billing).
@@ -865,6 +867,79 @@ model ChildDevelopment {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("child_development")
+}
+
+// Fase 2 (2C) — "About Your Child" personality / profile (contract "Sobre su
+// hijo" + LIC 702 social-emotional items). ONE 1:1 satellite (mirrors
+// ChildDevelopment): all-scalar free text + one boolean, written via a
+// full partial-merge PATCH (PATCH /children/:id/personality). Kept as free
+// text (not Json lists) so the merge stays scalar; the form can render
+// comma-style input where a "list" reads naturally (e.g. 5 words).
+model ChildPersonality {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @unique @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  // Profile (contract "Sobre su hijo").
+  personalityWords        String? @map("personality_words") // ~5 words
+  likesToDo               String? @map("likes_to_do")
+  favoriteFoods           String? @map("favorite_foods")
+  dislikedFoods           String? @map("disliked_foods")
+  fears                   String?
+  favoriteIndoorActivity  String? @map("favorite_indoor_activity")
+  favoriteOutdoorActivity String? @map("favorite_outdoor_activity")
+  favoriteToy             String? @map("favorite_toy")
+  napsAtHome              Boolean @default(false) @map("naps_at_home")
+  napTimeAtHome           String? @map("nap_time_at_home") // free text window, e.g. "1-3pm"
+
+  // Social-emotional (contract + LIC 702).
+  expressesEmotions    String? @map("expresses_emotions")
+  homeDiscipline       String? @map("home_discipline")
+  getsAlongWith        String? @map("gets_along_with")        // parents/siblings/other kids
+  groupPlayExperience  String? @map("group_play_experience")
+  sickCarePlan         String? @map("sick_care_plan")
+  transitionTips       String? @map("transition_tips")
+  anythingElse         String? @map("anything_else")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("child_personality")
+}
+
+// Fase 2 (2C) — daycare permission / consent checklist (contract permission
+// forms + LIC 627). FIXED checklist (not a variable collection), so a 1:1
+// satellite — NOT a 1:N discriminator like ChildContact. Heterogeneous
+// sub-fields (sunscreen products / instructions / date window) are dedicated
+// nullable columns, not Json, to stay typed/queryable. signedByUserId +
+// signedAt are a lightweight legal trail (who confirmed the consents, when):
+// the BACKEND sets them from the authenticated user on every save — the client
+// never sends them. Stored as a plain Uuid (no relation), per the codebase
+// user-id audit convention (Child.createdByUserId, Attendance.checkedInBy).
+model ChildConsent {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @unique @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  waterPlay         Boolean @default(false) @map("water_play")
+  photoInternal     Boolean @default(false) @map("photo_internal")   // internal use
+  photoMarketing    Boolean @default(false) @map("photo_marketing")  // marketing use
+  sunscreenRepellent   Boolean   @default(false) @map("sunscreen_repellent")
+  sunscreenProducts    String?   @map("sunscreen_products")     // product names
+  sunscreenInstructions String?  @map("sunscreen_instructions")
+  sunscreenStartDate   DateTime? @map("sunscreen_start_date") @db.Date
+  sunscreenEndDate     DateTime? @map("sunscreen_end_date") @db.Date
+  emergencyMedical     Boolean   @default(false) @map("emergency_medical")   // LIC 627
+  emergencyTransport   Boolean   @default(false) @map("emergency_transport")
+
+  // Legal trail — set server-side on save.
+  signedByUserId String?   @map("signed_by_user_id") @db.Uuid
+  signedAt       DateTime? @map("signed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("child_consents")
 }
 
 // ============================================

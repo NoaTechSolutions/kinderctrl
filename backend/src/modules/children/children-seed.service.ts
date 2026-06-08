@@ -125,6 +125,38 @@ const SEED_CHILDREN: Array<{
     toiletHelpLevel?: string;
     toiletAccidents?: string;
   };
+  // Fase 2 (2C) — optional personality + consents for testing.
+  personality?: {
+    personalityWords?: string;
+    likesToDo?: string;
+    favoriteFoods?: string;
+    dislikedFoods?: string;
+    fears?: string;
+    favoriteIndoorActivity?: string;
+    favoriteOutdoorActivity?: string;
+    favoriteToy?: string;
+    napsAtHome?: boolean;
+    napTimeAtHome?: string;
+    expressesEmotions?: string;
+    homeDiscipline?: string;
+    getsAlongWith?: string;
+    groupPlayExperience?: string;
+    sickCarePlan?: string;
+    transitionTips?: string;
+    anythingElse?: string;
+  };
+  consents?: {
+    waterPlay?: boolean;
+    photoInternal?: boolean;
+    photoMarketing?: boolean;
+    sunscreenRepellent?: boolean;
+    sunscreenProducts?: string;
+    sunscreenInstructions?: string;
+    sunscreenStartDate?: string;
+    sunscreenEndDate?: string;
+    emergencyMedical?: boolean;
+    emergencyTransport?: boolean;
+  };
 }> = [
   {
     firstName: 'Liam',
@@ -372,6 +404,40 @@ const SEED_CHILDREN: Array<{
       toiletHelpLevel: 'NEEDS_REMINDERS',
       toiletAccidents: 'Very rare.',
     },
+    // 2C — full personality profile.
+    personality: {
+      personalityWords: 'Curious, gentle, talkative, stubborn, affectionate',
+      likesToDo: 'Building block towers and looking at picture books.',
+      favoriteFoods: 'Pasta, strawberries, yogurt.',
+      dislikedFoods: 'Broccoli, anything spicy.',
+      fears: 'Loud noises (vacuum, thunder).',
+      favoriteIndoorActivity: 'Puzzles.',
+      favoriteOutdoorActivity: 'The swings.',
+      favoriteToy: 'A stuffed rabbit named Hops.',
+      napsAtHome: true,
+      napTimeAtHome: '1-3pm',
+      expressesEmotions:
+        'Gets quiet when sad; stomps and cries when frustrated. Responds well to a calm voice.',
+      homeDiscipline: 'Redirection and short time-outs. No yelling.',
+      getsAlongWith: 'Loving with parents, plays well with her older cousin.',
+      groupPlayExperience: 'Attended a music-and-movement class for 6 months.',
+      sickCarePlan: 'Mom stays home; call her first. Pedialyte for fevers.',
+      transitionTips: 'A goodbye hug at the door and her rabbit help her settle.',
+      anythingElse: 'Loves to sing; learning the alphabet song.',
+    },
+    // 2C — mixed consents (some granted, some not), sunscreen with products.
+    consents: {
+      waterPlay: true,
+      photoInternal: true,
+      photoMarketing: false,
+      sunscreenRepellent: true,
+      sunscreenProducts: 'Banana Boat Kids SPF 50, Off! Kids repellent.',
+      sunscreenInstructions: 'Apply to face and arms before outdoor play.',
+      sunscreenStartDate: '2026-05-01',
+      sunscreenEndDate: '2026-10-31',
+      emergencyMedical: true,
+      emergencyTransport: false,
+    },
   },
 ];
 
@@ -387,6 +453,13 @@ export class ChildrenSeedService {
    */
   async seedChildren(): Promise<object> {
     const centerId = await this.resolveCenterId();
+    // Director's user id — stamped as signedByUserId on seeded consents (the
+    // legal trail), mirroring what the service does for real saves.
+    const director = await this.prisma.user.findUnique({
+      where: { email: DIRECTOR_EMAIL },
+      select: { id: true },
+    });
+    const directorUserId = director?.id ?? null;
     await this.reset(centerId);
 
     const passwordHash = await bcrypt.hash(SEED_PARENT_PASSWORD, 10);
@@ -429,6 +502,8 @@ export class ChildrenSeedService {
       for (const c of SEED_CHILDREN) {
         const m = c.medical;
         const d = c.development;
+        const pers = c.personality;
+        const cons = c.consents;
         const child = await tx.child.create({
           data: {
             centerId,
@@ -484,6 +559,31 @@ export class ChildrenSeedService {
             // Field names align 1:1 with the model, so a direct spread is safe;
             // schema defaults cover the unset booleans (takesNap, toiletTrained).
             development: d ? { create: { ...d } } : undefined,
+            // Fase 2 (2C) — personality (direct spread, all scalar) + consents
+            // (dates converted; signedBy/signedAt stamped like the service does).
+            personality: pers ? { create: { ...pers } } : undefined,
+            consents: cons
+              ? {
+                  create: {
+                    waterPlay: cons.waterPlay ?? false,
+                    photoInternal: cons.photoInternal ?? false,
+                    photoMarketing: cons.photoMarketing ?? false,
+                    sunscreenRepellent: cons.sunscreenRepellent ?? false,
+                    sunscreenProducts: cons.sunscreenProducts ?? null,
+                    sunscreenInstructions: cons.sunscreenInstructions ?? null,
+                    sunscreenStartDate: cons.sunscreenStartDate
+                      ? new Date(`${cons.sunscreenStartDate}T00:00:00.000Z`)
+                      : null,
+                    sunscreenEndDate: cons.sunscreenEndDate
+                      ? new Date(`${cons.sunscreenEndDate}T00:00:00.000Z`)
+                      : null,
+                    emergencyMedical: cons.emergencyMedical ?? false,
+                    emergencyTransport: cons.emergencyTransport ?? false,
+                    signedByUserId: directorUserId,
+                    signedAt: new Date('2026-06-01T10:00:00.000Z'),
+                  },
+                }
+              : undefined,
           },
           select: { id: true },
         });

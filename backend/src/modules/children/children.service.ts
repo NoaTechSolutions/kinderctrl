@@ -12,6 +12,8 @@ import { CreateChildDto } from './dto/create-child.dto';
 import { UpdateChildDto } from './dto/update-child.dto';
 import { UpdateMedicalInfoDto } from './dto/update-medical-info.dto';
 import { UpdateDevelopmentDto } from './dto/update-development.dto';
+import { UpdatePersonalityDto } from './dto/update-personality.dto';
+import { UpdateConsentsDto } from './dto/update-consents.dto';
 import { QueryChildrenDto } from './dto/query-children.dto';
 import { ChildParentInputDto } from './dto/child-parent-input.dto';
 import { UpdateChildParentDto } from './dto/update-child-parent.dto';
@@ -32,6 +34,9 @@ const CHILD_DETAIL_INCLUDE = {
   // Fase 2 (2B) — development/routines/toilet satellite travels with the child
   // detail too, so the edit-form tabs read it from the same shape.
   development: true,
+  // Fase 2 (2C) — personality + consents satellites travel with the detail.
+  personality: true,
+  consents: true,
   childParents: {
     orderBy: { isPrimary: 'desc' },
     include: {
@@ -239,6 +244,18 @@ export class ChildrenService {
       userRole,
     );
 
+    // Resolve the consent signer's name for the detail's audit line
+    // ("Registered by {name}"). signedByUserId is a plain Uuid (no relation,
+    // per the audit-column convention), so we look it up here — one extra
+    // query, detail-only (findAll/list never shows the signature).
+    if (child.consents?.signedByUserId) {
+      const signer = await this.prisma.user.findUnique({
+        where: { id: child.consents.signedByUserId },
+        select: { firstName: true, lastName: true, email: true },
+      });
+      return { ...child, consents: { ...child.consents, signedBy: signer } };
+    }
+
     return child;
   }
 
@@ -394,6 +411,83 @@ export class ChildrenService {
     };
 
     return this.prisma.childDevelopment.upsert({
+      where: { childId: id },
+      create: { childId: id, ...data },
+      update: data,
+    });
+  }
+
+  /**
+   * PATCH /children/:id/personality — partial MERGE upsert of the 1:1
+   * personality satellite (same posture as updateDevelopment: undefined keeps,
+   * null clears, upsert creates).
+   */
+  async updatePersonality(
+    id: string,
+    dto: UpdatePersonalityDto,
+    userId: string,
+    userRole: UserRole,
+  ) {
+    await this.loadForManage(id, userId, userRole);
+
+    const data = {
+      personalityWords: dto.personalityWords,
+      likesToDo: dto.likesToDo,
+      favoriteFoods: dto.favoriteFoods,
+      dislikedFoods: dto.dislikedFoods,
+      fears: dto.fears,
+      favoriteIndoorActivity: dto.favoriteIndoorActivity,
+      favoriteOutdoorActivity: dto.favoriteOutdoorActivity,
+      favoriteToy: dto.favoriteToy,
+      napsAtHome: dto.napsAtHome,
+      napTimeAtHome: dto.napTimeAtHome,
+      expressesEmotions: dto.expressesEmotions,
+      homeDiscipline: dto.homeDiscipline,
+      getsAlongWith: dto.getsAlongWith,
+      groupPlayExperience: dto.groupPlayExperience,
+      sickCarePlan: dto.sickCarePlan,
+      transitionTips: dto.transitionTips,
+      anythingElse: dto.anythingElse,
+    };
+
+    return this.prisma.childPersonality.upsert({
+      where: { childId: id },
+      create: { childId: id, ...data },
+      update: data,
+    });
+  }
+
+  /**
+   * PATCH /children/:id/consents — partial MERGE upsert of the consent
+   * checklist. signedByUserId + signedAt are stamped HERE from the
+   * authenticated caller + now (the DTO never carries them), so the legal
+   * trail is trustworthy. Every save refreshes who-confirmed-and-when.
+   */
+  async updateConsents(
+    id: string,
+    dto: UpdateConsentsDto,
+    userId: string,
+    userRole: UserRole,
+  ) {
+    await this.loadForManage(id, userId, userRole);
+
+    const data = {
+      waterPlay: dto.waterPlay,
+      photoInternal: dto.photoInternal,
+      photoMarketing: dto.photoMarketing,
+      sunscreenRepellent: dto.sunscreenRepellent,
+      sunscreenProducts: dto.sunscreenProducts,
+      sunscreenInstructions: dto.sunscreenInstructions,
+      sunscreenStartDate: dto.sunscreenStartDate,
+      sunscreenEndDate: dto.sunscreenEndDate,
+      emergencyMedical: dto.emergencyMedical,
+      emergencyTransport: dto.emergencyTransport,
+      // Server-stamped legal trail (client never sends these).
+      signedByUserId: userId,
+      signedAt: new Date(),
+    };
+
+    return this.prisma.childConsent.upsert({
       where: { childId: id },
       create: { childId: id, ...data },
       update: data,
