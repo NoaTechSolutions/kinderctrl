@@ -58,6 +58,28 @@ export function ReadRow({
   );
 }
 
+// Renders a comma-separated free-text value as chips (falls back to em-dash).
+export function CommaChips({ value }: { value: string | null | undefined }) {
+  const items = (value ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!items.length) return <>—</>;
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      {items.map((it, i) => (
+        <span
+          key={`${it}-${i}`}
+          className="inline-flex rounded-full px-2 py-0.5 text-xs"
+          style={{ background: 'var(--kc-surface-2)', color: 'var(--kc-text-2)' }}
+        >
+          {it}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 // Muted "nothing recorded yet" hint for an empty read section.
 export function EmptyHint({ children }: { children: ReactNode }) {
   return (

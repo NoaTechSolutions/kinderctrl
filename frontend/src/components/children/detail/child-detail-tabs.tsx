@@ -23,6 +23,8 @@ import { ContactsSection } from './contacts-section';
 import { DevelopmentSection } from './development-section';
 import { RoutinesSection } from './routines-section';
 import { ToiletSection } from './toilet-section';
+import { PersonalitySection } from './personality-section';
+import { PermissionsSection } from './permissions-section';
 import type { SectionEditorHandle } from './use-section-editor';
 
 export type DetailTab =
@@ -32,7 +34,9 @@ export type DetailTab =
   | 'contacts'
   | 'development'
   | 'routines'
-  | 'toilet';
+  | 'toilet'
+  | 'personality'
+  | 'permissions';
 
 // A guarded navigator the header badges call: jump to a tab and (optionally)
 // scroll to a card by element id. Goes through the same unsaved-changes guard
@@ -66,6 +70,8 @@ export function ChildDetailTabs({
     { value: 'development', label: t('children.development') },
     { value: 'routines', label: t('children.routines') },
     { value: 'toilet', label: t('children.toilet') },
+    { value: 'personality', label: t('children.personality') },
+    { value: 'permissions', label: t('children.permissions') },
   ];
 
   // The active section is "blocking" only while it's in edit mode AND dirty.
@@ -121,6 +127,8 @@ export function ChildDetailTabs({
       {tab === 'development' && <DevelopmentSection {...sectionProps} />}
       {tab === 'routines' && <RoutinesSection {...sectionProps} />}
       {tab === 'toilet' && <ToiletSection {...sectionProps} />}
+      {tab === 'personality' && <PersonalitySection {...sectionProps} />}
+      {tab === 'permissions' && <PermissionsSection {...sectionProps} />}
 
       {/* Tab-switch guard — active section has unsaved edits */}
       <AlertDialog open={pendingTab !== null} onOpenChange={(o) => !o && setPendingTab(null)}>

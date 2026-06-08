@@ -9,17 +9,21 @@ import {
   removeChildContact,
   removeChildParent,
   updateChild,
+  updateChildConsents,
   updateChildContact,
   updateChildDevelopment,
   updateChildMedical,
   updateChildParentLink,
+  updateChildPersonality,
 } from '@/lib/api/children';
 import type {
   ChildContactPayload,
   ChildParentPayload,
+  ConsentsPayload,
   CreateChildPayload,
   DevelopmentPayload,
   MedicalInfoPayload,
+  PersonalityPayload,
   UpdateChildPayload,
 } from '@/lib/api/children';
 import type { ChildrenQuery } from '@/lib/types/child';
@@ -210,6 +214,26 @@ export function useUpdateChildDevelopment() {
   return useMutation({
     mutationFn: (args: { childId: string; payload: DevelopmentPayload }) =>
       updateChildDevelopment(args.childId, args.payload),
+    onSuccess: (_d, v) => invalidateChild(qc, v.childId),
+  });
+}
+
+/** PATCH /children/:id/personality — Personality tab (sub-cards share it). */
+export function useUpdateChildPersonality() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { childId: string; payload: PersonalityPayload }) =>
+      updateChildPersonality(args.childId, args.payload),
+    onSuccess: (_d, v) => invalidateChild(qc, v.childId),
+  });
+}
+
+/** PATCH /children/:id/consents — Permissions tab. */
+export function useUpdateChildConsents() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { childId: string; payload: ConsentsPayload }) =>
+      updateChildConsents(args.childId, args.payload),
     onSuccess: (_d, v) => invalidateChild(qc, v.childId),
   });
 }

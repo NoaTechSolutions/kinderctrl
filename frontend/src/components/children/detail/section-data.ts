@@ -13,8 +13,10 @@ import type {
 import type {
   ChildContactPayload,
   ChildParentPayload,
+  ConsentsPayload,
   DevelopmentPayload,
   MedicalInfoPayload,
+  PersonalityPayload,
   UpdateChildPayload,
 } from '@/lib/api/children';
 import type { ContactOps, ParentOps } from '@/lib/hooks/use-children';
@@ -738,6 +740,142 @@ export function buildMedIllnessesPayload(s: MedIllnessesState): MedicalInfoPaylo
       return acc;
     }, {}),
     otherIllnesses: orNull(s.otherIllnesses),
+  };
+}
+
+// ── Personality, split into cards (2C) ──────────────────────────────────────
+// Likes & preferences / Behavior & social (LIC 702) / Notes — each a card that
+// merges only its fields (same as Medical's cards).
+
+export interface PersLikesState {
+  personalityWords: string;
+  likesToDo: string;
+  favoriteFoods: string;
+  dislikedFoods: string;
+  fears: string;
+  favoriteIndoorActivity: string;
+  favoriteOutdoorActivity: string;
+  favoriteToy: string;
+  napsAtHome: boolean;
+  napTimeAtHome: string;
+}
+export interface PersBehaviorState {
+  expressesEmotions: string;
+  homeDiscipline: string;
+  getsAlongWith: string;
+  groupPlayExperience: string;
+  sickCarePlan: string;
+}
+export interface PersNotesState {
+  transitionTips: string;
+  anythingElse: string;
+}
+
+export function seedPersLikes(child: Child): PersLikesState {
+  const p = child.personality ?? null;
+  return {
+    personalityWords: p?.personalityWords ?? '',
+    likesToDo: p?.likesToDo ?? '',
+    favoriteFoods: p?.favoriteFoods ?? '',
+    dislikedFoods: p?.dislikedFoods ?? '',
+    fears: p?.fears ?? '',
+    favoriteIndoorActivity: p?.favoriteIndoorActivity ?? '',
+    favoriteOutdoorActivity: p?.favoriteOutdoorActivity ?? '',
+    favoriteToy: p?.favoriteToy ?? '',
+    napsAtHome: p?.napsAtHome ?? false,
+    napTimeAtHome: p?.napTimeAtHome ?? '',
+  };
+}
+export function seedPersBehavior(child: Child): PersBehaviorState {
+  const p = child.personality ?? null;
+  return {
+    expressesEmotions: p?.expressesEmotions ?? '',
+    homeDiscipline: p?.homeDiscipline ?? '',
+    getsAlongWith: p?.getsAlongWith ?? '',
+    groupPlayExperience: p?.groupPlayExperience ?? '',
+    sickCarePlan: p?.sickCarePlan ?? '',
+  };
+}
+export function seedPersNotes(child: Child): PersNotesState {
+  const p = child.personality ?? null;
+  return {
+    transitionTips: p?.transitionTips ?? '',
+    anythingElse: p?.anythingElse ?? '',
+  };
+}
+
+export function buildPersLikesPayload(s: PersLikesState): PersonalityPayload {
+  return {
+    personalityWords: orNull(s.personalityWords),
+    likesToDo: orNull(s.likesToDo),
+    favoriteFoods: orNull(s.favoriteFoods),
+    dislikedFoods: orNull(s.dislikedFoods),
+    fears: orNull(s.fears),
+    favoriteIndoorActivity: orNull(s.favoriteIndoorActivity),
+    favoriteOutdoorActivity: orNull(s.favoriteOutdoorActivity),
+    favoriteToy: orNull(s.favoriteToy),
+    napsAtHome: s.napsAtHome,
+    // Nap window only persists while napsAtHome is on.
+    napTimeAtHome: s.napsAtHome ? orNull(s.napTimeAtHome) : null,
+  };
+}
+export function buildPersBehaviorPayload(s: PersBehaviorState): PersonalityPayload {
+  return {
+    expressesEmotions: orNull(s.expressesEmotions),
+    homeDiscipline: orNull(s.homeDiscipline),
+    getsAlongWith: orNull(s.getsAlongWith),
+    groupPlayExperience: orNull(s.groupPlayExperience),
+    sickCarePlan: orNull(s.sickCarePlan),
+  };
+}
+export function buildPersNotesPayload(s: PersNotesState): PersonalityPayload {
+  return {
+    transitionTips: orNull(s.transitionTips),
+    anythingElse: orNull(s.anythingElse),
+  };
+}
+
+// ── Consents / Permissions (2C) — ONE card (single signature event) ──────────
+export interface ConsentsState {
+  waterPlay: boolean;
+  photoInternal: boolean;
+  photoMarketing: boolean;
+  sunscreenRepellent: boolean;
+  sunscreenProducts: string;
+  sunscreenInstructions: string;
+  sunscreenStartDate: string;
+  sunscreenEndDate: string;
+  emergencyMedical: boolean;
+  emergencyTransport: boolean;
+}
+export function seedConsents(child: Child): ConsentsState {
+  const c = child.consents ?? null;
+  return {
+    waterPlay: c?.waterPlay ?? false,
+    photoInternal: c?.photoInternal ?? false,
+    photoMarketing: c?.photoMarketing ?? false,
+    sunscreenRepellent: c?.sunscreenRepellent ?? false,
+    sunscreenProducts: c?.sunscreenProducts ?? '',
+    sunscreenInstructions: c?.sunscreenInstructions ?? '',
+    sunscreenStartDate: c?.sunscreenStartDate ? c.sunscreenStartDate.slice(0, 10) : '',
+    sunscreenEndDate: c?.sunscreenEndDate ? c.sunscreenEndDate.slice(0, 10) : '',
+    emergencyMedical: c?.emergencyMedical ?? false,
+    emergencyTransport: c?.emergencyTransport ?? false,
+  };
+}
+export function buildConsentsPayload(s: ConsentsState): ConsentsPayload {
+  return {
+    waterPlay: s.waterPlay,
+    photoInternal: s.photoInternal,
+    photoMarketing: s.photoMarketing,
+    sunscreenRepellent: s.sunscreenRepellent,
+    // Sub-fields only persist while the sunscreen consent is granted.
+    sunscreenProducts: s.sunscreenRepellent ? orNull(s.sunscreenProducts) : null,
+    sunscreenInstructions: s.sunscreenRepellent ? orNull(s.sunscreenInstructions) : null,
+    sunscreenStartDate: s.sunscreenRepellent ? s.sunscreenStartDate || null : null,
+    sunscreenEndDate: s.sunscreenRepellent ? s.sunscreenEndDate || null : null,
+    emergencyMedical: s.emergencyMedical,
+    emergencyTransport: s.emergencyTransport,
   };
 }
 

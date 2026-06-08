@@ -268,3 +268,59 @@ export function updateChildDevelopment(
     body: payload,
   });
 }
+
+// ── Personality + Consents (Director/SA) — Fase 2 · 2C ──────────────────────
+// Both PATCH-merge; null clears, omitted leaves unchanged.
+export interface PersonalityPayload {
+  personalityWords?: string | null;
+  likesToDo?: string | null;
+  favoriteFoods?: string | null;
+  dislikedFoods?: string | null;
+  fears?: string | null;
+  favoriteIndoorActivity?: string | null;
+  favoriteOutdoorActivity?: string | null;
+  favoriteToy?: string | null;
+  napsAtHome?: boolean;
+  napTimeAtHome?: string | null;
+  expressesEmotions?: string | null;
+  homeDiscipline?: string | null;
+  getsAlongWith?: string | null;
+  groupPlayExperience?: string | null;
+  sickCarePlan?: string | null;
+  transitionTips?: string | null;
+  anythingElse?: string | null;
+}
+
+// signedBy*/signedAt are intentionally absent — the server stamps them.
+export interface ConsentsPayload {
+  waterPlay?: boolean;
+  photoInternal?: boolean;
+  photoMarketing?: boolean;
+  sunscreenRepellent?: boolean;
+  sunscreenProducts?: string | null;
+  sunscreenInstructions?: string | null;
+  sunscreenStartDate?: string | null; // ISO date
+  sunscreenEndDate?: string | null;
+  emergencyMedical?: boolean;
+  emergencyTransport?: boolean;
+}
+
+export function updateChildPersonality(
+  childId: string,
+  payload: PersonalityPayload,
+): Promise<unknown> {
+  return apiRequest(`/children/${childId}/personality`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
+
+export function updateChildConsents(
+  childId: string,
+  payload: ConsentsPayload,
+): Promise<unknown> {
+  return apiRequest(`/children/${childId}/consents`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}

@@ -132,6 +132,53 @@ export interface ChildDevelopment {
   toiletAccidents: string | null;
 }
 
+// Fase 2 (2C) — "About Your Child" personality / profile satellite.
+export interface ChildPersonality {
+  id: string;
+  personalityWords: string | null;
+  likesToDo: string | null;
+  favoriteFoods: string | null;
+  dislikedFoods: string | null;
+  fears: string | null;
+  favoriteIndoorActivity: string | null;
+  favoriteOutdoorActivity: string | null;
+  favoriteToy: string | null;
+  napsAtHome: boolean;
+  napTimeAtHome: string | null;
+  expressesEmotions: string | null;
+  homeDiscipline: string | null;
+  getsAlongWith: string | null;
+  groupPlayExperience: string | null;
+  sickCarePlan: string | null;
+  transitionTips: string | null;
+  anythingElse: string | null;
+}
+
+// Fase 2 (2C) — daycare permission / consent checklist. signedBy is resolved
+// by the backend (findOne) from signedByUserId for the audit line; the client
+// never writes signedBy*/signedAt.
+export interface ChildConsentSigner {
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+}
+export interface ChildConsent {
+  id: string;
+  waterPlay: boolean;
+  photoInternal: boolean;
+  photoMarketing: boolean;
+  sunscreenRepellent: boolean;
+  sunscreenProducts: string | null;
+  sunscreenInstructions: string | null;
+  sunscreenStartDate: string | null;
+  sunscreenEndDate: string | null;
+  emergencyMedical: boolean;
+  emergencyTransport: boolean;
+  signedByUserId: string | null;
+  signedAt: string | null;
+  signedBy?: ChildConsentSigner | null;
+}
+
 export interface Child {
   id: string;
   centerId: string;
@@ -158,6 +205,8 @@ export interface Child {
   childParents?: ChildParentLink[];
   contacts?: ChildContact[];
   development?: ChildDevelopment | null;
+  personality?: ChildPersonality | null;
+  consents?: ChildConsent | null;
 }
 
 export interface ChildrenQuery {
