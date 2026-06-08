@@ -36,16 +36,32 @@ const SEED_PARENTS = [
     homePhone: '5551110003',
     workEmployer: 'Fabrikam Inc',
   },
+  {
+    // Dedicated primary contact for the fully-populated test child (Mia).
+    key: 'jennifer',
+    firstName: 'Jennifer',
+    lastName: 'Thompson',
+    email: 'seed-parent-04@kinderctrl.com',
+    homePhone: '5551110004',
+    workEmployer: 'Initech',
+  },
 ] as const;
 
 type ParentKey = (typeof SEED_PARENTS)[number]['key'];
 
 const SEED_CHILDREN: Array<{
   firstName: string;
+  middleName?: string;
   lastName: string;
   gender: string;
   birthDate: string;
   enrollmentStatus: ChildStatus;
+  firstCareDay?: string;
+  addressNumber?: string;
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressZip?: string;
   parents: Array<{
     key: ParentKey;
     relationship: string;
@@ -54,6 +70,12 @@ const SEED_CHILDREN: Array<{
   }>;
   // Fase 2 (2A) — optional extended medical history + contacts for testing.
   medical?: {
+    allergies?: string[];
+    medicationAllergies?: string;
+    medicalConditions?: string[];
+    hasSpecialNeeds?: boolean;
+    insuranceProvider?: string;
+    insurancePolicy?: string;
     doctorName?: string;
     doctorPhone?: string;
     isUnderDoctorCare?: boolean;
@@ -260,6 +282,97 @@ const SEED_CHILDREN: Array<{
       toiletHelpLevel: 'IN_DIAPERS',
     },
   },
+  {
+    // FULLY-POPULATED test child — every tab has data (incl. middle name,
+    // allergies + special needs → header badge, primary contact w/ phone).
+    firstName: 'Mia',
+    middleName: 'Grace',
+    lastName: 'Thompson',
+    gender: 'FEMALE',
+    birthDate: '2022-06-12',
+    enrollmentStatus: ChildStatus.ACTIVE,
+    firstCareDay: '2024-09-02',
+    addressNumber: '742',
+    addressStreet: 'Evergreen Terrace',
+    addressCity: 'Springfield',
+    addressState: 'CA',
+    addressZip: '94010',
+    parents: [
+      { key: 'jennifer', relationship: 'MOTHER', isPrimary: true, livesWithChild: true },
+    ],
+    medical: {
+      allergies: ['Peanuts', 'Bee stings'],
+      medicationAllergies: 'Penicillin',
+      medicalConditions: ['Mild eczema', 'Asthma'],
+      hasSpecialNeeds: true,
+      insuranceProvider: 'Blue Shield of California',
+      insurancePolicy: 'BSC-99887766',
+      doctorName: 'Dr. Helen Park',
+      doctorPhone: '5552220004',
+      isUnderDoctorCare: true,
+      doctorLastExamDate: '2026-03-10',
+      prescribedMedicationDetails: 'EpiPen Jr. on file for severe allergic reactions.',
+      medicationSideEffects: 'None reported.',
+      dentistName: 'Dr. Omar Reyes',
+      dentistPhone: '5553330004',
+      dentistAddressStreet: '15 Birch Lane',
+      dentistAddressCity: 'Springfield',
+      dentistAddressState: 'CA',
+      dentistAddressZip: '94010',
+      dentalPlan: 'Cigna Dental',
+      specialDevices: 'Hearing aid (left ear).',
+      frequentColds: true,
+      frequentColdsCount: 3,
+      pastIllnesses: {
+        CHICKEN_POX: { checked: true, date: '2024-04-18' },
+        HAY_FEVER: { checked: true },
+      },
+      otherIllnesses: 'Occasional ear infections.',
+    },
+    contacts: [
+      {
+        contactType: 'EMERGENCY',
+        name: 'Jennifer Thompson',
+        relationship: 'Mother',
+        phone: '5551110004',
+        homePhone: '5551110004',
+        addressStreet: '742 Evergreen Terrace',
+        addressCity: 'Springfield',
+        addressState: 'CA',
+        addressZip: '94010',
+      },
+      {
+        contactType: 'AUTHORIZED_PICKUP',
+        name: 'Robert Thompson',
+        relationship: 'Father',
+        phone: '5554440004',
+      },
+      {
+        contactType: 'RESPONSIBLE',
+        name: 'Grandpa Joe',
+        relationship: 'Grandfather',
+        homePhone: '5555550004',
+        workPhone: '5556660004',
+      },
+    ],
+    development: {
+      walkedAtMonths: 11,
+      talkedAtMonths: 13,
+      toiletTrainedAtMonths: 28,
+      developmentNotes: 'Curious and verbal. Loves building blocks.',
+      wakeUpTime: '07:15',
+      bedTime: '20:00',
+      takesNap: true,
+      napStartTime: '13:00',
+      napEndTime: '14:30',
+      diet: 'No peanuts (allergy). Otherwise unrestricted.',
+      mealTimes: 'Breakfast 08:00, Lunch 12:00, Snack 15:30.',
+      toiletTrained: true,
+      toiletWords: 'Says "potty".',
+      toiletHelpLevel: 'NEEDS_REMINDERS',
+      toiletAccidents: 'Very rare.',
+    },
+  },
 ];
 
 @Injectable()
@@ -320,16 +433,29 @@ export class ChildrenSeedService {
           data: {
             centerId,
             firstName: c.firstName,
+            middleName: c.middleName ?? null,
             lastName: c.lastName,
             gender: c.gender,
             dateOfBirth: new Date(`${c.birthDate}T00:00:00.000Z`),
             enrollmentStatus: c.enrollmentStatus,
             admissionDate: new Date(`${c.birthDate}T00:00:00.000Z`),
+            firstCareDay: c.firstCareDay
+              ? new Date(`${c.firstCareDay}T00:00:00.000Z`)
+              : null,
+            addressNumber: c.addressNumber ?? null,
+            addressStreet: c.addressStreet ?? null,
+            addressCity: c.addressCity ?? null,
+            addressState: c.addressState ?? null,
+            addressZip: c.addressZip ?? null,
             medicalInfo: {
               create: {
-                allergies: [],
+                allergies: m?.allergies ?? [],
                 medications: [],
-                medicalConditions: [],
+                medicalConditions: m?.medicalConditions ?? [],
+                medicationAllergies: m?.medicationAllergies ?? null,
+                hasSpecialNeeds: m?.hasSpecialNeeds ?? false,
+                insuranceProvider: m?.insuranceProvider ?? null,
+                insurancePolicy: m?.insurancePolicy ?? null,
                 // Fase 2 (2A) — extended fields when the seed child has them.
                 doctorName: m?.doctorName ?? null,
                 doctorPhone: m?.doctorPhone ?? null,
