@@ -15,6 +15,7 @@ import type {
   ChildParentPayload,
   ConsentsPayload,
   DevelopmentPayload,
+  InfantSleepPayload,
   MedicalInfoPayload,
   PersonalityPayload,
   UpdateChildPayload,
@@ -123,6 +124,8 @@ export interface ChildState {
   address: Addr;
   admissionDate: string;
   firstCareDay: string;
+  reasonForCare: string;
+  lastEnrollmentDate: string;
   enrollmentStatus: string;
   // Proxy for the primary contact's phone (seeded from / synced to the primary
   // parent's homePhone). NOT written to Child.phone — see ChildDetailsSection.
@@ -173,6 +176,7 @@ export interface ParentRow {
   displayEmail: string;
   mode: 'existing' | 'new';
   firstName: string;
+  middleName: string;
   lastName: string;
   email: string;
   phone: string;
@@ -218,13 +222,20 @@ export interface RoutinesState {
   napEndTime: string;
   diet: string;
   mealTimes: string;
+  // Fase 2 (2D) — tri-state: true / false / null (unanswered).
+  sleepsWell: boolean | null;
+  eatingProblems: string;
 }
 
 export interface ToiletState {
   toiletTrained: boolean;
-  toiletWords: string;
+  // Fase 2 (2D) — split into bowel + urination words.
+  toiletWordBowel: string;
+  toiletWordUrination: string;
   toiletHelpLevel: string;
   toiletAccidents: string;
+  bowelMovementsRegular: boolean | null;
+  bowelMovementTime: string;
 }
 
 // ── Row factories / signatures (verbatim) ───────────────────────────────────
@@ -237,6 +248,7 @@ export function emptyNewRow(key: string): ParentRow {
     displayEmail: '',
     mode: 'new',
     firstName: '',
+    middleName: '',
     lastName: '',
     email: '',
     phone: '',
@@ -309,6 +321,8 @@ export function seedChild(child: Child): ChildState {
     },
     admissionDate: child.admissionDate ? child.admissionDate.slice(0, 10) : '',
     firstCareDay: child.firstCareDay ? child.firstCareDay.slice(0, 10) : '',
+    reasonForCare: child.reasonForCare ?? '',
+    lastEnrollmentDate: child.lastEnrollmentDate ? child.lastEnrollmentDate.slice(0, 10) : '',
     enrollmentStatus: child.enrollmentStatus,
     phone: primary?.parent.homePhone ? formatPhoneUS(primary.parent.homePhone) : '',
   };
@@ -355,6 +369,7 @@ export function seedParents(child: Child): ParentRow[] {
     linked: true,
     parentId: link.parentId,
     firstName: link.parent.firstName,
+    middleName: link.parent.middleName ?? '',
     lastName: link.parent.lastName,
     displayName: `${link.parent.firstName} ${link.parent.lastName}`.trim(),
     displayEmail: link.parent.email,
@@ -409,6 +424,8 @@ export function seedRoutines(child: Child): RoutinesState {
     napEndTime: dev?.napEndTime ?? '',
     diet: dev?.diet ?? '',
     mealTimes: dev?.mealTimes ?? '',
+    sleepsWell: dev?.sleepsWell ?? null,
+    eatingProblems: dev?.eatingProblems ?? '',
   };
 }
 
@@ -416,9 +433,14 @@ export function seedToilet(child: Child): ToiletState {
   const dev = child.development ?? null;
   return {
     toiletTrained: dev?.toiletTrained ?? false,
-    toiletWords: dev?.toiletWords ?? '',
+    // Prefer the new split fields; fall back to the legacy single field for
+    // rows that predate the 2D backfill (lands in urination, the generic word).
+    toiletWordBowel: dev?.toiletWordBowel ?? '',
+    toiletWordUrination: dev?.toiletWordUrination ?? dev?.toiletWords ?? '',
     toiletHelpLevel: dev?.toiletHelpLevel ?? '',
     toiletAccidents: dev?.toiletAccidents ?? '',
+    bowelMovementsRegular: dev?.bowelMovementsRegular ?? null,
+    bowelMovementTime: dev?.bowelMovementTime ?? '',
   };
 }
 
@@ -436,6 +458,8 @@ export function buildChildPayload(s: ChildState): UpdateChildPayload {
     addressZip: undef(s.address.zip),
     admissionDate: s.admissionDate || undefined,
     firstCareDay: s.firstCareDay || undefined,
+    reasonForCare: undef(s.reasonForCare),
+    lastEnrollmentDate: s.lastEnrollmentDate || undefined,
     enrollmentStatus: s.enrollmentStatus,
   };
 }
@@ -511,6 +535,7 @@ export function buildParentOps(
       ops.add.push({
         ...base,
         firstName: p.firstName.trim(),
+        middleName: undef(p.middleName),
         lastName: p.lastName.trim(),
         email: p.email.trim(),
         homePhone: phoneDigits(p.phone),
@@ -579,15 +604,20 @@ export function buildRoutinesPayload(s: RoutinesState): DevelopmentPayload {
     napEndTime: s.takesNap ? orNull(s.napEndTime) : null,
     diet: orNull(s.diet),
     mealTimes: orNull(s.mealTimes),
+    sleepsWell: s.sleepsWell, // tri-state: true / false / null
+    eatingProblems: orNull(s.eatingProblems),
   };
 }
 
 export function buildToiletPayload(s: ToiletState): DevelopmentPayload {
   return {
     toiletTrained: s.toiletTrained,
-    toiletWords: orNull(s.toiletWords),
+    toiletWordBowel: orNull(s.toiletWordBowel),
+    toiletWordUrination: orNull(s.toiletWordUrination),
     toiletHelpLevel: s.toiletHelpLevel || null,
     toiletAccidents: orNull(s.toiletAccidents),
+    bowelMovementsRegular: s.bowelMovementsRegular, // tri-state
+    bowelMovementTime: orNull(s.bowelMovementTime),
   };
 }
 
@@ -863,6 +893,64 @@ export function seedConsents(child: Child): ConsentsState {
     emergencyTransport: c?.emergencyTransport ?? false,
   };
 }
+// ── Infant sleep plan (2D, LIC 9227) ─────────────────────────────────────────
+export const SLEEP_LOCATIONS = [
+  { value: 'CRIB', labelKey: 'children.sleepCrib' },
+  { value: 'PLAY_YARD', labelKey: 'children.sleepPlayYard' },
+  { value: 'OTHER', labelKey: 'children.sleepOther' },
+];
+export const PACIFIER_USE = [
+  { value: 'YES', labelKey: 'children.pacifierYes' },
+  { value: 'NO', labelKey: 'children.pacifierNo' },
+  { value: 'SOMETIMES', labelKey: 'children.pacifierSometimes' },
+];
+
+export interface InfantSleepState {
+  sleepLocation: string;
+  sleepLocationOther: string;
+  usualSleepHours: string;
+  averageNapDuration: string;
+  usesPacifier: string;
+  pacifierBrand: string;
+  canRollOver: boolean;
+  rollOverDate: string;
+  providerObservedRoll: boolean;
+  medicalExemption: boolean;
+  medicalExemptionInstructions: string;
+}
+export function seedInfantSleep(child: Child): InfantSleepState {
+  const s = child.infantSleep ?? null;
+  return {
+    sleepLocation: s?.sleepLocation ?? '',
+    sleepLocationOther: s?.sleepLocationOther ?? '',
+    usualSleepHours: s?.usualSleepHours ?? '',
+    averageNapDuration: s?.averageNapDuration ?? '',
+    usesPacifier: s?.usesPacifier ?? '',
+    pacifierBrand: s?.pacifierBrand ?? '',
+    canRollOver: s?.canRollOver ?? false,
+    rollOverDate: s?.rollOverDate ? s.rollOverDate.slice(0, 10) : '',
+    providerObservedRoll: s?.providerObservedRoll ?? false,
+    medicalExemption: s?.medicalExemption ?? false,
+    medicalExemptionInstructions: s?.medicalExemptionInstructions ?? '',
+  };
+}
+export function buildInfantSleepPayload(s: InfantSleepState): InfantSleepPayload {
+  return {
+    sleepLocation: s.sleepLocation || null,
+    // "Other" detail only persists when OTHER is selected.
+    sleepLocationOther: s.sleepLocation === 'OTHER' ? orNull(s.sleepLocationOther) : null,
+    usualSleepHours: orNull(s.usualSleepHours),
+    averageNapDuration: orNull(s.averageNapDuration),
+    usesPacifier: s.usesPacifier || null,
+    pacifierBrand: orNull(s.pacifierBrand),
+    canRollOver: s.canRollOver,
+    rollOverDate: s.canRollOver ? s.rollOverDate || null : null,
+    providerObservedRoll: s.providerObservedRoll,
+    medicalExemption: s.medicalExemption,
+    medicalExemptionInstructions: s.medicalExemption ? orNull(s.medicalExemptionInstructions) : null,
+  };
+}
+
 export function buildConsentsPayload(s: ConsentsState): ConsentsPayload {
   return {
     waterPlay: s.waterPlay,

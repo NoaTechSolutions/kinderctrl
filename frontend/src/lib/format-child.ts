@@ -7,6 +7,16 @@ type Translator = (key: string) => string;
  * abbreviations localize (en: y/m/mo → es: a/m/m); without one it keeps the
  * English abbreviations (pre-i18n behavior, safe for non-React callers).
  */
+/** Whole months since birth (>= 0). Used by the infant-only age gate (2D). */
+export function ageInMonths(birthIso: string): number {
+  const b = new Date(birthIso);
+  const now = new Date();
+  let months =
+    (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
+  if (now.getDate() < b.getDate()) months -= 1;
+  return months < 0 ? 0 : months;
+}
+
 export function formatAge(birthIso: string, t?: Translator): string {
   const b = new Date(birthIso);
   const now = new Date();

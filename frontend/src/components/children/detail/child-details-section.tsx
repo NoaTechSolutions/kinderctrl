@@ -22,7 +22,7 @@ import { formatPhoneUS } from '@/lib/utils/phone';
 import { ChildStatusBadge } from '@/components/children/child-status-badge';
 import { Field, AddressFields } from '../child-form-fields';
 import { SectionFrame } from './section-frame';
-import { PlainSelect } from './section-fields';
+import { PlainSelect, MedTextarea } from './section-fields';
 import { ReadGrid, ReadRow, fmtDate, joinAddress } from './read-view';
 import { useSectionEditor, AbortSave, type SectionProps } from './use-section-editor';
 import {
@@ -143,6 +143,8 @@ export function ChildDetailsSection({ child, canManage, onEditorChange }: Sectio
             />
             <ReadRow label={t('children.admissionDate')} value={fmtDate(child.admissionDate, locale)} />
             <ReadRow label={t('children.firstDayOfCare')} value={fmtDate(child.firstCareDay, locale)} />
+            <ReadRow label={t('children.lastEnrollmentDate')} value={fmtDate(child.lastEnrollmentDate, locale)} />
+            <ReadRow label={t('children.reasonForCare')} value={child.reasonForCare ?? '—'} full />
           </ReadGrid>
         ) : (
           <div className="space-y-4">
@@ -180,14 +182,20 @@ export function ChildDetailsSection({ child, canManage, onEditorChange }: Sectio
               </p>
               <AddressFields value={state.address} onChange={(f, v) => setC('address', { ...state.address, [f]: v })} />
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Field label={t('children.admissionDate')}>
                 <DateField value={state.admissionDate} onChange={(e) => setC('admissionDate', e.target.value)} />
               </Field>
               <Field label={t('children.firstDayOfCare')}>
                 <DateField value={state.firstCareDay} onChange={(e) => setC('firstCareDay', e.target.value)} />
               </Field>
+              <Field label={t('children.lastEnrollmentDate')}>
+                <DateField value={state.lastEnrollmentDate} onChange={(e) => setC('lastEnrollmentDate', e.target.value)} />
+              </Field>
             </div>
+            <Field label={t('children.reasonForCare')}>
+              <MedTextarea value={state.reasonForCare} onChange={(v) => setC('reasonForCare', v)} />
+            </Field>
           </div>
         )}
       </SectionFrame>

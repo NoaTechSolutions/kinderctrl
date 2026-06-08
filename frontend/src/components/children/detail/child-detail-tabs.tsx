@@ -25,6 +25,7 @@ import { RoutinesSection } from './routines-section';
 import { ToiletSection } from './toilet-section';
 import { PersonalitySection } from './personality-section';
 import { PermissionsSection } from './permissions-section';
+import { InfantSleepSection } from './infant-sleep-section';
 import type { SectionEditorHandle } from './use-section-editor';
 
 export type DetailTab =
@@ -35,6 +36,7 @@ export type DetailTab =
   | 'development'
   | 'routines'
   | 'toilet'
+  | 'infantSleep'
   | 'personality'
   | 'permissions';
 
@@ -70,6 +72,7 @@ export function ChildDetailTabs({
     { value: 'development', label: t('children.development') },
     { value: 'routines', label: t('children.routines') },
     { value: 'toilet', label: t('children.toilet') },
+    { value: 'infantSleep', label: t('children.infantSleep') },
     { value: 'personality', label: t('children.personality') },
     { value: 'permissions', label: t('children.permissions') },
   ];
@@ -127,6 +130,7 @@ export function ChildDetailTabs({
       {tab === 'development' && <DevelopmentSection {...sectionProps} />}
       {tab === 'routines' && <RoutinesSection {...sectionProps} />}
       {tab === 'toilet' && <ToiletSection {...sectionProps} />}
+      {tab === 'infantSleep' && <InfantSleepSection {...sectionProps} />}
       {tab === 'personality' && <PersonalitySection {...sectionProps} />}
       {tab === 'permissions' && <PermissionsSection {...sectionProps} />}
 

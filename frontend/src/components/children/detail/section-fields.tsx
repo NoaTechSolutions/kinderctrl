@@ -104,6 +104,50 @@ export function CheckboxRow({
   );
 }
 
+// Tri-state Yes / No / Unanswered control for nullable-boolean intake fields
+// (2D). value true = yes, false = no, null = unanswered.
+export function TriStateField({
+  value,
+  onChange,
+}: {
+  value: boolean | null;
+  onChange: (v: boolean | null) => void;
+}) {
+  const { t } = useTranslation();
+  const opts: Array<{ v: boolean | null; label: string }> = [
+    { v: true, label: t('children.yes') },
+    { v: false, label: t('children.no') },
+    { v: null, label: t('children.unanswered') },
+  ];
+  return (
+    <div className="inline-flex overflow-hidden rounded-md border" style={{ borderColor: 'var(--kc-border)' }}>
+      {opts.map((o, i) => {
+        const selected = value === o.v;
+        return (
+          <button
+            key={String(o.v)}
+            type="button"
+            onClick={() => onChange(o.v)}
+            className={cn('px-3 py-1.5 text-sm transition-colors', i > 0 && 'border-l')}
+            style={
+              selected
+                ? { background: 'var(--kc-p-600)', color: 'white', borderColor: 'var(--kc-border)' }
+                : { color: 'var(--kc-text-2)', borderColor: 'var(--kc-border)' }
+            }
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Reads a tri-state value for display: Yes / No / em-dash.
+export function triText(value: boolean | null, t: (k: string) => string): string {
+  return value === null ? '—' : value ? t('children.yes') : t('children.no');
+}
+
 // One past-illness row: checkbox + label, with an optional date once checked.
 export function PastIllnessRow({
   label,
@@ -256,10 +300,13 @@ export function ParentEditCard({
           <Field label={t('children.firstName')}>
             <Input value={row.firstName} disabled />
           </Field>
+          <Field label={t('children.middleName')}>
+            <Input value={row.middleName} disabled />
+          </Field>
           <Field label={t('children.lastName')}>
             <Input value={row.lastName} disabled />
           </Field>
-          <Field label={t('children.email')}>
+          <Field label={t('children.email')} className="sm:col-span-full">
             <Input value={row.displayEmail} disabled />
           </Field>
         </div>
@@ -317,6 +364,9 @@ export function ParentEditCard({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <Field label={t('children.firstName')} required>
                   <NameInput value={row.firstName} onChange={(v) => onChange({ firstName: v })} />
+                </Field>
+                <Field label={t('children.middleName')}>
+                  <NameInput value={row.middleName} onChange={(v) => onChange({ middleName: v })} />
                 </Field>
                 <Field label={t('children.lastName')} required>
                   <NameInput value={row.lastName} onChange={(v) => onChange({ lastName: v })} />

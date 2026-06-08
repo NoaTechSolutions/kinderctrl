@@ -42,6 +42,7 @@ export function getChild(id: string): Promise<Child> {
 export interface ChildParentPayload {
   parentId?: string;
   firstName?: string;
+  middleName?: string;
   lastName?: string;
   email?: string;
   homePhone?: string;
@@ -77,6 +78,8 @@ export interface CreateChildPayload {
   phone?: string;
   admissionDate?: string;
   firstCareDay?: string;
+  reasonForCare?: string;
+  lastEnrollmentDate?: string;
   parents: ChildParentPayload[];
 }
 
@@ -253,10 +256,17 @@ export interface DevelopmentPayload {
   napEndTime?: string | null;
   diet?: string | null;
   mealTimes?: string | null;
+  // Fase 2 (2D) — tri-state booleans: true / false / null (unanswered).
+  sleepsWell?: boolean | null;
+  eatingProblems?: string | null;
   toiletTrained?: boolean;
-  toiletWords?: string | null;
+  toiletWords?: string | null; // deprecated
+  toiletWordBowel?: string | null;
+  toiletWordUrination?: string | null;
   toiletHelpLevel?: string | null;
   toiletAccidents?: string | null;
+  bowelMovementsRegular?: boolean | null;
+  bowelMovementTime?: string | null;
 }
 
 export function updateChildDevelopment(
@@ -320,6 +330,31 @@ export function updateChildConsents(
   payload: ConsentsPayload,
 ): Promise<unknown> {
   return apiRequest(`/children/${childId}/consents`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
+
+// ── Infant sleep plan (Director/SA) — Fase 2 · 2D (LIC 9227) ────────────────
+export interface InfantSleepPayload {
+  sleepLocation?: string | null;
+  sleepLocationOther?: string | null;
+  usualSleepHours?: string | null;
+  averageNapDuration?: string | null;
+  usesPacifier?: string | null;
+  pacifierBrand?: string | null;
+  canRollOver?: boolean;
+  rollOverDate?: string | null;
+  providerObservedRoll?: boolean;
+  medicalExemption?: boolean;
+  medicalExemptionInstructions?: string | null;
+}
+
+export function updateChildInfantSleep(
+  childId: string,
+  payload: InfantSleepPayload,
+): Promise<unknown> {
+  return apiRequest(`/children/${childId}/infant-sleep`, {
     method: 'PATCH',
     body: payload,
   });

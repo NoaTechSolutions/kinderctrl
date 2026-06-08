@@ -12,6 +12,7 @@ import {
   updateChildConsents,
   updateChildContact,
   updateChildDevelopment,
+  updateChildInfantSleep,
   updateChildMedical,
   updateChildParentLink,
   updateChildPersonality,
@@ -22,6 +23,7 @@ import type {
   ConsentsPayload,
   CreateChildPayload,
   DevelopmentPayload,
+  InfantSleepPayload,
   MedicalInfoPayload,
   PersonalityPayload,
   UpdateChildPayload,
@@ -234,6 +236,16 @@ export function useUpdateChildConsents() {
   return useMutation({
     mutationFn: (args: { childId: string; payload: ConsentsPayload }) =>
       updateChildConsents(args.childId, args.payload),
+    onSuccess: (_d, v) => invalidateChild(qc, v.childId),
+  });
+}
+
+/** PATCH /children/:id/infant-sleep — Infant sleep tab (2D, age-gated UI). */
+export function useUpdateChildInfantSleep() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { childId: string; payload: InfantSleepPayload }) =>
+      updateChildInfantSleep(args.childId, args.payload),
     onSuccess: (_d, v) => invalidateChild(qc, v.childId),
   });
 }

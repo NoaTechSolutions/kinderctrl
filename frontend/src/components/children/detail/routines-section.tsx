@@ -6,7 +6,7 @@ import { TimeField } from '@/components/ui/time-field';
 import { useTranslation } from '@/lib/i18n';
 import { useUpdateChildDevelopment } from '@/lib/hooks/use-children';
 import { Field } from '../child-form-fields';
-import { CheckboxRow, MedTextarea } from './section-fields';
+import { CheckboxRow, MedTextarea, TriStateField, triText } from './section-fields';
 import { ReadGrid, ReadRow, EmptyHint, useBoolText } from './read-view';
 import { SectionFrame } from './section-frame';
 import { useSectionEditor, type SectionProps } from './use-section-editor';
@@ -43,7 +43,13 @@ export function RoutinesSection({ child, canManage, onEditorChange }: SectionPro
       : boolText(true)
     : boolText(false);
   const hasAny =
-    r.wakeUpTime || r.bedTime || r.takesNap || r.diet || r.mealTimes;
+    r.wakeUpTime ||
+    r.bedTime ||
+    r.takesNap ||
+    r.diet ||
+    r.mealTimes ||
+    r.sleepsWell !== null ||
+    r.eatingProblems;
 
   return (
     <SectionFrame
@@ -65,8 +71,10 @@ export function RoutinesSection({ child, canManage, onEditorChange }: SectionPro
             <ReadRow label={t('children.wakeUpTime')} value={r.wakeUpTime || '—'} />
             <ReadRow label={t('children.bedTime')} value={r.bedTime || '—'} />
             <ReadRow label={t('children.takesNap')} value={napText} />
+            <ReadRow label={t('children.sleepsWell')} value={triText(r.sleepsWell, t)} />
             <ReadRow label={t('children.diet')} value={r.diet} full />
             <ReadRow label={t('children.mealTimes')} value={r.mealTimes} full />
+            <ReadRow label={t('children.eatingProblems')} value={r.eatingProblems} full />
           </ReadGrid>
         )
       ) : (
@@ -90,11 +98,17 @@ export function RoutinesSection({ child, canManage, onEditorChange }: SectionPro
               </Field>
             </div>
           )}
+          <Field label={t('children.sleepsWell')}>
+            <TriStateField value={state.sleepsWell} onChange={(v) => setR('sleepsWell', v)} />
+          </Field>
           <Field label={t('children.diet')}>
             <MedTextarea value={state.diet} onChange={(v) => setR('diet', v)} />
           </Field>
           <Field label={t('children.mealTimes')}>
             <MedTextarea value={state.mealTimes} onChange={(v) => setR('mealTimes', v)} />
+          </Field>
+          <Field label={t('children.eatingProblems')}>
+            <MedTextarea value={state.eatingProblems} onChange={(v) => setR('eatingProblems', v)} />
           </Field>
         </div>
       )}

@@ -192,6 +192,7 @@ function ParentReadRow({ link }: { link: ChildParentLink }) {
     <div className="rounded-lg border p-4" style={{ borderColor: 'var(--kc-border)' }}>
       <ReadGrid cols={3}>
         <ReadRow label={t('children.firstName')} value={link.parent.firstName} />
+        <ReadRow label={t('children.middleName')} value={link.parent.middleName ?? '—'} />
         <ReadRow label={t('children.lastName')} value={link.parent.lastName} />
         <ReadRow label={t('children.relationship')} value={relationshipLabel(link.relationship, t) || '—'} />
         <ReadRow label={t('children.email')} value={link.parent.email} />

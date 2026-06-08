@@ -16,6 +16,7 @@ export interface ChildParentLink {
   parent: {
     id: string;
     firstName: string;
+    middleName: string | null;
     lastName: string;
     email: string;
     status: string;
@@ -125,11 +126,37 @@ export interface ChildDevelopment {
   napEndTime: string | null;
   diet: string | null;
   mealTimes: string | null;
+  // Fase 2 (2D) — A5 gaps (tri-state booleans: null = unanswered).
+  sleepsWell: boolean | null;
+  eatingProblems: string | null;
   // Toilet.
   toiletTrained: boolean;
-  toiletWords: string | null;
+  toiletWords: string | null; // deprecated (2D split below)
+  toiletWordBowel: string | null;
+  toiletWordUrination: string | null;
   toiletHelpLevel: ChildToiletHelpLevel | null;
   toiletAccidents: string | null;
+  bowelMovementsRegular: boolean | null;
+  bowelMovementTime: string | null;
+}
+
+// Fase 2 (2D) — infant sleep plan (LIC 9227). Infant-only (UI age-gates edit
+// to <12 months); the satellite has no age constraint.
+export type ChildSleepLocation = 'CRIB' | 'PLAY_YARD' | 'OTHER';
+export type ChildPacifierUse = 'YES' | 'NO' | 'SOMETIMES';
+export interface ChildInfantSleep {
+  id: string;
+  sleepLocation: ChildSleepLocation | null;
+  sleepLocationOther: string | null;
+  usualSleepHours: string | null;
+  averageNapDuration: string | null;
+  usesPacifier: ChildPacifierUse | null;
+  pacifierBrand: string | null;
+  canRollOver: boolean;
+  rollOverDate: string | null;
+  providerObservedRoll: boolean;
+  medicalExemption: boolean;
+  medicalExemptionInstructions: string | null;
 }
 
 // Fase 2 (2C) — "About Your Child" personality / profile satellite.
@@ -197,6 +224,8 @@ export interface Child {
   enrollmentStatus: ChildEnrollmentStatus;
   admissionDate: string | null;
   firstCareDay: string | null;
+  reasonForCare: string | null;
+  lastEnrollmentDate: string | null;
   enrollmentDate: string;
   createdAt: string;
   updatedAt: string;
@@ -207,6 +236,7 @@ export interface Child {
   development?: ChildDevelopment | null;
   personality?: ChildPersonality | null;
   consents?: ChildConsent | null;
+  infantSleep?: ChildInfantSleep | null;
 }
 
 export interface ChildrenQuery {
