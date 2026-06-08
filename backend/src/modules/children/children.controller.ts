@@ -9,7 +9,6 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -134,7 +133,9 @@ export class ChildrenController {
     await this.childrenService.remove(id, user.id, user.role);
   }
 
-  @Put('children/:id/medical-info')
+  // PATCH (not PUT): partial-merge so the split Medical cards each save only
+  // their own fields without clobbering the others (same as development).
+  @Patch('children/:id/medical-info')
   @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
   updateMedicalInfo(
     @Param('id', ParseUUIDPipe) id: string,

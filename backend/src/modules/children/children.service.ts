@@ -281,7 +281,16 @@ export class ChildrenService {
     return this.findOne(id, userId, userRole);
   }
 
-  /** PUT /children/:id/medical-info — upsert the 1:1 medical record. */
+  /**
+   * PATCH /children/:id/medical-info — partial MERGE upsert of the 1:1 medical
+   * record. The Medical tab is split into independent cards (Doctor / Allergies
+   * & medications / Dentist / Health / Past illnesses), each saving ONLY its
+   * fields — so this must merge, not full-replace (same posture as 2B
+   * development). Scalars: Prisma ignores `undefined` (keep) and writes `null`
+   * (clear). The non-nullable Json lists only get a default `[]` on first insert
+   * (create branch); on update they're skipped unless the Allergies card sends
+   * them. pastIllnesses (nullable Json) defaults to JsonNull on create.
+   */
   async updateMedicalInfo(
     id: string,
     dto: UpdateMedicalInfoDto,
@@ -290,43 +299,57 @@ export class ChildrenService {
   ) {
     await this.loadForManage(id, userId, userRole);
 
-    const data = {
-      allergies: (dto.allergies ?? []) as Prisma.InputJsonValue,
-      medications: (dto.medications ?? []) as Prisma.InputJsonValue,
-      medicalConditions: (dto.medicalConditions ?? []) as Prisma.InputJsonValue,
-      doctorName: dto.doctorName ?? null,
-      doctorPhone: dto.doctorPhone ?? null,
-      doctorAddress: dto.doctorAddress ?? null,
-      medicationAllergies: dto.medicationAllergies ?? null,
-      medicalPlan: dto.medicalPlan ?? null,
-      hasSpecialNeeds: dto.hasSpecialNeeds ?? false,
-      insuranceProvider: dto.insuranceProvider ?? null,
-      insurancePolicy: dto.insurancePolicy ?? null,
-      // Fase 2 (2A) — extended medical history.
-      isUnderDoctorCare: dto.isUnderDoctorCare ?? false,
-      doctorLastExamDate: dto.doctorLastExamDate ?? null,
-      prescribedMedicationDetails: dto.prescribedMedicationDetails ?? null,
-      medicationSideEffects: dto.medicationSideEffects ?? null,
-      dentistName: dto.dentistName ?? null,
-      dentistPhone: dto.dentistPhone ?? null,
-      dentistAddressStreet: dto.dentistAddressStreet ?? null,
-      dentistAddressCity: dto.dentistAddressCity ?? null,
-      dentistAddressState: dto.dentistAddressState ?? null,
-      dentistAddressZip: dto.dentistAddressZip ?? null,
-      dentalPlan: dto.dentalPlan ?? null,
-      specialDevices: dto.specialDevices ?? null,
-      frequentColds: dto.frequentColds ?? false,
-      frequentColdsCount: dto.frequentColdsCount ?? null,
-      // Nullable Json — Prisma needs the JsonNull sentinel to write SQL NULL.
-      pastIllnesses: (dto.pastIllnesses ??
-        Prisma.JsonNull) as Prisma.InputJsonValue,
-      otherIllnesses: dto.otherIllnesses ?? null,
+    // Scalars pass straight through (undefined = keep, null = clear). Shared by
+    // both upsert branches.
+    const fields = {
+      doctorName: dto.doctorName,
+      doctorPhone: dto.doctorPhone,
+      doctorAddress: dto.doctorAddress,
+      medicationAllergies: dto.medicationAllergies,
+      medicalPlan: dto.medicalPlan,
+      hasSpecialNeeds: dto.hasSpecialNeeds,
+      insuranceProvider: dto.insuranceProvider,
+      insurancePolicy: dto.insurancePolicy,
+      isUnderDoctorCare: dto.isUnderDoctorCare,
+      doctorLastExamDate: dto.doctorLastExamDate,
+      prescribedMedicationDetails: dto.prescribedMedicationDetails,
+      medicationSideEffects: dto.medicationSideEffects,
+      dentistName: dto.dentistName,
+      dentistPhone: dto.dentistPhone,
+      dentistAddressStreet: dto.dentistAddressStreet,
+      dentistAddressCity: dto.dentistAddressCity,
+      dentistAddressState: dto.dentistAddressState,
+      dentistAddressZip: dto.dentistAddressZip,
+      dentalPlan: dto.dentalPlan,
+      specialDevices: dto.specialDevices,
+      frequentColds: dto.frequentColds,
+      frequentColdsCount: dto.frequentColdsCount,
+      otherIllnesses: dto.otherIllnesses,
     };
+    // Json fields cast to InputJsonValue; `undefined` skips on update.
+    const allergies = dto.allergies as Prisma.InputJsonValue | undefined;
+    const medications = dto.medications as Prisma.InputJsonValue | undefined;
+    const medicalConditions = dto.medicalConditions as Prisma.InputJsonValue | undefined;
+    const pastIllnesses = dto.pastIllnesses as Prisma.InputJsonValue | undefined;
 
     return this.prisma.childMedicalInfo.upsert({
       where: { childId: id },
-      create: { childId: id, ...data },
-      update: data,
+      create: {
+        childId: id,
+        ...fields,
+        // Non-nullable Json lists need a concrete value on first insert.
+        allergies: allergies ?? [],
+        medications: medications ?? [],
+        medicalConditions: medicalConditions ?? [],
+        pastIllnesses: pastIllnesses ?? Prisma.JsonNull,
+      },
+      update: {
+        ...fields,
+        allergies,
+        medications,
+        medicalConditions,
+        pastIllnesses,
+      },
     });
   }
 
@@ -455,6 +478,16 @@ export class ChildrenService {
         livesWithChild: dto.livesWithChild,
       },
     });
+
+    // Detail refactor — the Child tab's "primary contact phone" syncs into the
+    // Parent satellite (only when explicitly sent). undefined leaves it; an
+    // empty string clears it. Kept separate from the pivot update above.
+    if (dto.homePhone !== undefined) {
+      await this.prisma.parent.update({
+        where: { id: parentId },
+        data: { homePhone: dto.homePhone || null },
+      });
+    }
 
     return this.findOne(childId, userId, userRole);
   }
