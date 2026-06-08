@@ -59,6 +59,17 @@ export class CreateChildDto {
   @Type(() => Date)
   firstCareDay?: Date;
 
+  // Fase 2 (2D) — remaining LIC fields.
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  reasonForCare?: string;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  lastEnrollmentDate?: Date;
+
   // Spec: at least ONE parent is required at create time. Each entry either
   // links an existing parent or creates a new one, with the pivot metadata.
   @IsArray()

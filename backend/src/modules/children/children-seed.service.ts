@@ -40,10 +40,20 @@ const SEED_PARENTS = [
     // Dedicated primary contact for the fully-populated test child (Mia).
     key: 'jennifer',
     firstName: 'Jennifer',
+    middleName: 'Marie',
     lastName: 'Thompson',
     email: 'seed-parent-04@kinderctrl.com',
     homePhone: '5551110004',
     workEmployer: 'Initech',
+  },
+  {
+    // Parent of the infant test child (Leo).
+    key: 'diana',
+    firstName: 'Diana',
+    lastName: 'Bennett',
+    email: 'seed-parent-05@kinderctrl.com',
+    homePhone: '5551110005',
+    workEmployer: 'Hooli',
   },
 ] as const;
 
@@ -57,6 +67,8 @@ const SEED_CHILDREN: Array<{
   birthDate: string;
   enrollmentStatus: ChildStatus;
   firstCareDay?: string;
+  reasonForCare?: string;
+  lastEnrollmentDate?: string;
   addressNumber?: string;
   addressStreet?: string;
   addressCity?: string;
@@ -120,10 +132,29 @@ const SEED_CHILDREN: Array<{
     napEndTime?: string;
     diet?: string;
     mealTimes?: string;
+    sleepsWell?: boolean;
+    eatingProblems?: string;
     toiletTrained?: boolean;
-    toiletWords?: string;
+    toiletWordBowel?: string;
+    toiletWordUrination?: string;
     toiletHelpLevel?: string;
     toiletAccidents?: string;
+    bowelMovementsRegular?: boolean;
+    bowelMovementTime?: string;
+  };
+  // Fase 2 (2D) — optional infant sleep plan (LIC 9227).
+  infantSleep?: {
+    sleepLocation?: string;
+    sleepLocationOther?: string;
+    usualSleepHours?: string;
+    averageNapDuration?: string;
+    usesPacifier?: string;
+    pacifierBrand?: string;
+    canRollOver?: boolean;
+    rollOverDate?: string;
+    providerObservedRoll?: boolean;
+    medicalExemption?: boolean;
+    medicalExemptionInstructions?: string;
   };
   // Fase 2 (2C) — optional personality + consents for testing.
   personality?: {
@@ -222,7 +253,7 @@ const SEED_CHILDREN: Array<{
       diet: 'No nuts. Vegetarian.',
       mealTimes: 'Breakfast 08:00, Lunch 12:00, Snack 15:30.',
       toiletTrained: true,
-      toiletWords: 'Uses "potty".',
+      toiletWordUrination: 'Uses "potty".',
       toiletHelpLevel: 'NEEDS_REMINDERS',
       toiletAccidents: 'Rare, mostly during naps.',
     },
@@ -324,6 +355,8 @@ const SEED_CHILDREN: Array<{
     birthDate: '2022-06-12',
     enrollmentStatus: ChildStatus.ACTIVE,
     firstCareDay: '2024-09-02',
+    reasonForCare: 'Both parents work full-time; needs structured daytime care.',
+    lastEnrollmentDate: '2024-09-01',
     addressNumber: '742',
     addressStreet: 'Evergreen Terrace',
     addressCity: 'Springfield',
@@ -399,10 +432,15 @@ const SEED_CHILDREN: Array<{
       napEndTime: '14:30',
       diet: 'No peanuts (allergy). Otherwise unrestricted.',
       mealTimes: 'Breakfast 08:00, Lunch 12:00, Snack 15:30.',
+      sleepsWell: true,
+      eatingProblems: 'Sometimes refuses vegetables.',
       toiletTrained: true,
-      toiletWords: 'Says "potty".',
+      toiletWordBowel: 'Says "poop".',
+      toiletWordUrination: 'Says "potty".',
       toiletHelpLevel: 'NEEDS_REMINDERS',
       toiletAccidents: 'Very rare.',
+      bowelMovementsRegular: true,
+      bowelMovementTime: 'Usually after breakfast.',
     },
     // 2C — full personality profile.
     personality: {
@@ -439,6 +477,30 @@ const SEED_CHILDREN: Array<{
       emergencyTransport: false,
     },
   },
+  {
+    // INFANT test child (~7 months as of the 2026-06 dev date) → exercises the
+    // Infant-sleep tab in its EDITABLE state (age < 12 months).
+    firstName: 'Leo',
+    middleName: 'Sky',
+    lastName: 'Bennett',
+    gender: 'MALE',
+    birthDate: '2025-11-10',
+    enrollmentStatus: ChildStatus.ACTIVE,
+    parents: [
+      { key: 'diana', relationship: 'MOTHER', isPrimary: true, livesWithChild: true },
+    ],
+    infantSleep: {
+      sleepLocation: 'CRIB',
+      usualSleepHours: '7pm – 6am',
+      averageNapDuration: '45 min',
+      usesPacifier: 'SOMETIMES',
+      pacifierBrand: 'MAM',
+      canRollOver: true,
+      rollOverDate: '2026-03-15',
+      providerObservedRoll: true,
+      medicalExemption: false,
+    },
+  },
 ];
 
 @Injectable()
@@ -472,6 +534,7 @@ export class ChildrenSeedService {
           data: {
             centerId,
             firstName: p.firstName,
+            middleName: (p as { middleName?: string }).middleName ?? null,
             lastName: p.lastName,
             email: p.email,
             homePhone: p.homePhone,
@@ -504,6 +567,7 @@ export class ChildrenSeedService {
         const d = c.development;
         const pers = c.personality;
         const cons = c.consents;
+        const is = c.infantSleep;
         const child = await tx.child.create({
           data: {
             centerId,
@@ -516,6 +580,10 @@ export class ChildrenSeedService {
             admissionDate: new Date(`${c.birthDate}T00:00:00.000Z`),
             firstCareDay: c.firstCareDay
               ? new Date(`${c.firstCareDay}T00:00:00.000Z`)
+              : null,
+            reasonForCare: c.reasonForCare ?? null,
+            lastEnrollmentDate: c.lastEnrollmentDate
+              ? new Date(`${c.lastEnrollmentDate}T00:00:00.000Z`)
               : null,
             addressNumber: c.addressNumber ?? null,
             addressStreet: c.addressStreet ?? null,
@@ -581,6 +649,26 @@ export class ChildrenSeedService {
                     emergencyTransport: cons.emergencyTransport ?? false,
                     signedByUserId: directorUserId,
                     signedAt: new Date('2026-06-01T10:00:00.000Z'),
+                  },
+                }
+              : undefined,
+            // Fase 2 (2D) — infant sleep plan (rollOverDate converted).
+            infantSleep: is
+              ? {
+                  create: {
+                    sleepLocation: is.sleepLocation ?? null,
+                    sleepLocationOther: is.sleepLocationOther ?? null,
+                    usualSleepHours: is.usualSleepHours ?? null,
+                    averageNapDuration: is.averageNapDuration ?? null,
+                    usesPacifier: is.usesPacifier ?? null,
+                    pacifierBrand: is.pacifierBrand ?? null,
+                    canRollOver: is.canRollOver ?? false,
+                    rollOverDate: is.rollOverDate
+                      ? new Date(`${is.rollOverDate}T00:00:00.000Z`)
+                      : null,
+                    providerObservedRoll: is.providerObservedRoll ?? false,
+                    medicalExemption: is.medicalExemption ?? false,
+                    medicalExemptionInstructions: is.medicalExemptionInstructions ?? null,
                   },
                 }
               : undefined,

@@ -14,6 +14,7 @@ import { UpdateMedicalInfoDto } from './dto/update-medical-info.dto';
 import { UpdateDevelopmentDto } from './dto/update-development.dto';
 import { UpdatePersonalityDto } from './dto/update-personality.dto';
 import { UpdateConsentsDto } from './dto/update-consents.dto';
+import { UpdateInfantSleepDto } from './dto/update-infant-sleep.dto';
 import { QueryChildrenDto } from './dto/query-children.dto';
 import { ChildParentInputDto } from './dto/child-parent-input.dto';
 import { UpdateChildParentDto } from './dto/update-child-parent.dto';
@@ -37,6 +38,8 @@ const CHILD_DETAIL_INCLUDE = {
   // Fase 2 (2C) — personality + consents satellites travel with the detail.
   personality: true,
   consents: true,
+  // Fase 2 (2D) — infant sleep plan satellite (LIC 9227).
+  infantSleep: true,
   childParents: {
     orderBy: { isPrimary: 'desc' },
     include: {
@@ -44,6 +47,7 @@ const CHILD_DETAIL_INCLUDE = {
         select: {
           id: true,
           firstName: true,
+          middleName: true,
           lastName: true,
           email: true,
           status: true,
@@ -291,6 +295,8 @@ export class ChildrenService {
         phone: dto.phone,
         admissionDate: dto.admissionDate,
         firstCareDay: dto.firstCareDay,
+        reasonForCare: dto.reasonForCare,
+        lastEnrollmentDate: dto.lastEnrollmentDate,
         enrollmentStatus: dto.enrollmentStatus,
       },
     });
@@ -403,11 +409,17 @@ export class ChildrenService {
       napEndTime: dto.napEndTime,
       diet: dto.diet,
       mealTimes: dto.mealTimes,
+      sleepsWell: dto.sleepsWell,
+      eatingProblems: dto.eatingProblems,
       // Toilet.
       toiletTrained: dto.toiletTrained,
       toiletWords: dto.toiletWords,
+      toiletWordBowel: dto.toiletWordBowel,
+      toiletWordUrination: dto.toiletWordUrination,
       toiletHelpLevel: dto.toiletHelpLevel,
       toiletAccidents: dto.toiletAccidents,
+      bowelMovementsRegular: dto.bowelMovementsRegular,
+      bowelMovementTime: dto.bowelMovementTime,
     };
 
     return this.prisma.childDevelopment.upsert({
@@ -488,6 +500,40 @@ export class ChildrenService {
     };
 
     return this.prisma.childConsent.upsert({
+      where: { childId: id },
+      create: { childId: id, ...data },
+      update: data,
+    });
+  }
+
+  /**
+   * PATCH /children/:id/infant-sleep — partial MERGE upsert of the LIC 9227
+   * infant sleep plan satellite (same posture as the other satellites). The
+   * infant-only age-gate lives in the UI; the endpoint is unrestricted.
+   */
+  async updateInfantSleep(
+    id: string,
+    dto: UpdateInfantSleepDto,
+    userId: string,
+    userRole: UserRole,
+  ) {
+    await this.loadForManage(id, userId, userRole);
+
+    const data = {
+      sleepLocation: dto.sleepLocation,
+      sleepLocationOther: dto.sleepLocationOther,
+      usualSleepHours: dto.usualSleepHours,
+      averageNapDuration: dto.averageNapDuration,
+      usesPacifier: dto.usesPacifier,
+      pacifierBrand: dto.pacifierBrand,
+      canRollOver: dto.canRollOver,
+      rollOverDate: dto.rollOverDate,
+      providerObservedRoll: dto.providerObservedRoll,
+      medicalExemption: dto.medicalExemption,
+      medicalExemptionInstructions: dto.medicalExemptionInstructions,
+    };
+
+    return this.prisma.childInfantSleep.upsert({
       where: { childId: id },
       create: { childId: id, ...data },
       update: data,
@@ -881,6 +927,7 @@ export class ChildrenService {
       data: {
         centerId,
         firstName: input.firstName!,
+        middleName: input.middleName ?? null,
         lastName: input.lastName!,
         email,
         homePhone: input.homePhone ?? null,

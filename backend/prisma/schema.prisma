@@ -566,6 +566,8 @@ model Parent {
   center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
 
   firstName      String  @map("first_name")
+  // Fase 2 (2D) — LIC 700 separates First / Middle / Last for parents too.
+  middleName     String? @map("middle_name")
   lastName       String  @map("last_name")
   email          String
   // Relaxed to optional in Children Fase 1: the new parent-create flow uses the
@@ -658,6 +660,12 @@ model Child {
   admissionDate DateTime? @map("admission_date") @db.Date
   firstCareDay  DateTime? @map("first_care_day") @db.Date
 
+  // Fase 2 (2D) — remaining LIC fields. reasonForCare (LIC 702 "Reason for
+  // requesting day care placement"); lastEnrollmentDate (LIC 700 "Last Date of
+  // Enrollment", distinct from admissionDate).
+  reasonForCare      String?   @map("reason_for_care")
+  lastEnrollmentDate DateTime? @map("last_enrollment_date") @db.Date
+
   // Relations
   childParents      ChildParent[]
   classroomChildren ClassroomChild[]
@@ -670,6 +678,7 @@ model Child {
   development       ChildDevelopment?
   personality       ChildPersonality?
   consents          ChildConsent?
+  infantSleep       ChildInfantSleep?
   invoices          Invoice[]
 
   // Pre-existing column kept for back-compat (centers stats / future billing).
@@ -852,16 +861,32 @@ model ChildDevelopment {
   napEndTime   String? @map("nap_end_time")
   diet         String? // diet / restrictions (free-text)
   mealTimes    String? @map("meal_times")
+  // Fase 2 (2D) — A5 gaps. Nullable Boolean (tri-state: yes / no / unanswered)
+  // because these are intake questions where "blank" ≠ "no".
+  sleepsWell     Boolean? @map("sleeps_well")
+  eatingProblems String?  @map("eating_problems")
 
   // ── TOILET / BAÑO.
   toiletTrained   Boolean @default(false) @map("toilet_trained")
-  // Words the child uses to signal the need (free-text).
-  toiletWords     String? @map("toilet_words")
+  // DEPRECATED (Fase 2 · 2D): the single "words" field was split into
+  // toiletWordBowel + toiletWordUrination (LIC 702 asks for both). Kept this
+  // release as legacy-nullable after the backfill (value copied into
+  // toiletWordUrination); no code reads/writes it any more.
+  // TODO (2D follow-up): once toiletWordBowel/toiletWordUrination are confirmed
+  // in use across real data, DROP `toilet_words` in an isolated migration — do
+  // NOT bundle it with other schema changes (same caution as the ChildStatus
+  // GRADUATED tail value).
+  toiletWords         String? @map("toilet_words")
+  toiletWordBowel     String? @map("toilet_word_bowel")
+  toiletWordUrination String? @map("toilet_word_urination")
   // Level of help the child needs — free-text-with-whitelist (CHILD_TOILET_HELP_LEVELS),
   // validated at the DTO boundary; same no-enum convention as contactType.
   toiletHelpLevel String? @map("toilet_help_level")
   // Accidents: frequency / notes (free-text).
   toiletAccidents String? @map("toilet_accidents")
+  // Fase 2 (2D) — A6 gaps. bowelMovementsRegular is tri-state (nullable Bool).
+  bowelMovementsRegular Boolean? @map("bowel_movements_regular")
+  bowelMovementTime     String?  @map("bowel_movement_time")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -940,6 +965,39 @@ model ChildConsent {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("child_consents")
+}
+
+// Fase 2 (2D) — Individual Infant Sleeping Plan (LIC 9227). ONE 1:1 satellite
+// (mirrors the other satellites). INFANT-ONLY: the UI age-gates editing to
+// children under 12 months (computed from birthDate); the satellite itself has
+// no age constraint so data entered for a child who later ages out stays
+// readable. PATCH /children/:id/infant-sleep (partial merge). sleepLocation /
+// usesPacifier are free-text-with-whitelist (CHILD_SLEEP_LOCATIONS /
+// CHILD_PACIFIER_USE), same no-enum convention as contactType.
+model ChildInfantSleep {
+  id      String @id @default(uuid()) @db.Uuid
+  childId String @unique @map("child_id") @db.Uuid
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  sleepLocation      String? @map("sleep_location")       // CRIB / PLAY_YARD / OTHER
+  sleepLocationOther String? @map("sleep_location_other") // when OTHER
+  usualSleepHours    String? @map("usual_sleep_hours")
+  averageNapDuration String? @map("average_nap_duration")
+
+  usesPacifier  String? @map("uses_pacifier")  // YES / NO / SOMETIMES
+  pacifierBrand String? @map("pacifier_brand")
+
+  canRollOver          Boolean   @default(false) @map("can_roll_over")
+  rollOverDate         DateTime? @map("roll_over_date") @db.Date
+  providerObservedRoll Boolean   @default(false) @map("provider_observed_roll")
+
+  medicalExemption             Boolean @default(false) @map("medical_exemption")
+  medicalExemptionInstructions String? @map("medical_exemption_instructions")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("child_infant_sleep")
 }
 
 // ============================================

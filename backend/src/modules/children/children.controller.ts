@@ -26,6 +26,7 @@ import { UpdateMedicalInfoDto } from './dto/update-medical-info.dto';
 import { UpdateDevelopmentDto } from './dto/update-development.dto';
 import { UpdatePersonalityDto } from './dto/update-personality.dto';
 import { UpdateConsentsDto } from './dto/update-consents.dto';
+import { UpdateInfantSleepDto } from './dto/update-infant-sleep.dto';
 import { QueryChildrenDto } from './dto/query-children.dto';
 import { ChildParentInputDto } from './dto/child-parent-input.dto';
 import { UpdateChildParentDto } from './dto/update-child-parent.dto';
@@ -182,6 +183,18 @@ export class ChildrenController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.childrenService.updateConsents(id, dto, user.id, user.role);
+  }
+
+  // Infant sleep plan (Fase 2 · 2D, LIC 9227) — merge upsert. Age-gating
+  // (infant-only) is enforced in the UI; the endpoint itself stays generic.
+  @Patch('children/:id/infant-sleep')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  updateInfantSleep(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateInfantSleepDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.childrenService.updateInfantSleep(id, dto, user.id, user.role);
   }
 
   // ── Parent links (DIRECTOR own / SA) ────────────────────────────────────

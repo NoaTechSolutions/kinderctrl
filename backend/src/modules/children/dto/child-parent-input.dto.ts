@@ -31,6 +31,12 @@ export class ChildParentInputDto {
   @MaxLength(100)
   firstName?: string;
 
+  // Fase 2 (2D) — LIC 700 separates First / Middle / Last (optional).
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
   @ValidateIf((o: ChildParentInputDto) => !o.parentId)
   @IsString()
   @IsNotEmpty()

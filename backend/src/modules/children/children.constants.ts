@@ -67,3 +67,11 @@ export const CHILD_TOILET_HELP_LEVELS = [
   'IN_DIAPERS',
 ] as const;
 export type ChildToiletHelpLevel = (typeof CHILD_TOILET_HELP_LEVELS)[number];
+
+// Children Fase 2 (2D) — infant sleep plan (LIC 9227) whitelists. Free-text-
+// with-whitelist (no Prisma enum), same convention as contactType.
+export const CHILD_SLEEP_LOCATIONS = ['CRIB', 'PLAY_YARD', 'OTHER'] as const;
+export type ChildSleepLocation = (typeof CHILD_SLEEP_LOCATIONS)[number];
+
+export const CHILD_PACIFIER_USE = ['YES', 'NO', 'SOMETIMES'] as const;
+export type ChildPacifierUse = (typeof CHILD_PACIFIER_USE)[number];

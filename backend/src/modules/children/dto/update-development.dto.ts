@@ -85,16 +85,38 @@ export class UpdateDevelopmentDto {
   @MaxLength(1000)
   mealTimes?: string;
 
+  // Fase 2 (2D) — A5 gaps. sleepsWell is tri-state (null = unanswered).
+  @IsBoolean()
+  @IsOptional()
+  sleepsWell?: boolean;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  eatingProblems?: string;
+
   // ── TOILET / BAÑO ─────────────────────────────────────────────────────────
 
   @IsBoolean()
   @IsOptional()
   toiletTrained?: boolean;
 
+  // DEPRECATED (2D): split into bowel/urination words below. Kept so existing
+  // clients don't break; the new UI no longer sends it.
   @IsString()
   @IsOptional()
   @MaxLength(500)
   toiletWords?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  toiletWordBowel?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  toiletWordUrination?: string;
 
   @IsIn(CHILD_TOILET_HELP_LEVELS)
   @IsOptional()
@@ -104,4 +126,14 @@ export class UpdateDevelopmentDto {
   @IsOptional()
   @MaxLength(1000)
   toiletAccidents?: string;
+
+  // Fase 2 (2D) — A6 gaps. bowelMovementsRegular is tri-state (null = unanswered).
+  @IsBoolean()
+  @IsOptional()
+  bowelMovementsRegular?: boolean;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  bowelMovementTime?: string;
 }
