@@ -367,7 +367,12 @@ function DayView({
 
   return (
     <Card>
-      <CardContent className="pt-4 overflow-auto">
+      {/* Multi-staff DayView keeps its full column width (legible names/times)
+          and, below lg, becomes a horizontal scroll-snap track so the Director
+          slides smoothly between staff columns on tablet/mobile. scroll-pl-60
+          lands each snapped column just past the sticky hour gutter. Desktop
+          (lg+) keeps its original free scroll — snap disabled. */}
+      <CardContent className="pt-4 overflow-x-auto snap-x snap-mandatory scroll-pl-[60px] lg:snap-none">
         <div style={{ minWidth: `${60 + uniqueStaff.length * 140}px` }}>
           {/* Sticky header */}
           <div className="flex sticky top-0 z-10" style={{ background: 'var(--kc-bg)' }}>
@@ -407,7 +412,7 @@ function DayView({
               return (
                 <div
                   key={staff.id}
-                  className="relative border-l"
+                  className="relative border-l snap-start"
                   style={{ borderColor: 'var(--kc-border)', flex: '1 1 0', minWidth: '140px' }}
                 >
                   {/* Hour grid lines */}
