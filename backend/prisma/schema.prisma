@@ -868,15 +868,9 @@ model ChildDevelopment {
 
   // ── TOILET / BAÑO.
   toiletTrained   Boolean @default(false) @map("toilet_trained")
-  // DEPRECATED (Fase 2 · 2D): the single "words" field was split into
-  // toiletWordBowel + toiletWordUrination (LIC 702 asks for both). Kept this
-  // release as legacy-nullable after the backfill (value copied into
-  // toiletWordUrination); no code reads/writes it any more.
-  // TODO (2D follow-up): once toiletWordBowel/toiletWordUrination are confirmed
-  // in use across real data, DROP `toilet_words` in an isolated migration — do
-  // NOT bundle it with other schema changes (same caution as the ChildStatus
-  // GRADUATED tail value).
-  toiletWords         String? @map("toilet_words")
+  // LIC 702 asks for both words. The legacy single `toilet_words` column was
+  // split into the two fields below in Fase 2 · 2D and dropped afterwards once
+  // the backfill (value copied into toiletWordUrination) was confirmed in use.
   toiletWordBowel     String? @map("toilet_word_bowel")
   toiletWordUrination String? @map("toilet_word_urination")
   // Level of help the child needs — free-text-with-whitelist (CHILD_TOILET_HELP_LEVELS),

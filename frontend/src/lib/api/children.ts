@@ -260,7 +260,6 @@ export interface DevelopmentPayload {
   sleepsWell?: boolean | null;
   eatingProblems?: string | null;
   toiletTrained?: boolean;
-  toiletWords?: string | null; // deprecated
   toiletWordBowel?: string | null;
   toiletWordUrination?: string | null;
   toiletHelpLevel?: string | null;

@@ -995,7 +995,6 @@ export const translations = {
       mealTimes: 'Meal times',
       // Toilet tab
       toiletTrained: 'Toilet trained',
-      toiletWords: 'Words the child uses',
       toiletHelpLevel: 'Help needed',
       toiletAccidents: 'Accidents (frequency / notes)',
       toiletHelpIndependent: 'Independent',
@@ -2116,7 +2115,6 @@ export const translations = {
       mealTimes: 'Horarios de comida',
       // Toilet tab
       toiletTrained: 'Dejó el pañal',
-      toiletWords: 'Palabras que usa',
       toiletHelpLevel: 'Ayuda que necesita',
       toiletAccidents: 'Accidentes (frecuencia / notas)',
       toiletHelpIndependent: 'Independiente',

@@ -131,7 +131,6 @@ export interface ChildDevelopment {
   eatingProblems: string | null;
   // Toilet.
   toiletTrained: boolean;
-  toiletWords: string | null; // deprecated (2D split below)
   toiletWordBowel: string | null;
   toiletWordUrination: string | null;
   toiletHelpLevel: ChildToiletHelpLevel | null;

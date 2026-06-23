@@ -413,7 +413,6 @@ export class ChildrenService {
       eatingProblems: dto.eatingProblems,
       // Toilet.
       toiletTrained: dto.toiletTrained,
-      toiletWords: dto.toiletWords,
       toiletWordBowel: dto.toiletWordBowel,
       toiletWordUrination: dto.toiletWordUrination,
       toiletHelpLevel: dto.toiletHelpLevel,

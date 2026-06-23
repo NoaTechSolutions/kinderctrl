@@ -101,13 +101,6 @@ export class UpdateDevelopmentDto {
   @IsOptional()
   toiletTrained?: boolean;
 
-  // DEPRECATED (2D): split into bowel/urination words below. Kept so existing
-  // clients don't break; the new UI no longer sends it.
-  @IsString()
-  @IsOptional()
-  @MaxLength(500)
-  toiletWords?: string;
-
   @IsString()
   @IsOptional()
   @MaxLength(500)

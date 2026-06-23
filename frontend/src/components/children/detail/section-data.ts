@@ -433,10 +433,8 @@ export function seedToilet(child: Child): ToiletState {
   const dev = child.development ?? null;
   return {
     toiletTrained: dev?.toiletTrained ?? false,
-    // Prefer the new split fields; fall back to the legacy single field for
-    // rows that predate the 2D backfill (lands in urination, the generic word).
     toiletWordBowel: dev?.toiletWordBowel ?? '',
-    toiletWordUrination: dev?.toiletWordUrination ?? dev?.toiletWords ?? '',
+    toiletWordUrination: dev?.toiletWordUrination ?? '',
     toiletHelpLevel: dev?.toiletHelpLevel ?? '',
     toiletAccidents: dev?.toiletAccidents ?? '',
     bowelMovementsRegular: dev?.bowelMovementsRegular ?? null,
