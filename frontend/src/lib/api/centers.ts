@@ -3,6 +3,7 @@ import type {
   Center,
   CenterHours,
   CentersQuery,
+  CenterStatus,
   PaginatedCenters,
 } from '@/lib/types/center';
 import type {
@@ -19,9 +20,20 @@ export interface GeofencePatch {
   geoFenceRadiusMeters?: number;
 }
 
+// Status-only patch — used by the admin actions menu (activate / suspend /
+// close). The backend UpdateCenterDto accepts `status` on PATCH /centers/:id;
+// kept off the Zod centerUpdateSchema (which drives the edit form), same
+// reasoning as GeofencePatch above.
+export interface CenterStatusPatch {
+  status?: CenterStatus;
+}
+
 // Full patch payload — the edit form uses CenterUpdateData, the Settings
-// tab uses GeofencePatch. Any extra keys flow through to the PATCH body.
-export type CenterPatchPayload = CenterUpdateData & GeofencePatch;
+// tab uses GeofencePatch, the admin menu uses CenterStatusPatch. Any extra
+// keys flow through to the PATCH body.
+export type CenterPatchPayload = CenterUpdateData &
+  GeofencePatch &
+  CenterStatusPatch;
 
 export function getCenters(query: CentersQuery = {}) {
   const params = new URLSearchParams();

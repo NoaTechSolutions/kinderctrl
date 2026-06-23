@@ -271,7 +271,7 @@ export function WeeklyBreakdownCard({
                 <Tooltip
                   contentStyle={{ background: 'var(--kc-surface)', border: '1px solid var(--kc-border)', borderRadius: 'var(--kc-r-2)', fontSize: 13 }}
                   labelStyle={{ color: 'var(--kc-text-1)', fontWeight: 600 }}
-                  formatter={(value: number, name: string) => [fmtHours(value), name === 'regularHours' ? 'Regular' : 'Overtime']}
+                  formatter={(value, name) => [fmtHours(Number(value)), name === 'regularHours' ? 'Regular' : 'Overtime']}
                 />
                 <Legend formatter={(value) => <span style={{ fontSize: 12, color: 'var(--kc-text-2)' }}>{value === 'regularHours' ? 'Regular' : 'Overtime'}</span>} />
                 <Bar dataKey="regularHours" stackId="hours" fill="var(--kc-p-500)" radius={[0, 0, 0, 0]} />

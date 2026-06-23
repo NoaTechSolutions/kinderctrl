@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronDown, Loader2, Mail } from 'lucide-react';
 import { toast } from '@/lib/toast';
@@ -80,7 +80,10 @@ export function StaffInvitationForm({
   const mutation = useInviteStaff();
 
   const form = useForm<InviteStaffFormData>({
-    resolver: zodResolver(inviteStaffSchema),
+    // Same zod v4 + resolvers v5 input/output mismatch as staff-form: the
+    // prefill.hourlyRate z.preprocess makes the resolver INPUT `unknown`.
+    // Cast to the output-typed Resolver — types only, no behavior change.
+    resolver: zodResolver(inviteStaffSchema) as Resolver<InviteStaffFormData>,
     defaultValues: {
       email: '',
       // lockedCenterId pre-seeds the field so the hidden picker still

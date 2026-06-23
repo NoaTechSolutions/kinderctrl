@@ -354,8 +354,8 @@ function WeeklyHoursChart({ month, centerId }: { month: string; centerId?: strin
                 fontSize: 13,
               }}
               labelStyle={{ color: 'var(--kc-text-1)', fontWeight: 600 }}
-              formatter={(value: number, name: string) => [
-                fmtHours(value),
+              formatter={(value, name) => [
+                fmtHours(Number(value)),
                 name === 'regularHours' ? 'Regular' : 'Overtime',
               ]}
             />
@@ -434,7 +434,7 @@ function MonthlyCostChart({ centerId }: { centerId?: string }) {
                 fontSize: 13,
               }}
               labelStyle={{ color: 'var(--kc-text-1)', fontWeight: 600 }}
-              formatter={(value: number) => [fmtCurrency(value), 'Total Cost']}
+              formatter={(value) => [fmtCurrency(Number(value)), 'Total Cost']}
             />
             <Line
               type="monotone"

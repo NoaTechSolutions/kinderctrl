@@ -3,14 +3,14 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export interface FilterTab<T extends string> {
+export interface FilterTab<T extends string | number> {
   value: T;
   // ReactNode (not just string) so callers can pass responsive labels, e.g.
   // a short span on mobile + the full label on sm: up.
   label: ReactNode;
 }
 
-interface FilterTabsProps<T extends string> {
+interface FilterTabsProps<T extends string | number> {
   tabs: ReadonlyArray<FilterTab<T>>;
   value: T;
   onChange: (value: T) => void;
@@ -23,7 +23,7 @@ interface FilterTabsProps<T extends string> {
  * scratch (no Radix dep) because the design here is intentionally simpler
  * than @radix-ui/react-tabs' panel/trigger model.
  */
-export function FilterTabs<T extends string>({
+export function FilterTabs<T extends string | number>({
   tabs,
   value,
   onChange,

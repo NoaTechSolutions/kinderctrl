@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import {
@@ -231,7 +231,11 @@ export function StaffForm({
   const router = useRouter();
 
   const form = useForm<StaffFormData>({
-    resolver: zodResolver(staffCreateSchema),
+    // zod v4 + @hookform/resolvers v5 infer the schema INPUT type for the
+    // resolver, and hourlyRate's z.preprocess makes that input `unknown`
+    // (≠ the number output). Cast to the output-typed Resolver — the form
+    // works on StaffFormData (output) everywhere; types only, no behavior change.
+    resolver: zodResolver(staffCreateSchema) as Resolver<StaffFormData>,
     defaultValues: {
       ...toFormDefaults(initialData),
       // lockedCenterId overrides any value from initialData — the dialog

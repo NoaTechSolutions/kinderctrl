@@ -37,7 +37,7 @@ const hourlyRateField = z
       return v;
     },
     z
-      .number({ invalid_type_error: 'Must be a number' })
+      .number({ error: 'Must be a number' })
       .positive('Must be greater than 0')
       .max(999.99, 'Maximum is 999.99'),
   )
@@ -209,7 +209,7 @@ export const invitePrefillSchema = z.object({
         return v;
       },
       z
-        .number({ invalid_type_error: 'Must be a number' })
+        .number({ error: 'Must be a number' })
         .positive('Must be greater than 0')
         .max(999.99, 'Maximum is 999.99'),
     )
