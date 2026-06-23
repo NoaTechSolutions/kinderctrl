@@ -114,7 +114,11 @@ export function useNavEntries(): SidebarEntry[] {
 
   // Role-aware Centers menu entry.
   const centerItem: NavItem | null =
-    (user?.role === 'STAFF' || user?.role === 'PARENT') && user.centerId
+    // PARENT can't open a center detail (canViewDetail excludes them), so the
+    // link would be dead — hide the Centers entry for PARENT entirely.
+    user?.role === 'PARENT'
+      ? null
+      : user?.role === 'STAFF' && user.centerId
       ? {
           title: t('centers.titleSingular'),
           href: `/centers/${user.centerId}`,
