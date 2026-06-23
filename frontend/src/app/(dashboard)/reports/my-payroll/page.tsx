@@ -197,6 +197,84 @@ function MyWeeklyBreakdown() {
   );
 }
 
+// ============================================ DayCard (mobile + tablet)
+//
+// Below lg the 8-column table overflows horizontally (needs ~1200px). One
+// card per day stacks the punches + hours + status so phones and tablets
+// (720–976px) read top-down with no horizontal scroll. The table returns
+// only at lg+ (desktop), which is never touched.
+
+function DayCard({ day }: { day: DayCalc }) {
+  const punches = [
+    ['Clock In', day.clockIn],
+    ['Clock Out', day.clockOut],
+    ['Break In', day.breakIn],
+    ['Break Out', day.breakOut],
+  ] as const;
+  return (
+    <div
+      className="rounded-lg border p-4 space-y-3"
+      style={{ background: 'var(--kc-surface)', borderColor: 'var(--kc-border)' }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium tabular-nums" style={{ color: 'var(--kc-text-1)' }}>
+          {new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <ApprovalBadge status={day.approvalStatus} />
+          {day.adjusted && (
+            <Badge
+              style={{
+                background: 'color-mix(in oklch, var(--kc-warning), transparent 75%)',
+                color: 'var(--kc-warning)',
+              }}
+            >
+              Edited
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        {punches.map(([label, val]) => (
+          <div key={label} className="flex flex-col">
+            <span
+              className="text-[10px] font-medium uppercase tracking-wide"
+              style={{ color: 'var(--kc-text-3)' }}
+            >
+              {label}
+            </span>
+            <span className="text-sm tabular-nums" style={{ color: 'var(--kc-text-2)' }}>
+              {fmtTime(val)}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="flex items-center gap-5 border-t pt-2 text-sm"
+        style={{ borderColor: 'var(--kc-border)' }}
+      >
+        <span className="tabular-nums" style={{ color: 'var(--kc-text-2)' }}>
+          <span className="text-xs" style={{ color: 'var(--kc-text-3)' }}>Regular </span>
+          {fmtHours(day.regularHours)}
+        </span>
+        <span
+          className="tabular-nums"
+          style={{ color: day.overtimeHours > 0 ? 'var(--kc-warning)' : 'var(--kc-text-3)' }}
+        >
+          <span className="text-xs" style={{ color: 'var(--kc-text-3)' }}>OT </span>
+          {fmtHours(day.overtimeHours)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ============================================ DaysTable
 
 function DaysTable({ days }: { days: DayCalc[] }) {
@@ -209,9 +287,18 @@ function DaysTable({ days }: { days: DayCalc[] }) {
   }
 
   return (
-    <div
-      className="rounded-lg border overflow-x-auto [&_th:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:first-child]:pl-4 [&_td:last-child]:pr-4"
-      style={{ background: 'var(--kc-surface)', borderColor: 'var(--kc-border)' }}
+    <>
+      {/* Card list below lg — phones & tablets, no horizontal scroll */}
+      <div className="space-y-3 lg:hidden">
+        {days.map((day) => (
+          <DayCard key={day.date} day={day} />
+        ))}
+      </div>
+
+      {/* Full 8-column table at lg+ (desktop) — unchanged */}
+      <div
+        className="hidden rounded-lg border overflow-x-auto [&_th:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:first-child]:pl-4 [&_td:last-child]:pr-4 lg:block"
+        style={{ background: 'var(--kc-surface)', borderColor: 'var(--kc-border)' }}
     >
       <Table>
         <TableHeader>
@@ -276,7 +363,8 @@ function DaysTable({ days }: { days: DayCalc[] }) {
           ))}
         </TableBody>
       </Table>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -285,7 +373,7 @@ function DaysTable({ days }: { days: DayCalc[] }) {
 function PageSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-lg" />
         ))}
@@ -381,7 +469,7 @@ export default function MyPayrollPage() {
             </div>
           </div>
 
-          <div className="hidden gap-3 sm:grid sm:grid-cols-3">
+          <div className="hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-3">
             <StatCard
               icon={Clock}
               label="Hours This Month"

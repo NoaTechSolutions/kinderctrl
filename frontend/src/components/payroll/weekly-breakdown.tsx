@@ -261,7 +261,7 @@ export function WeeklyBreakdownCard({
       {isLoading ? (
         <Skeleton className="h-[220px] w-full rounded" />
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] lg:items-center">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[3fr_2fr] md:items-center">
           <div className="min-w-0">
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={buckets} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -300,7 +300,7 @@ export function WeeklyBreakdownCard({
               </div>
             </div>
           </div>
-          <div className="space-y-6 pt-4 lg:max-h-[440px] lg:overflow-y-auto lg:px-1">
+          <div className="space-y-6 pt-4 md:max-h-[440px] md:overflow-y-auto md:px-1">
             {buckets.map((b, i) => (
               <WeekSummaryCard key={b.weekKey} index={i} bucket={b} rate={rate} otRate={otRate} />
             ))}
