@@ -231,7 +231,7 @@ export default function CentersPage() {
             tabs={statusTabs}
             value={status}
             onChange={(s) => setSearchParam({ status: s })}
-            ariaLabel="Filter centers by status"
+            ariaLabel={t('centers.filterAria')}
           />
         </div>
       )}
@@ -247,15 +247,15 @@ export default function CentersPage() {
           <SearchInput
             value={query}
             onChange={onSearchChange}
-            placeholder="Search by name, city, or state…"
-            ariaLabel="Search centers"
+            placeholder={t('centers.searchPlaceholder')}
+            ariaLabel={t('centers.searchAria')}
             className="flex-1"
           />
           <FilterDropdown
             options={statusTabs}
             value={status}
             onChange={(s) => setSearchParam({ status: s })}
-            ariaLabel="Filter centers by status"
+            ariaLabel={t('centers.filterAria')}
           />
         </div>
       ) : null}
@@ -266,7 +266,7 @@ export default function CentersPage() {
             options={statusTabs}
             value={status}
             onChange={(s) => setSearchParam({ status: s })}
-            ariaLabel="Filter centers by status"
+            ariaLabel={t('centers.filterAria')}
           />
         </div>
       )}
@@ -278,8 +278,8 @@ export default function CentersPage() {
           <SearchInput
             value={query}
             onChange={onSearchChange}
-            placeholder="Search by name, city, or state…"
-            ariaLabel="Search centers"
+            placeholder={t('centers.searchPlaceholder')}
+            ariaLabel={t('centers.searchAria')}
           />
         </div>
       ) : null}
@@ -308,20 +308,20 @@ export default function CentersPage() {
         >
           <p className="text-sm">
             {hasSearch && filterActive
-              ? `No centers match "${debouncedQuery}" with the selected status.`
+              ? t('centers.noMatchSearchStatus').replace('{query}', debouncedQuery)
               : hasSearch
-                ? `No centers match "${debouncedQuery}".`
-                : 'No centers match the selected status.'}
+                ? t('centers.noMatchSearch').replace('{query}', debouncedQuery)
+                : t('centers.noMatchStatus')}
           </p>
           <div className="flex gap-2 justify-center">
             {hasSearch && (
               <Button variant="outline" size="sm" onClick={() => setQuery('')}>
-                Clear search
+                {t('centers.clearSearch')}
               </Button>
             )}
             {filterActive && (
               <Button variant="outline" size="sm" onClick={() => setSearchParam({ status: 'ALL' })}>
-                Clear filter
+                {t('centers.clearFilter')}
               </Button>
             )}
           </div>

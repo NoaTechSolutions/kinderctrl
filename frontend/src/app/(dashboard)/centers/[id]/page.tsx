@@ -680,7 +680,7 @@ function PayrollSettingsCard({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
                 Daily OT After (h)
@@ -878,7 +878,7 @@ function KioskSettingsCard({
                 <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
                   Inactivity Timeout
                 </label>
-                <div className="flex gap-1.5 mt-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mt-1.5">
                   {TIMEOUT_OPTIONS.map((t) => (
                     <button
                       key={t}
@@ -981,7 +981,7 @@ function GeofenceCard({
           validate staff clock-ins.
         </p>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
               Latitude

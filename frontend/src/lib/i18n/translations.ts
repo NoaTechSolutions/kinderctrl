@@ -175,6 +175,16 @@ export const translations = {
       statusActive: 'Active',
       statusSuspended: 'Susp.',
       statusClosed: 'Closed',
+
+      // Page-level search / filter / empty states (were hardcoded EN).
+      searchPlaceholder: 'Search by name, city, or state…',
+      searchAria: 'Search centers',
+      filterAria: 'Filter centers by status',
+      noMatchSearchStatus: 'No centers match "{query}" with the selected status.',
+      noMatchSearch: 'No centers match "{query}".',
+      noMatchStatus: 'No centers match the selected status.',
+      clearSearch: 'Clear search',
+      clearFilter: 'Clear filter',
     },
 
     // Staff (nested namespace, accessed via t('staff.title') etc.)
@@ -1299,6 +1309,15 @@ export const translations = {
     centers: {
       title: 'Centros',
       titleSingular: 'Centro',
+      // Búsqueda / filtro / estados vacíos a nivel de página.
+      searchPlaceholder: 'Buscar por nombre, ciudad o estado…',
+      searchAria: 'Buscar centros',
+      filterAria: 'Filtrar centros por estado',
+      noMatchSearchStatus: 'Ningún centro coincide con "{query}" con el estado seleccionado.',
+      noMatchSearch: 'Ningún centro coincide con "{query}".',
+      noMatchStatus: 'Ningún centro coincide con el estado seleccionado.',
+      clearSearch: 'Limpiar búsqueda',
+      clearFilter: 'Limpiar filtro',
       create: 'Crear centro',
       edit: 'Editar centro',
       delete: 'Cerrar centro',
