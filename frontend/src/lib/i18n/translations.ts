@@ -1155,6 +1155,30 @@ export const translations = {
       errEmailRequired: 'a valid email is required.',
     },
 
+    // Attendance module (staff-facing). Created for the My Corrections
+    // mobile pass; extend with sibling attendance views as they're localized.
+    attendance: {
+      myCorrections: {
+        title: 'My Corrections',
+        empty: 'No corrections submitted',
+        original: 'Original',
+        requested: 'Requested',
+        you: 'You:',
+        director: 'Director:',
+        fields: {
+          clockIn: 'Clock In',
+          breakIn: 'Break In',
+          breakOut: 'Break Out',
+          clockOut: 'Clock Out',
+        },
+        status: {
+          PENDING: 'Pending',
+          APPROVED: 'Approved',
+          REJECTED: 'Rejected',
+        },
+      },
+    },
+
     // v9 — sidebar collapse affordance copy
     sidebar: {
       expand: 'Expand sidebar',
@@ -2273,6 +2297,30 @@ export const translations = {
       errPickExisting: 'elegí un padre existente.',
       errFullNameRequired: 'el nombre completo (nombre y apellido) es obligatorio.',
       errEmailRequired: 'se requiere un email válido.',
+    },
+
+    // Módulo de asistencia (vista del staff). Creado en la pasada mobile de
+    // Mis correcciones; extender con las vistas hermanas al localizarlas.
+    attendance: {
+      myCorrections: {
+        title: 'Mis correcciones',
+        empty: 'No enviaste correcciones',
+        original: 'Original',
+        requested: 'Solicitado',
+        you: 'Vos:',
+        director: 'Director:',
+        fields: {
+          clockIn: 'Entrada',
+          breakIn: 'Inicio de descanso',
+          breakOut: 'Fin de descanso',
+          clockOut: 'Salida',
+        },
+        status: {
+          PENDING: 'Pendiente',
+          APPROVED: 'Aprobada',
+          REJECTED: 'Rechazada',
+        },
+      },
     },
 
     // v9 — affordance del sidebar colapsable
