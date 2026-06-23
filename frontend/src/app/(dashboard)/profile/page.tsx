@@ -67,19 +67,19 @@ export default function ProfilePage() {
               source order: Personal → Emergency → Security. On desktop the
               right column reads as "secondary" (security) next to the primary
               identity stack on the left. */}
-          <div className="grid gap-6 lg:grid-cols-12">
+          <div className="grid gap-6 md:grid-cols-12">
             {/* min-w-0 on the grid columns: grid items default to min-width:auto,
                 which would let a wide child (long email row) force the track past
                 the viewport. min-w-0 lets the column shrink so the truncates inside
                 actually take effect. */}
-            <div className="min-w-0 space-y-6 lg:col-span-7">
+            <div className="min-w-0 space-y-6 md:col-span-7">
               <PersonalInfoSection profile={profile} />
               {!isSuperAdmin && (
                 <EmergencyContactSection profile={profile} />
               )}
             </div>
 
-            <div className="min-w-0 space-y-6 lg:col-span-5">
+            <div className="min-w-0 space-y-6 md:col-span-5">
               <SecuritySection />
             </div>
           </div>

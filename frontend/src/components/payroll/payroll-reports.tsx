@@ -248,7 +248,7 @@ function SummaryCards({ month, centerId }: { month: string; centerId?: string })
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-lg" />
         ))}
@@ -258,7 +258,7 @@ function SummaryCards({ month, centerId }: { month: string; centerId?: string })
 
   if (!summary) {
     return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="pt-4">
@@ -275,7 +275,7 @@ function SummaryCards({ month, centerId }: { month: string; centerId?: string })
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       <StatCard
         icon={Clock}
         label="Regular Hours"
@@ -1662,13 +1662,13 @@ function IndividualTabContent({
         <>
           {/* 4 stat cards */}
           {staffLoading ? (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-24 w-full rounded-lg" />
               ))}
             </div>
           ) : staffData ? (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <StatCard
                 icon={CalendarDays}
                 label="Scheduled"

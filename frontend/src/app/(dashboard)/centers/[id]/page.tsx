@@ -257,13 +257,13 @@ function OverviewTab({
         <>
           {/* 4 stats */}
           {isLoading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-24 w-full rounded-lg" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatTile icon={Users} label="Active Staff" value={String(stats?.counts.staff ?? 0)} />
               <StatTile icon={Baby} label="Active Children" value={String(stats?.counts.children ?? 0)} />
               <StatTile icon={CalendarDays} label="Schedules" value={String(stats?.counts.schedules ?? 0)} />
@@ -282,11 +282,11 @@ function OverviewTab({
       )}
 
       {/* Info + Hours grid (same as before) */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3">
         <CardWithHeader
           icon={Building2}
           title="Center Information"
-          className="lg:col-span-2"
+          className="md:col-span-2"
           action={
             // Admin center is system-managed — hide the edit action entirely.
             canManage && !center.isAdminCenter ? (
