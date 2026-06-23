@@ -13,7 +13,7 @@ export function SuperAdminOverview() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-lg" />
         ))}
@@ -22,7 +22,7 @@ export function SuperAdminOverview() {
   }
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <StatTile icon={Building2} label="Centers" value={String(data?.counts.centers ?? 0)} />
       <StatTile icon={Users} label="Active Staff" value={String(data?.counts.staff ?? 0)} />
       <StatTile icon={Baby} label="Active Children" value={String(data?.counts.children ?? 0)} />
