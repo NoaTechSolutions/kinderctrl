@@ -71,6 +71,113 @@ const CHILD_DETAIL_INCLUDE = {
   },
 } satisfies Prisma.ChildInclude;
 
+// The roster/list shape — deliberately LEANER than CHILD_DETAIL_INCLUDE. The
+// list (Director/SA roster + Parent's own children) only needs what the child
+// card renders: identity, the primary parent, an allergy/medication summary,
+// whether an infant-sleep plan exists, and the center timezone (used to resolve
+// "today" for attendance, then stripped from the response). The full satellites
+// (contacts, development, personality, consents, every parent address field)
+// stay behind GET /children/:id. It's a `select` (not an `include`) precisely
+// so we can trim the Child's own scalar columns too — an `include` returns
+// every scalar, which is the over-fetch we're removing here.
+const CHILD_LIST_SELECT = {
+  id: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  dateOfBirth: true,
+  photoUrl: true,
+  enrollmentStatus: true,
+  // Internal — drives the per-center "today" for attendanceToday. Mapped out of
+  // the DTO in toListItem (never reaches the client).
+  center: { select: { timezone: true } },
+  // Primary parent only: isPrimary first, then take the top one (matches the
+  // frontend's sortedParents()[0]). The card shows a single contact line.
+  childParents: {
+    orderBy: { isPrimary: 'desc' as const },
+    take: 1,
+    select: {
+      relationship: true,
+      parent: { select: { firstName: true, lastName: true, homePhone: true } },
+    },
+  },
+  // Just the two badge inputs, not the whole medical record.
+  medicalInfo: { select: { allergies: true, medications: true } },
+  // Presence-only — the card shows a badge, never the plan's contents.
+  infantSleep: { select: { id: true } },
+} satisfies Prisma.ChildSelect;
+
+type ChildListRow = Prisma.ChildGetPayload<{ select: typeof CHILD_LIST_SELECT }>;
+
+// Today's attendance status, derived. PRESENT/END_OF_SHIFT come from a real
+// Attendance row; with no row we proxy off enrollmentStatus (decision: children
+// have no schedule model yet — ACTIVE means "expected today", everything else
+// means "not attending today"). EARLY_DEPARTURE is part of the contract for the
+// future children-attendance module but is never emitted by this proxy.
+export type ChildAttendanceStatus =
+  | 'PRESENT'
+  | 'END_OF_SHIFT'
+  | 'NOT_ARRIVED'
+  | 'NOT_SCHEDULED'
+  | 'EARLY_DEPARTURE';
+
+export interface ChildAttendanceToday {
+  status: ChildAttendanceStatus;
+  checkInTime?: string;
+  checkOutTime?: string;
+}
+
+// The card DTO returned by the list endpoints (findAll / findMine). Exported so
+// the controller's inferred return type can name it (TS4053).
+export interface ChildListItem {
+  id: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  dateOfBirth: Date;
+  photoUrl: string | null;
+  enrollmentStatus: ChildStatus;
+  primaryParent: {
+    name: string;
+    relationship: string;
+    phone: string | null;
+  } | null;
+  medicalSummary: { allergies: string[]; medications: unknown[] };
+  hasInfantSleepPlan: boolean;
+  attendanceToday: ChildAttendanceToday;
+}
+
+type AttendanceRow = Pick<
+  Prisma.AttendanceGetPayload<true>,
+  'status' | 'checkInTime' | 'checkOutTime'
+>;
+
+function mapAttendanceToday(
+  att: AttendanceRow | undefined,
+  enrollmentStatus: ChildStatus,
+): ChildAttendanceToday {
+  if (att) {
+    return {
+      status: att.status === 'CHECKED_OUT' ? 'END_OF_SHIFT' : 'PRESENT',
+      checkInTime: att.checkInTime.toISOString(),
+      checkOutTime: att.checkOutTime?.toISOString(),
+    };
+  }
+  // No record today → proxy off enrollment (no child schedule model yet).
+  return {
+    status: enrollmentStatus === ChildStatus.ACTIVE ? 'NOT_ARRIVED' : 'NOT_SCHEDULED',
+  };
+}
+
+// Calendar day (UTC-midnight Date, matching Prisma @db.Date) for a timezone.
+// Mirrors the kiosk/staff-attendance convention — kept local since the codebase
+// has no shared date util yet (existing copies live in kiosk.service.ts and
+// staff-attendance.service.ts; dedup is pre-existing tech debt).
+function dateInTimezone(date: Date, timezone: string): Date {
+  const dateStr = date.toLocaleDateString('en-CA', { timeZone: timezone });
+  return new Date(dateStr + 'T00:00:00.000Z');
+}
+
 @Injectable()
 export class ChildrenService {
   constructor(
@@ -201,11 +308,48 @@ export class ChildrenService {
       where.classroomChildren = { some: { classroomId: query.classroomId } };
     }
 
-    return this.prisma.child.findMany({
+    const children = await this.prisma.child.findMany({
       where,
-      include: CHILD_DETAIL_INCLUDE,
+      select: CHILD_LIST_SELECT,
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
     });
+    return this.toListItems(children);
+  }
+
+  /**
+   * GET /centers/:centerId/parents — distinct parents across a center's
+   * children. Powers the "link an existing parent" picker (create wizard +
+   * Parents tab). Replaces the old hack of harvesting childParents off every
+   * roster row, which the lean CHILD_LIST_SELECT no longer carries.
+   */
+  async listCenterParents(
+    centerId: string,
+    userId: string,
+    userRole: UserRole,
+  ): Promise<{ id: string; name: string; email: string }[]> {
+    await this.assertCanManageCenter(centerId, userId, userRole);
+
+    const links = await this.prisma.childParent.findMany({
+      where: { child: { centerId } },
+      select: {
+        parent: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+      orderBy: { parent: { firstName: 'asc' } },
+    });
+
+    const byId = new Map<string, { id: string; name: string; email: string }>();
+    for (const { parent } of links) {
+      if (!byId.has(parent.id)) {
+        byId.set(parent.id, {
+          id: parent.id,
+          name: `${parent.firstName} ${parent.lastName}`.trim(),
+          email: parent.email,
+        });
+      }
+    }
+    return [...byId.values()];
   }
 
   /**
@@ -220,13 +364,95 @@ export class ChildrenService {
     });
     if (!user?.parentId) return [];
 
-    return this.prisma.child.findMany({
+    const children = await this.prisma.child.findMany({
       where: {
         childParents: { some: { parentId: user.parentId } },
       },
-      include: CHILD_DETAIL_INCLUDE,
+      select: CHILD_LIST_SELECT,
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
     });
+    return this.toListItems(children);
+  }
+
+  /**
+   * Shapes the lean list rows into the card DTO and attaches today's attendance.
+   * One extra query for the whole page: we fetch the Attendance rows for all
+   * listed children at their center's "today" (children may span timezones via
+   * findMine), then map each child to PRESENT/END_OF_SHIFT or the enrollment
+   * proxy. Done here (not as a filtered Prisma include) because "today" depends
+   * on each child's center timezone — a per-row value a single include can't
+   * express.
+   */
+  private async toListItems(children: ChildListRow[]): Promise<ChildListItem[]> {
+    const now = new Date();
+    const todayFor = (tz: string) => dateInTimezone(now, tz);
+
+    let byChild = new Map<string, AttendanceRow>();
+    if (children.length > 0) {
+      const distinctDates = [
+        ...new Map(
+          children.map((c) => {
+            const d = todayFor(c.center.timezone);
+            return [d.toISOString(), d];
+          }),
+        ).values(),
+      ];
+      const rows = await this.prisma.attendance.findMany({
+        where: {
+          childId: { in: children.map((c) => c.id) },
+          date: { in: distinctDates },
+        },
+        select: {
+          childId: true,
+          date: true,
+          status: true,
+          checkInTime: true,
+          checkOutTime: true,
+        },
+      });
+      // Key by childId + that row's date so a child only matches its OWN
+      // center-today (the @@unique([childId, date]) guarantees ≤1 per pair).
+      byChild = new Map(
+        rows.map((r) => [`${r.childId}|${r.date.toISOString()}`, r]),
+      );
+    }
+
+    return children.map((c) => {
+      const key = `${c.id}|${todayFor(c.center.timezone).toISOString()}`;
+      return this.toListItem(c, byChild.get(key));
+    });
+  }
+
+  private toListItem(
+    c: ChildListRow,
+    att: AttendanceRow | undefined,
+  ): ChildListItem {
+    const link = c.childParents[0];
+    const allergies = Array.isArray(c.medicalInfo?.allergies)
+      ? (c.medicalInfo.allergies as string[])
+      : [];
+    const medications = Array.isArray(c.medicalInfo?.medications)
+      ? (c.medicalInfo.medications as unknown[])
+      : [];
+    return {
+      id: c.id,
+      firstName: c.firstName,
+      middleName: c.middleName,
+      lastName: c.lastName,
+      dateOfBirth: c.dateOfBirth,
+      photoUrl: c.photoUrl,
+      enrollmentStatus: c.enrollmentStatus,
+      primaryParent: link
+        ? {
+            name: `${link.parent.firstName} ${link.parent.lastName}`.trim(),
+            relationship: link.relationship,
+            phone: link.parent.homePhone,
+          }
+        : null,
+      medicalSummary: { allergies, medications },
+      hasInfantSleepPlan: !!c.infantSleep,
+      attendanceToday: mapAttendanceToday(att, c.enrollmentStatus),
+    };
   }
 
   /**

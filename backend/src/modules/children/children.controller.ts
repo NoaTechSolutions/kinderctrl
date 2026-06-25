@@ -97,6 +97,15 @@ export class ChildrenController {
     return this.childrenService.findAll(centerId, query, user.id, user.role);
   }
 
+  @Get('centers/:centerId/parents')
+  @Roles(UserRole.DIRECTOR, UserRole.SUPER_ADMIN)
+  listCenterParents(
+    @Param('centerId', ParseUUIDPipe) centerId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.childrenService.listCenterParents(centerId, user.id, user.role);
+  }
+
   // ── Parent self-service. Declared BEFORE `children/:id` so the literal
   //    `mine` path wins routing over the :id param. ───────────────────────
   @Get('children/mine')
