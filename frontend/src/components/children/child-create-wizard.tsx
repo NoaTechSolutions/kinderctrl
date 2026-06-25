@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  HeartPulse,
   Loader2,
   Pencil,
   Plus,
@@ -21,6 +20,7 @@ import { CardWithHeader } from '@/components/ui/card-with-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NameInput } from '@/components/ui/name-input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { SearchInput } from '@/components/ui/search-input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -53,26 +53,20 @@ import { useCenterParents, useCreateChild } from '@/lib/hooks/use-children';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
 import { useTranslation } from '@/lib/i18n';
 import { genderLabel, relationshipLabel } from '@/lib/format-child';
-import {
-  AddressFields,
-  EditableList,
-  Field,
-  emptyAddr,
-} from './child-form-fields';
+import { AddressFields, Field, emptyAddr } from './child-form-fields';
 import type { Addr } from './child-form-fields';
 import type {
   ChildParentPayload,
   CreateChildPayload,
-  MedicalInfoPayload,
 } from '@/lib/api/children';
 import { ApiError } from '@/lib/api/client';
 
 const STEP_TITLE_KEYS = [
   'children.stepChild',
   'children.stepParents',
-  'children.stepMedical',
   'children.stepReview',
 ];
+const STEP_COUNT = STEP_TITLE_KEYS.length;
 const MAX_PARENTS = 3;
 const GENDERS = [
   { value: 'MALE', labelKey: 'children.genderMale' },
@@ -92,7 +86,9 @@ const RELATIONSHIPS = [
 interface ParentDraft {
   mode: 'new' | 'existing';
   parentId: string;
-  fullName: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
   email: string;
   phone: string;
   relationship: string;
@@ -116,21 +112,15 @@ interface ChildForm {
   admissionDate: string;
   firstCareDay: string;
   parents: ParentDraft[];
-  doctorName: string;
-  doctorPhone: string;
-  doctorAddress: Addr;
-  allergies: string[];
-  medicationAllergies: string[];
-  medications: string[];
-  medicalPlan: string;
-  hasSpecialNeeds: boolean;
 }
 
 function newParent(isPrimary = false): ParentDraft {
   return {
     mode: 'new',
     parentId: '',
-    fullName: '',
+    firstName: '',
+    middleName: '',
+    lastName: '',
     email: '',
     phone: '',
     relationship: '',
@@ -156,14 +146,6 @@ function emptyForm(): ChildForm {
     admissionDate: '',
     firstCareDay: '',
     parents: [newParent(true)],
-    doctorName: '',
-    doctorPhone: '',
-    doctorAddress: emptyAddr(),
-    allergies: [],
-    medicationAllergies: [],
-    medications: [],
-    medicalPlan: '',
-    hasSpecialNeeds: false,
   };
 }
 
@@ -186,7 +168,9 @@ const workAddr = (a: Addr): Partial<ChildParentPayload> => ({
 function parentHasData(p: ParentDraft): boolean {
   const addrFilled = (a: Addr) => !!(a.street || a.city || a.state || a.zip);
   return !!(
-    p.fullName ||
+    p.firstName ||
+    p.middleName ||
+    p.lastName ||
     p.email ||
     p.phone ||
     p.relationship ||
@@ -211,14 +195,6 @@ function isFormDirty(f: ChildForm): boolean {
     addrFilled(f.address) ||
     f.admissionDate ||
     f.firstCareDay ||
-    f.doctorName ||
-    f.doctorPhone ||
-    addrFilled(f.doctorAddress) ||
-    f.allergies.length ||
-    f.medicationAllergies.length ||
-    f.medications.length ||
-    f.medicalPlan ||
-    f.hasSpecialNeeds ||
     f.parents.some(parentHasData)
   );
 }
@@ -302,9 +278,10 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
         if (p.mode === 'existing') {
           if (!p.parentId) errs.push(`${tag}: ${t('children.errPickExisting')}`);
         } else {
-          const parts = p.fullName.trim().split(/\s+/).filter(Boolean);
-          if (parts.length < 2) errs.push(`${tag}: ${t('children.errFullNameRequired')}`);
+          if (!p.firstName.trim()) errs.push(`${tag}: ${t('children.errFirstNameRequired')}`);
+          if (!p.lastName.trim()) errs.push(`${tag}: ${t('children.errLastNameRequired')}`);
           if (!EMAIL_RE.test(p.email.trim())) errs.push(`${tag}: ${t('children.errEmailRequired')}`);
+          if (!parsePhoneDigits(p.phone)) errs.push(`${tag}: ${t('children.errPhoneRequired')}`);
         }
       });
       if (form.parents.length > 0 && !form.parents.some((p) => p.isPrimary)) {
@@ -322,14 +299,14 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
       return;
     }
     setTouched(false);
-    setStep((s) => Math.min(4, s + 1));
+    setStep((s) => Math.min(STEP_COUNT, s + 1));
   };
   const prev = () => {
     setTouched(false);
     setStep((s) => Math.max(1, s - 1));
   };
 
-  const buildPayload = (): { payload: CreateChildPayload; medical: MedicalInfoPayload } => {
+  const buildPayload = (): CreateChildPayload => {
     const parents: ChildParentPayload[] = form.parents.map((p) => {
       const base: ChildParentPayload = {
         relationship: p.relationship,
@@ -341,13 +318,11 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
       const work = p.showWork
         ? { workPhone: phoneDigits(p.workPhone), workEmployer: undef(p.workEmployer), ...workAddr(p.work) }
         : {};
-      // Single "Full name" field → split into first / last for the backend
-      // (validated to have >= 2 words in stepErrors).
-      const nameParts = p.fullName.trim().split(/\s+/).filter(Boolean);
       return {
         ...base,
-        firstName: nameParts[0] ?? '',
-        lastName: nameParts.slice(1).join(' '),
+        firstName: p.firstName.trim(),
+        middleName: undef(p.middleName),
+        lastName: p.lastName.trim(),
         email: p.email.trim(),
         homePhone: phoneDigits(p.phone),
         ...home,
@@ -370,23 +345,9 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
       parents,
     };
 
-    const medical: MedicalInfoPayload = {
-      allergies: form.allergies,
-      medications: form.medications,
-      doctorName: undef(form.doctorName),
-      doctorPhone: phoneDigits(form.doctorPhone),
-      doctorAddress: undef(
-        [form.doctorAddress.street, form.doctorAddress.city, form.doctorAddress.state, form.doctorAddress.zip]
-          .filter(Boolean)
-          .join(' '),
-      ),
-      medicationAllergies: form.medicationAllergies.length
-        ? form.medicationAllergies.join(', ')
-        : undefined,
-      medicalPlan: undef(form.medicalPlan),
-      hasSpecialNeeds: form.hasSpecialNeeds,
-    };
-    return { payload, medical };
+    // Medical is no longer collected in the wizard — it's filled later from the
+    // edit form's Medical tab. The create endpoint makes an empty record.
+    return payload;
   };
 
   const submit = async () => {
@@ -395,9 +356,9 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
       toast.error(blocking[0]);
       return;
     }
-    const { payload, medical } = buildPayload();
+    const payload = buildPayload();
     try {
-      const child = await createMutation.mutateAsync({ centerId, payload, medical });
+      const child = await createMutation.mutateAsync({ centerId, payload });
       toast.success(t('children.toastCreated'));
       router.push(`/children/${child.id}`);
     } catch (err) {
@@ -422,8 +383,7 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
           errors={currentErrors}
         />
       )}
-      {step === 3 && <StepMedical form={form} set={set} />}
-      {step === 4 && <StepReview form={form} existingParents={existingParents} goToStep={goToStep} />}
+      {step === 3 && <StepReview form={form} existingParents={existingParents} goToStep={goToStep} />}
 
       <div className="flex items-center justify-between gap-2">
         {/* Cancel is a Link → the unsaved-changes hook intercepts it when the
@@ -436,7 +396,7 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
             <ChevronLeft className="mr-1.5 h-4 w-4" />
             {t('children.previous')}
           </Button>
-          {step < 4 ? (
+          {step < STEP_COUNT ? (
             <Button onClick={next}>
               {t('children.next')}
               <ChevronRight className="ml-1.5 h-4 w-4" />
@@ -517,7 +477,7 @@ function ProgressBar({ step }: { step: number }) {
         <span style={{ color: 'var(--kc-text-3)' }}>{t(STEP_TITLE_KEYS[step - 1])}</span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--kc-surface-2)' }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${(step / 4) * 100}%`, background: 'var(--kc-p-600)' }} />
+        <div className="h-full rounded-full transition-all" style={{ width: `${(step / STEP_COUNT) * 100}%`, background: 'var(--kc-p-600)' }} />
       </div>
     </div>
   );
@@ -542,6 +502,46 @@ function ErrorList({ errors, show }: { errors: string[]; show: boolean }) {
 }
 
 // ───────────────────────────────────────────── Step 1: Child
+
+// Wizard-only Step-1 address: Street (full row) + City / State / ZIP on ONE row
+// (3 cols on sm+, stacked on mobile). The shared AddressFields keeps the global
+// Street / City / State+ZIP layout untouched (parent home/work + edit form).
+function ChildStep1Address({
+  value,
+  onChange,
+}: {
+  value: Addr;
+  onChange: (field: keyof Addr, v: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-4">
+      <Field label={t('centers.street')}>
+        <Input
+          value={value.street}
+          onChange={(e) => onChange('street', e.target.value)}
+          placeholder="123 Main St"
+        />
+      </Field>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Field label={t('centers.city')}>
+          <NameInput value={value.city} onChange={(v) => onChange('city', v)} placeholder="San Francisco" />
+        </Field>
+        <Field label={t('centers.state')}>
+          <Input
+            value={value.state}
+            onChange={(e) => onChange('state', e.target.value.toUpperCase())}
+            maxLength={2}
+            placeholder="CA"
+          />
+        </Field>
+        <Field label={t('centers.zipCode')}>
+          <NumericInput value={value.zip} onChange={(v) => onChange('zip', v)} maxLength={5} placeholder="94102" />
+        </Field>
+      </div>
+    </div>
+  );
+}
 
 function StepChild({
   form,
@@ -595,7 +595,7 @@ function StepChild({
           <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
             {t('children.childsAddress')}
           </p>
-          <AddressFields value={form.address} onChange={(field, v) => set('address', { ...form.address, [field]: v })} />
+          <ChildStep1Address value={form.address} onChange={(field, v) => set('address', { ...form.address, [field]: v })} />
         </div>
 
         {/* The two care dates share one row (stacked on mobile). */}
@@ -756,18 +756,20 @@ function ParentCard({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t('children.fullName')} required className="sm:col-span-2">
-              <NameInput
-                value={parent.fullName}
-                onChange={(v) => onChange({ fullName: v })}
-                placeholder={t('children.fullNamePlaceholder')}
-              />
+            <Field label={t('children.firstName')} required>
+              <NameInput value={parent.firstName} onChange={(v) => onChange({ firstName: v })} />
             </Field>
-            <Field label={t('children.email')} required>
-              <Input type="email" value={parent.email} onChange={(e) => onChange({ email: e.target.value })} />
+            <Field label={t('children.middleName')}>
+              <NameInput value={parent.middleName} onChange={(v) => onChange({ middleName: v })} />
             </Field>
-            <Field label={t('children.phone')}>
+            <Field label={t('children.lastName')} required>
+              <NameInput value={parent.lastName} onChange={(v) => onChange({ lastName: v })} />
+            </Field>
+            <Field label={t('children.phone')} required>
               <PhoneInput value={parent.phone} onChange={(v) => onChange({ phone: v })} />
+            </Field>
+            <Field label={t('children.email')} required className="sm:col-span-2">
+              <Input type="email" value={parent.email} onChange={(e) => onChange({ email: e.target.value })} />
             </Field>
           </div>
           {/* Primary-contact toggle sits with the phone — it's the single
@@ -846,57 +848,10 @@ function ParentCard({
   );
 }
 
-// ───────────────────────────────────────────── Step 3: Medical
-
-function StepMedical({
-  form,
-  set,
-}: {
-  form: ChildForm;
-  set: <K extends keyof ChildForm>(k: K, v: ChildForm[K]) => void;
-}) {
-  const { t } = useTranslation();
-  const textareaCls = 'w-full min-h-[72px] rounded-md border px-3 py-2 text-sm';
-  const textareaStyle = { borderColor: 'var(--kc-border)', background: 'var(--kc-bg)', color: 'var(--kc-text-1)' } as const;
-  return (
-    <CardWithHeader title={t('children.medicalOptional')}>
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t('children.doctorName')}>
-            <NameInput value={form.doctorName} onChange={(v) => set('doctorName', v)} />
-          </Field>
-          <Field label={t('children.doctorPhone')}>
-            <PhoneInput value={form.doctorPhone} onChange={(v) => set('doctorPhone', v)} />
-          </Field>
-        </div>
-        <div className="rounded-lg p-4 space-y-4" style={{ background: 'var(--kc-surface-2)' }}>
-          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
-            {t('children.doctorAddress')}
-          </p>
-          <AddressFields value={form.doctorAddress} onChange={(field, v) => set('doctorAddress', { ...form.doctorAddress, [field]: v })} />
-        </div>
-
-        <EditableList label={t('children.allergies')} items={form.allergies} onChange={(v) => set('allergies', v)} placeholder={t('children.addAllergy')} />
-        <EditableList label={t('children.medicationAllergies')} items={form.medicationAllergies} onChange={(v) => set('medicationAllergies', v)} placeholder={t('children.addMedicationAllergy')} />
-        <EditableList label={t('children.medications')} items={form.medications} onChange={(v) => set('medications', v)} placeholder={t('children.addMedication')} />
-
-        <Field label={t('children.medicalPlan')}>
-          <textarea className={textareaCls} style={textareaStyle} value={form.medicalPlan} onChange={(e) => set('medicalPlan', e.target.value)} />
-        </Field>
-        <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--kc-text-2)' }}>
-          <Checkbox checked={form.hasSpecialNeeds} onCheckedChange={(c) => set('hasSpecialNeeds', c === true)} />
-          {t('children.hasSpecialNeeds')}
-        </label>
-      </div>
-    </CardWithHeader>
-  );
-}
-
-// ───────────────────────────────────────────── Step 4: Review
+// ───────────────────────────────────────────── Step 3: Review
 
 const dash = (v?: string | null) => (v && v.trim() ? v : '—');
 const addrStr = (a: Addr) => [a.street, a.city, a.state, a.zip].filter(Boolean).join(', ') || '—';
-const listOr = (items: string[]) => (items.length ? items.join(', ') : '—');
 
 // Full review — every field, filled OR empty (empty shows "—"), grouped into
 // Child / Parents / Medical sections so the user sees everything before saving.
@@ -930,7 +885,10 @@ function StepReview({
         <div className="space-y-4">
           {form.parents.map((p, i) => {
             const existing = p.mode === 'existing' ? existingParents.find((e) => e.id === p.parentId) : undefined;
-            const rawName = p.mode === 'existing' ? existing?.name ?? '' : p.fullName.trim();
+            const rawName =
+              p.mode === 'existing'
+                ? existing?.name ?? ''
+                : [p.firstName, p.middleName, p.lastName].filter(Boolean).join(' ').trim();
             return (
               <div key={i} className="rounded-lg border p-4" style={{ borderColor: 'var(--kc-border)' }}>
                 {/* Header = just the "Parent N" index + edit. Name is a labeled
@@ -968,19 +926,6 @@ function StepReview({
             );
           })}
         </div>
-      </CardWithHeader>
-
-      <CardWithHeader icon={HeartPulse} title={t('children.medical')} action={<EditButton label={t('children.editMedicalAria')} onClick={() => goToStep(3)} />}>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-          <ReviewRow label={t('children.doctorName')} value={dash(form.doctorName)} />
-          <ReviewRow label={t('children.doctorPhone')} value={dash(form.doctorPhone)} />
-          <ReviewRow label={t('children.doctorAddress')} value={addrStr(form.doctorAddress)} full />
-          <ReviewRow label={t('children.allergies')} value={listOr(form.allergies)} full />
-          <ReviewRow label={t('children.medicationAllergies')} value={listOr(form.medicationAllergies)} full />
-          <ReviewRow label={t('children.medications')} value={listOr(form.medications)} full />
-          <ReviewRow label={t('children.medicalPlan')} value={dash(form.medicalPlan)} full />
-          <ReviewRow label={t('children.specialNeeds')} value={form.hasSpecialNeeds ? t('children.yes') : t('children.no')} />
-        </dl>
       </CardWithHeader>
     </div>
   );

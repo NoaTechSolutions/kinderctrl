@@ -949,7 +949,7 @@ export const translations = {
       stepParents: 'Parents',
       stepMedical: 'Medical',
       stepReview: 'Review',
-      stepXofY: 'Step {n} of 4',
+      stepXofY: 'Step {n} of 3',
       // card / group titles
       childDetails: 'Child details',
       medicalOptional: 'Medical (optional)',
@@ -1218,6 +1218,7 @@ export const translations = {
       errPickExisting: 'pick an existing parent.',
       errFullNameRequired: 'full name (first and last) is required.',
       errEmailRequired: 'a valid email is required.',
+      errPhoneRequired: 'a phone number is required.',
     },
 
     // Attendance module (staff-facing). Created for the My Corrections
@@ -2157,7 +2158,7 @@ export const translations = {
       stepParents: 'Padres',
       stepMedical: 'Médico',
       stepReview: 'Revisión',
-      stepXofY: 'Paso {n} de 4',
+      stepXofY: 'Paso {n} de 3',
       // títulos de cards / grupos
       childDetails: 'Datos del niño',
       medicalOptional: 'Médico (opcional)',
@@ -2426,6 +2427,7 @@ export const translations = {
       errPickExisting: 'elegí un padre existente.',
       errFullNameRequired: 'el nombre completo (nombre y apellido) es obligatorio.',
       errEmailRequired: 'se requiere un email válido.',
+      errPhoneRequired: 'se requiere un número de teléfono.',
     },
 
     // Módulo de asistencia (vista del staff). Creado en la pasada mobile de
