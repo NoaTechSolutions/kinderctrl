@@ -49,7 +49,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { parsePhoneDigits } from '@/lib/utils/phone';
-import { useCenterChildren, useCreateChild } from '@/lib/hooks/use-children';
+import { useCenterParents, useCreateChild } from '@/lib/hooks/use-children';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
 import { useTranslation } from '@/lib/i18n';
 import { genderLabel, relationshipLabel } from '@/lib/format-child';
@@ -247,24 +247,9 @@ export function ChildCreateWizard({ centerId }: { centerId: string }) {
   // Today (local YYYY-MM-DD) — the latest valid / selectable birth date.
   const todayStr = new Date().toLocaleDateString('en-CA');
 
-  // Existing parents to link = unique parents already on this center's roster
-  // (no dedicated parent-search endpoint in Fase 1).
-  const { data: roster } = useCenterChildren(centerId);
-  const existingParents = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; email: string }>();
-    for (const child of roster ?? []) {
-      for (const link of child.childParents ?? []) {
-        if (!map.has(link.parent.id)) {
-          map.set(link.parent.id, {
-            id: link.parent.id,
-            name: `${link.parent.firstName} ${link.parent.lastName}`,
-            email: link.parent.email,
-          });
-        }
-      }
-    }
-    return [...map.values()];
-  }, [roster]);
+  // Existing parents to link = distinct parents already on this center
+  // (dedicated endpoint; replaces the old full-roster harvest).
+  const { data: existingParents = [] } = useCenterParents(centerId);
 
   const set = <K extends keyof ChildForm>(key: K, value: ChildForm[K]) =>
     setForm((f) => ({ ...f, [key]: value }));

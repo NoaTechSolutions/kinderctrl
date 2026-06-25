@@ -1,32 +1,42 @@
 import { apiRequest } from './client';
 import type {
+  CenterParentOption,
   Child,
   ChildContact,
   ChildContactType,
+  ChildListItem,
   ChildrenQuery,
   PastIllnesses,
 } from '@/lib/types/child';
 
 // Director/SA — a center's roster. Backend: GET /centers/:centerId/children.
-// Returns a plain array (no pagination in Fase 1).
+// Returns the lean ChildListItem[] (card shape), not the full Child detail.
 export function listCenterChildren(
   centerId: string,
   query: ChildrenQuery = {},
-): Promise<Child[]> {
+): Promise<ChildListItem[]> {
   const params = new URLSearchParams();
   if (query.search?.trim()) params.set('search', query.search.trim());
   if (query.enrollmentStatus?.length) {
     params.set('enrollmentStatus', query.enrollmentStatus.join(','));
   }
   const qs = params.toString();
-  return apiRequest<Child[]>(
+  return apiRequest<ChildListItem[]>(
     `/centers/${centerId}/children${qs ? `?${qs}` : ''}`,
   );
 }
 
 // Parent — only their own children. Backend: GET /children/mine.
-export function getMyChildren(): Promise<Child[]> {
-  return apiRequest<Child[]>('/children/mine');
+export function getMyChildren(): Promise<ChildListItem[]> {
+  return apiRequest<ChildListItem[]>('/children/mine');
+}
+
+// Director/SA — distinct parents of a center, for the "link existing parent"
+// picker. Backend: GET /centers/:centerId/parents.
+export function listCenterParents(
+  centerId: string,
+): Promise<CenterParentOption[]> {
+  return apiRequest<CenterParentOption[]>(`/centers/${centerId}/parents`);
 }
 
 // Single child detail (Director/SA/Parent-own). Backend: GET /children/:id.

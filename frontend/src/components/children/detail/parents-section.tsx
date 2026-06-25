@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n';
-import { useCenterChildren, useUpdateChildParents } from '@/lib/hooks/use-children';
+import { useCenterParents, useUpdateChildParents } from '@/lib/hooks/use-children';
 import { relationshipLabel, sortedParents } from '@/lib/format-child';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import type { ChildParentLink } from '@/lib/types/child';
@@ -59,24 +59,12 @@ export function ParentsSection({ child, canManage, onEditorChange }: SectionProp
   const [seq, setSeq] = useState(0);
   const [removeRow, setRemoveRow] = useState<ParentRow | null>(null);
 
-  // Existing roster parents NOT already on this child (for "link existing").
-  const { data: roster } = useCenterChildren(child.centerId);
+  // Center parents NOT already on this child (for "link existing").
+  const { data: centerParents = [] } = useCenterParents(child.centerId);
   const linkableParents = useMemo(() => {
     const onChild = new Set(state.rows.map((p) => p.parentId).filter(Boolean));
-    const map = new Map<string, { id: string; name: string; email: string }>();
-    for (const c of roster ?? []) {
-      for (const l of c.childParents ?? []) {
-        if (!onChild.has(l.parent.id) && !map.has(l.parent.id)) {
-          map.set(l.parent.id, {
-            id: l.parent.id,
-            name: `${l.parent.firstName} ${l.parent.lastName}`,
-            email: l.parent.email,
-          });
-        }
-      }
-    }
-    return [...map.values()];
-  }, [roster, state.rows]);
+    return centerParents.filter((p) => !onChild.has(p.id));
+  }, [centerParents, state.rows]);
 
   const setRow = (key: string, patch: Partial<ParentRow>) =>
     setState((s) => ({ ...s, rows: s.rows.map((p) => (p.rowKey === key ? { ...p, ...patch } : p)) }));

@@ -35,8 +35,44 @@ export function formatAge(birthIso: string, t?: Translator): string {
   return `${years}${y} ${rem}${m}`;
 }
 
-/** "First Middle Last" (middle omitted when absent). */
-export function childFullName(child: Child): string {
+/**
+ * Long age for the child card: "4 years old" / "1 year old" / "8 months old".
+ * Falls back to the year/month unit words via the translator (es: "años" / "año"
+ * / "meses" / "mes"). Under a year reads in months; from a year, in whole years.
+ */
+export function formatAgeLong(birthIso: string, t: Translator): string {
+  const months = ageInMonths(birthIso);
+  const years = Math.floor(months / 12);
+  if (years >= 1) {
+    return `${years} ${t(years === 1 ? 'children.ageYearOld' : 'children.ageYearsOld')}`;
+  }
+  return `${months} ${t(months === 1 ? 'children.ageMonthOld' : 'children.ageMonthsOld')}`;
+}
+
+/**
+ * "8:14 a.m." from an ISO timestamp. Rendered in the viewer's local timezone
+ * (the director and the center share one in practice); when the real children-
+ * attendance module lands we can anchor this to the center tz if needed.
+ */
+export function formatClockTime(iso: string): string {
+  const d = new Date(iso);
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const period = h < 12 ? 'a.m.' : 'p.m.';
+  h %= 12;
+  if (h === 0) h = 12;
+  return `${h}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+/**
+ * "First Middle Last" (middle omitted when absent). Structural param so it
+ * serves both the full Child (detail) and the lean ChildListItem (roster).
+ */
+export function childFullName(child: {
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+}): string {
   return [child.firstName, child.middleName, child.lastName]
     .filter(Boolean)
     .join(' ');

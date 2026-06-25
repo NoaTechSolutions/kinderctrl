@@ -6,6 +6,7 @@ import {
   getChild,
   getMyChildren,
   listCenterChildren,
+  listCenterParents,
   removeChildContact,
   removeChildParent,
   updateChild,
@@ -68,6 +69,8 @@ export const childrenQueryKeys = {
     ] as const,
   mine: ['children', 'mine'] as const,
   detail: (id: string) => ['children', id] as const,
+  centerParents: (centerId: string) =>
+    ['children', 'center', centerId, 'parents'] as const,
 };
 
 /** Director/SA — children of a center. Disabled until centerId is known. */
@@ -80,6 +83,20 @@ export function useCenterChildren(
       ? childrenQueryKeys.centerList(centerId, query)
       : (['children', 'center', 'none'] as const),
     queryFn: () => listCenterChildren(centerId as string, query),
+    enabled: !!centerId,
+  });
+}
+
+/**
+ * Director/SA — distinct parents of a center, for the "link an existing parent"
+ * picker (create wizard + Parents tab). Disabled until centerId is known.
+ */
+export function useCenterParents(centerId: string | undefined) {
+  return useQuery({
+    queryKey: centerId
+      ? childrenQueryKeys.centerParents(centerId)
+      : (['children', 'center', 'none', 'parents'] as const),
+    queryFn: () => listCenterParents(centerId as string),
     enabled: !!centerId,
   });
 }

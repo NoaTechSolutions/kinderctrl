@@ -242,3 +242,50 @@ export interface ChildrenQuery {
   search?: string;
   enrollmentStatus?: ChildEnrollmentStatus[];
 }
+
+// ── List/roster shape (lean) — mirrors the backend CHILD_LIST_SELECT. The list
+// endpoints (GET /centers/:id/children, GET /children/mine) return THIS, not the
+// full Child. The detail page (GET /children/:id) still returns Child. ─────────
+
+// Five states. PRESENT/END_OF_SHIFT come from a real attendance record; the rest
+// are derived (today, no children-attendance module yet). EARLY_DEPARTURE is
+// supported by the card for the future module but never emitted by the backend
+// proxy today.
+export type ChildAttendanceStatus =
+  | 'PRESENT'
+  | 'END_OF_SHIFT'
+  | 'NOT_ARRIVED'
+  | 'NOT_SCHEDULED'
+  | 'EARLY_DEPARTURE';
+
+export interface ChildAttendanceToday {
+  status: ChildAttendanceStatus;
+  checkInTime?: string; // ISO — formatted client-side
+  checkOutTime?: string; // ISO
+}
+
+export interface ChildListItem {
+  id: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  dateOfBirth: string;
+  photoUrl: string | null;
+  enrollmentStatus: ChildEnrollmentStatus;
+  primaryParent: {
+    name: string;
+    relationship: string; // raw code (MOTHER/…) — localized in the view
+    phone: string | null;
+  } | null;
+  medicalSummary: { allergies: string[]; medications: unknown[] };
+  hasInfantSleepPlan: boolean;
+  attendanceToday: ChildAttendanceToday;
+}
+
+// Distinct parent of a center — for the "link an existing parent" picker
+// (create wizard + Parents tab). Backend: GET /centers/:centerId/parents.
+export interface CenterParentOption {
+  id: string;
+  name: string;
+  email: string;
+}
