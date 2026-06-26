@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { X, type LucideIcon } from 'lucide-react';
+import { MapPin, X, type LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { NameInput } from '@/components/ui/name-input';
 import { NumericInput } from '@/components/ui/numeric-input';
@@ -55,18 +55,14 @@ export function Field({
   children: ReactNode;
 }) {
   const editing = useContext(FieldEditingContext);
-  // Inside an editing detail card: purple uppercase label (the card design).
-  // Everywhere else (wizard, other forms): the classic 14px medium label.
+  // 10px uppercase label everywhere (card design). Inside an editing detail card
+  // it's purple (--kc-p-400); elsewhere (wizard / create forms) it's muted with a
+  // purple icon — the same label treatment as a read field, over a live input.
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       <label
-        className={cn(
-          'flex items-center gap-1.5',
-          editing
-            ? 'text-[10px] font-semibold uppercase tracking-[0.05em]'
-            : 'text-sm font-medium',
-        )}
-        style={{ color: editing ? 'var(--kc-p-400)' : 'var(--kc-text-1)' }}
+        className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
+        style={{ color: editing ? 'var(--kc-p-400)' : 'var(--kc-text-3)' }}
       >
         {Icon && (
           <Icon
@@ -93,14 +89,14 @@ export function AddressFields({
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <Field label={t('centers.street')}>
+      <Field icon={MapPin} label={t('centers.street')}>
         <Input value={value.street} onChange={(e) => onChange('street', e.target.value)} placeholder="123 Main St" />
       </Field>
-      <Field label={t('centers.city')}>
+      <Field icon={MapPin} label={t('centers.city')}>
         <NameInput value={value.city} onChange={(v) => onChange('city', v)} placeholder="San Francisco" />
       </Field>
       <div className="grid grid-cols-2 gap-4">
-        <Field label={t('centers.state')}>
+        <Field icon={MapPin} label={t('centers.state')}>
           <Input
             value={value.state}
             onChange={(e) => onChange('state', e.target.value.toUpperCase())}
@@ -108,7 +104,7 @@ export function AddressFields({
             placeholder="CA"
           />
         </Field>
-        <Field label={t('centers.zipCode')}>
+        <Field icon={MapPin} label={t('centers.zipCode')}>
           <NumericInput value={value.zip} onChange={(v) => onChange('zip', v)} maxLength={5} placeholder="94102" />
         </Field>
       </div>

@@ -4,19 +4,32 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Baby,
+  Briefcase,
+  Cake,
+  Calendar,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  Home,
+  Link2,
   Loader2,
+  Mail,
+  MapPin,
   Pencil,
+  Phone,
   Plus,
+  Star,
+  Tag,
   Trash2,
+  User,
   Users,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from './detail/section-frame';
+import { ReadGrid, ReadRow } from './detail/read-view';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NameInput } from '@/components/ui/name-input';
@@ -516,7 +529,7 @@ function ChildStep1Address({
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <Field label={t('centers.street')}>
+      <Field icon={MapPin} label={t('centers.street')}>
         <Input
           value={value.street}
           onChange={(e) => onChange('street', e.target.value)}
@@ -524,10 +537,10 @@ function ChildStep1Address({
         />
       </Field>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field label={t('centers.city')}>
+        <Field icon={MapPin} label={t('centers.city')}>
           <NameInput value={value.city} onChange={(v) => onChange('city', v)} placeholder="San Francisco" />
         </Field>
-        <Field label={t('centers.state')}>
+        <Field icon={MapPin} label={t('centers.state')}>
           <Input
             value={value.state}
             onChange={(e) => onChange('state', e.target.value.toUpperCase())}
@@ -535,7 +548,7 @@ function ChildStep1Address({
             placeholder="CA"
           />
         </Field>
-        <Field label={t('centers.zipCode')}>
+        <Field icon={MapPin} label={t('centers.zipCode')}>
           <NumericInput value={value.zip} onChange={(v) => onChange('zip', v)} maxLength={5} placeholder="94102" />
         </Field>
       </div>
@@ -558,23 +571,23 @@ function StepChild({
 }) {
   const { t } = useTranslation();
   return (
-    <CardWithHeader title={t('children.childDetails')}>
+    <ReadCard icon={Baby} title={t('children.childDetails')}>
       <div className="space-y-4">
         <ErrorList errors={errors} show={showErrors} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t('children.firstName')} required>
+          <Field icon={User} label={t('children.firstName')} required>
             <NameInput value={form.firstName} onChange={(v) => set('firstName', v)} />
           </Field>
-          <Field label={t('children.middleName')}>
+          <Field icon={User} label={t('children.middleName')}>
             <NameInput value={form.middleName} onChange={(v) => set('middleName', v)} />
           </Field>
-          <Field label={t('children.lastName')} required>
+          <Field icon={User} label={t('children.lastName')} required>
             <NameInput value={form.lastName} onChange={(v) => set('lastName', v)} />
           </Field>
-          <Field label={t('children.birthDate')} required>
+          <Field icon={Cake} label={t('children.birthDate')} required>
             <DateField value={form.birthDate} onChange={(e) => set('birthDate', e.target.value)} max={today} />
           </Field>
-          <Field label={t('children.gender')} required>
+          <Field icon={Users} label={t('children.gender')} required>
             <Select value={form.gender} onValueChange={(v) => set('gender', v)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={t('children.selectPlaceholder')} />
@@ -600,10 +613,10 @@ function StepChild({
 
         {/* The two care dates share one row (stacked on mobile). */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t('children.admissionDate')}>
+          <Field icon={Calendar} label={t('children.admissionDate')}>
             <DateField value={form.admissionDate} onChange={(e) => set('admissionDate', e.target.value)} />
           </Field>
-          <Field label={t('children.firstDayOfCare')}>
+          <Field icon={Clock} label={t('children.firstDayOfCare')}>
             <DateField value={form.firstCareDay} onChange={(e) => set('firstCareDay', e.target.value)} />
           </Field>
         </div>
@@ -612,7 +625,7 @@ function StepChild({
           <strong>{t('children.statusPending')}</strong>.
         </p>
       </div>
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 
@@ -639,7 +652,7 @@ function StepParents({
 }) {
   const { t } = useTranslation();
   return (
-    <CardWithHeader title={t('children.parentsGuardians')}>
+    <ReadCard icon={Users} title={t('children.parentsGuardians')}>
       <div className="space-y-4">
         <ErrorList errors={errors} show={showErrors} />
         {form.parents.map((p, i) => (
@@ -661,7 +674,7 @@ function StepParents({
           </Button>
         )}
       </div>
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 
@@ -721,7 +734,7 @@ function ParentCard({
       </div>
 
       {parent.mode === 'existing' ? (
-        <Field label={t('children.existingParent')} required>
+        <Field icon={User} label={t('children.existingParent')} required>
           {selected ? (
             <div className="flex items-center justify-between gap-3 rounded-md border p-2.5" style={{ borderColor: 'var(--kc-border)' }}>
               <span className="min-w-0 text-sm">
@@ -756,19 +769,19 @@ function ParentCard({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t('children.firstName')} required>
+            <Field icon={User} label={t('children.firstName')} required>
               <NameInput value={parent.firstName} onChange={(v) => onChange({ firstName: v })} />
             </Field>
-            <Field label={t('children.middleName')}>
+            <Field icon={User} label={t('children.middleName')}>
               <NameInput value={parent.middleName} onChange={(v) => onChange({ middleName: v })} />
             </Field>
-            <Field label={t('children.lastName')} required>
+            <Field icon={User} label={t('children.lastName')} required>
               <NameInput value={parent.lastName} onChange={(v) => onChange({ lastName: v })} />
             </Field>
-            <Field label={t('children.phone')} required>
+            <Field icon={Phone} label={t('children.phone')} required>
               <PhoneInput value={parent.phone} onChange={(v) => onChange({ phone: v })} />
             </Field>
-            <Field label={t('children.email')} required className="sm:col-span-2">
+            <Field icon={Mail} label={t('children.email')} required className="sm:col-span-2">
               <Input type="email" value={parent.email} onChange={(e) => onChange({ email: e.target.value })} />
             </Field>
           </div>
@@ -784,7 +797,7 @@ function ParentCard({
         </>
       )}
 
-      <Field label={t('children.relationship')} required className="sm:max-w-xs">
+      <Field icon={Link2} label={t('children.relationship')} required className="sm:max-w-xs">
         <Select value={parent.relationship} onValueChange={(v) => onChange({ relationship: v })}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder={t('children.selectPlaceholder')} />
@@ -832,10 +845,10 @@ function ParentCard({
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4 pt-3">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label={t('children.employer')}>
+                <Field icon={Briefcase} label={t('children.employer')}>
                   <NameInput value={parent.workEmployer} onChange={(v) => onChange({ workEmployer: v })} />
                 </Field>
-                <Field label={t('children.workPhone')}>
+                <Field icon={Briefcase} label={t('children.workPhone')}>
                   <PhoneInput value={parent.workPhone} onChange={(v) => onChange({ workPhone: v })} />
                 </Field>
               </div>
@@ -870,19 +883,19 @@ function StepReview({
 
   return (
     <div className="space-y-4">
-      <CardWithHeader icon={Baby} title={t('children.stepChild')} action={<EditButton label={t('children.editChildAria')} onClick={() => goToStep(1)} />}>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-          <ReviewRow label={t('children.colName')} value={dash(childName)} />
-          <ReviewRow label={t('children.birthDate')} value={dash(form.birthDate)} />
-          <ReviewRow label={t('children.gender')} value={form.gender ? genderLabel(form.gender, t) : ''} />
-          <ReviewRow label={t('children.enrollmentStatus')} value={t('children.statusPending')} />
-          <ReviewRow label={t('children.address')} value={addrStr(form.address)} full />
-          <ReviewRow label={t('children.admissionDate')} value={dash(form.admissionDate)} />
-          <ReviewRow label={t('children.firstDayOfCare')} value={dash(form.firstCareDay)} />
-        </dl>
-      </CardWithHeader>
+      <ReadCard icon={Baby} title={t('children.stepChild')} action={<EditButton label={t('children.editChildAria')} onClick={() => goToStep(1)} />}>
+        <ReadGrid>
+          <ReadRow icon={User} label={t('children.colName')} value={dash(childName)} />
+          <ReadRow icon={Cake} label={t('children.birthDate')} value={dash(form.birthDate)} />
+          <ReadRow icon={Users} label={t('children.gender')} value={form.gender ? genderLabel(form.gender, t) : ''} />
+          <ReadRow icon={Tag} label={t('children.enrollmentStatus')} value={t('children.statusPending')} />
+          <ReadRow icon={MapPin} label={t('children.address')} value={addrStr(form.address)} full />
+          <ReadRow icon={Calendar} label={t('children.admissionDate')} value={dash(form.admissionDate)} />
+          <ReadRow icon={Clock} label={t('children.firstDayOfCare')} value={dash(form.firstCareDay)} />
+        </ReadGrid>
+      </ReadCard>
 
-      <CardWithHeader icon={Users} title={`${t('children.colParents')} (${form.parents.length})`}>
+      <ReadCard icon={Users} title={`${t('children.colParents')} (${form.parents.length})`}>
         <div className="space-y-4">
           {form.parents.map((p, i) => {
             const existing = p.mode === 'existing' ? existingParents.find((e) => e.id === p.parentId) : undefined;
@@ -900,34 +913,35 @@ function StepReview({
                   </span>
                   <EditButton label={t('children.editParentsAria')} onClick={() => goToStep(2)} />
                 </div>
-                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-                  <ReviewRow label={t('children.fullName')} value={dash(rawName)} full />
-                  <ReviewRow label={t('children.type')} value={p.mode === 'existing' ? t('children.existingParent') : t('children.newParentBtn')} />
-                  <ReviewRow label={t('children.relationship')} value={p.relationship ? relationshipLabel(p.relationship, t) : ''} />
-                  <ReviewRow label={t('children.primaryContact')} value={p.isPrimary ? t('children.yes') : t('children.no')} />
-                  <ReviewRow label={t('children.livesWithChild')} value={p.livesWithChild ? t('children.yes') : t('children.no')} />
+                <ReadGrid>
+                  <ReadRow icon={User} label={t('children.fullName')} value={dash(rawName)} full />
+                  <ReadRow icon={Tag} label={t('children.type')} value={p.mode === 'existing' ? t('children.existingParent') : t('children.newParentBtn')} />
+                  <ReadRow icon={Link2} label={t('children.relationship')} value={p.relationship ? relationshipLabel(p.relationship, t) : ''} />
+                  <ReadRow icon={Star} label={t('children.primaryContact')} value={p.isPrimary ? t('children.yes') : t('children.no')} />
+                  <ReadRow icon={Home} label={t('children.livesWithChild')} value={p.livesWithChild ? t('children.yes') : t('children.no')} />
                   {p.mode === 'existing' ? (
-                    <ReviewRow label={t('children.email')} value={dash(existing?.email)} full />
+                    <ReadRow icon={Mail} label={t('children.email')} value={dash(existing?.email)} full />
                   ) : (
                     <>
-                      <ReviewRow label={t('children.email')} value={dash(p.email)} />
-                      <ReviewRow label={t('children.phone')} value={dash(p.phone)} />
-                      <ReviewRow
+                      <ReadRow icon={Mail} label={t('children.email')} value={dash(p.email)} />
+                      <ReadRow icon={Phone} label={t('children.phone')} value={dash(p.phone)} />
+                      <ReadRow
+                        icon={MapPin}
                         label={t('children.homeAddress')}
                         value={p.sameAddressAsChild ? t('children.sameAsChild') : addrStr(p.home)}
                         full
                       />
-                      <ReviewRow label={t('children.employer')} value={dash(p.workEmployer)} />
-                      <ReviewRow label={t('children.workPhone')} value={dash(p.workPhone)} />
-                      <ReviewRow label={t('children.workAddress')} value={addrStr(p.work)} full />
+                      <ReadRow icon={Briefcase} label={t('children.employer')} value={dash(p.workEmployer)} />
+                      <ReadRow icon={Briefcase} label={t('children.workPhone')} value={dash(p.workPhone)} />
+                      <ReadRow icon={MapPin} label={t('children.workAddress')} value={addrStr(p.work)} full />
                     </>
                   )}
-                </dl>
+                </ReadGrid>
               </div>
             );
           })}
         </div>
-      </CardWithHeader>
+      </ReadCard>
     </div>
   );
 }
@@ -937,18 +951,5 @@ function EditButton({ label, onClick }: { label: string; onClick: () => void }) 
     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClick} aria-label={label}>
       <Pencil className="h-3.5 w-3.5" />
     </Button>
-  );
-}
-
-function ReviewRow({ label, value, full }: { label: string; value: string; full?: boolean }) {
-  return (
-    <div className={full ? 'sm:col-span-2' : undefined}>
-      <dt className="text-xs uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
-        {label}
-      </dt>
-      <dd className="mt-0.5 text-sm break-words" style={{ color: 'var(--kc-text-1)' }}>
-        {value}
-      </dd>
-    </div>
   );
 }

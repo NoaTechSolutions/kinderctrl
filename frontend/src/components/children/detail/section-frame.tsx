@@ -15,10 +15,14 @@ import type { SectionMode } from './use-section-editor';
 export function ReadCard({
   title,
   icon: Icon,
+  action,
   children,
 }: {
   title: string;
   icon?: LucideIcon;
+  // Optional header-right slot (e.g. an Edit button that opens a modal) — for
+  // read-display cards whose editing lives elsewhere (modal / wizard step jump).
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -35,9 +39,10 @@ export function ReadCard({
             <Icon className="h-4 w-4" />
           </span>
         )}
-        <h3 className="truncate text-[15px] font-medium" style={{ color: 'var(--kc-text-1)' }}>
+        <h3 className="min-w-0 flex-1 truncate text-[15px] font-medium" style={{ color: 'var(--kc-text-1)' }}>
           {title}
         </h3>
+        {action && <div className="flex-none">{action}</div>}
       </div>
       <div style={{ borderTop: '0.5px solid var(--kc-border)' }} />
       <div className="px-4 py-4">{children}</div>
