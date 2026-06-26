@@ -27,13 +27,13 @@ import { useUpdateChildMedicalInfo } from '@/lib/hooks/use-children';
 import type { Child } from '@/lib/types/child';
 import { Field, AddressFields, EditableList } from '../child-form-fields';
 import { CheckboxRow, MedTextarea, PastIllnessRow } from './section-fields';
-import { ReadGrid, ReadRow, fmtDate, joinAddress, useBoolText } from './read-view';
-import { SectionFrame } from './section-frame';
+import { ReadGrid, ReadRow, fmtDate, joinAddress, useBoolText } from '@/components/ui/read-view';
+import { SectionFrame } from '@/components/ui/section-frame';
 import {
   useSectionEditor,
   type SectionEditorHandle,
   type SectionProps,
-} from './use-section-editor';
+} from '@/components/ui/use-section-editor';
 import {
   PAST_ILLNESSES,
   buildMedAllergiesPayload,

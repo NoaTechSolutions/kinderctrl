@@ -27,8 +27,8 @@ import { ToiletSection } from './toilet-section';
 import { PersonalitySection } from './personality-section';
 import { PermissionsSection } from './permissions-section';
 import { InfantSleepSection } from './infant-sleep-section';
-import { SectionGroup } from './section-group';
-import type { SectionEditorHandle, SectionProps } from './use-section-editor';
+import { SectionGroup } from '@/components/ui/section-group';
+import type { SectionEditorHandle, SectionProps } from '@/components/ui/use-section-editor';
 
 export type DetailTab =
   | 'overview'

@@ -24,9 +24,9 @@ import {
 } from '@/lib/format-child';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import type { ChildAttendanceStatus } from '@/lib/types/child';
-import { ReadCard } from './section-frame';
-import { ReadGrid, ReadRow, fmtDate } from './read-view';
-import type { SectionEditorHandle, SectionProps } from './use-section-editor';
+import { ReadCard } from '@/components/ui/section-frame';
+import { ReadGrid, ReadRow, fmtDate } from '@/components/ui/read-view';
+import type { SectionEditorHandle, SectionProps } from '@/components/ui/use-section-editor';
 
 // Read-only tab → always publishes the no-op handle so the shell guard knows
 // nothing here is editing.

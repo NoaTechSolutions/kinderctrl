@@ -7,9 +7,9 @@ import { useTranslation } from '@/lib/i18n';
 import { useUpdateChildDevelopment } from '@/lib/hooks/use-children';
 import { Field } from '../child-form-fields';
 import { CheckboxRow, MedTextarea, PlainSelect, TriStateField, triText } from './section-fields';
-import { ReadGrid, ReadRow, EmptyHint, useBoolText } from './read-view';
-import { SectionFrame } from './section-frame';
-import { useSectionEditor, type SectionProps } from './use-section-editor';
+import { ReadGrid, ReadRow, EmptyHint, useBoolText } from '@/components/ui/read-view';
+import { SectionFrame } from '@/components/ui/section-frame';
+import { useSectionEditor, type SectionProps } from '@/components/ui/use-section-editor';
 import {
   TOILET_HELP_LEVELS,
   buildToiletPayload,

@@ -8,9 +8,9 @@ import { useTranslation } from '@/lib/i18n';
 import { useUpdateChildConsents } from '@/lib/hooks/use-children';
 import { Field } from '../child-form-fields';
 import { CheckboxRow, MedTextarea } from './section-fields';
-import { fmtDate } from './read-view';
-import { SectionFrame } from './section-frame';
-import { useSectionEditor, type SectionProps } from './use-section-editor';
+import { fmtDate } from '@/components/ui/read-view';
+import { SectionFrame } from '@/components/ui/section-frame';
+import { useSectionEditor, type SectionProps } from '@/components/ui/use-section-editor';
 import { buildConsentsPayload, seedConsents, type ConsentsState } from './section-data';
 
 // Clear approved / not-approved pill — legal clarity (icon + word, not just a

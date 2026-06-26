@@ -18,9 +18,9 @@ import { useUpdateChildContacts } from '@/lib/hooks/use-children';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import type { ChildContact, ChildContactType } from '@/lib/types/child';
 import { ContactCard, SectionLabel } from './section-fields';
-import { EmptyHint, joinAddress } from './read-view';
-import { SectionFrame } from './section-frame';
-import { useSectionEditor, type SectionProps } from './use-section-editor';
+import { EmptyHint, joinAddress } from '@/components/ui/read-view';
+import { SectionFrame } from '@/components/ui/section-frame';
+import { useSectionEditor, type SectionProps } from '@/components/ui/use-section-editor';
 import {
   CONTACT_GROUPS,
   buildContactOps,

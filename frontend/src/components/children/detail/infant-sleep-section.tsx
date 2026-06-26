@@ -9,9 +9,9 @@ import { useUpdateChildInfantSleep } from '@/lib/hooks/use-children';
 import { ageInMonths } from '@/lib/format-child';
 import { Field } from '../child-form-fields';
 import { CheckboxRow, MedTextarea, PlainSelect } from './section-fields';
-import { ReadGrid, ReadRow, EmptyHint, fmtDate, useBoolText } from './read-view';
-import { SectionFrame } from './section-frame';
-import { useSectionEditor, type SectionProps } from './use-section-editor';
+import { ReadGrid, ReadRow, EmptyHint, fmtDate, useBoolText } from '@/components/ui/read-view';
+import { SectionFrame } from '@/components/ui/section-frame';
+import { useSectionEditor, type SectionProps } from '@/components/ui/use-section-editor';
 import {
   PACIFIER_USE,
   SLEEP_LOCATIONS,

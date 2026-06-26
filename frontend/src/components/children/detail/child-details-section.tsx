@@ -21,10 +21,10 @@ import { genderLabel } from '@/lib/format-child';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import { ChildStatusBadge } from '@/components/children/child-status-badge';
 import { Field, AddressFields } from '../child-form-fields';
-import { SectionFrame } from './section-frame';
+import { SectionFrame } from '@/components/ui/section-frame';
 import { PlainSelect, MedTextarea } from './section-fields';
-import { ReadGrid, ReadRow, fmtDate, joinAddress } from './read-view';
-import { useSectionEditor, AbortSave, type SectionProps } from './use-section-editor';
+import { ReadGrid, ReadRow, fmtDate, joinAddress } from '@/components/ui/read-view';
+import { useSectionEditor, AbortSave, type SectionProps } from '@/components/ui/use-section-editor';
 import {
   GENDERS,
   ENROLLMENT_STATUSES,

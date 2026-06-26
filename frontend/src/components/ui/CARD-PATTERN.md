@@ -10,13 +10,14 @@ the page keeps an unsaved-changes guard). The three primitives:
 
 | Primitive | File | Role |
 |-----------|------|------|
-| `SectionFrame` | `children/detail/section-frame.tsx` | The card shell: header (icon + title + Edit pill / Editing badge + Cancel/Save) + body. Owns the read↔edit chrome. |
-| `ReadRow` (+ `ReadGrid`) | `children/detail/read-view.tsx` | One read field: `[icon] LABEL` + clean value text (no box). |
-| `Field` | `children/child-form-fields.tsx` | One edit field: `[icon] LABEL` (purple in edit) + the input. |
+| `SectionFrame` / `ReadCard` | `ui/section-frame.tsx` | The card shell: header (icon + title + Edit pill / Editing badge + Cancel/Save) + body. Owns the read↔edit chrome. `ReadCard` is the read-only variant (optional `action` slot). |
+| `ReadRow` (+ `ReadGrid`) | `ui/read-view.tsx` | One read field: `[icon] LABEL` + clean value text (no box). |
+| `Field` | `ui/field.tsx` | One edit field: `[icon] LABEL` (purple in edit) + the input. (Re-exported from `children/child-form-fields` for back-compat.) |
 
 The read↔edit lifecycle (seed / dirty / save / cancel) is `useSectionEditor`
-(`children/detail/use-section-editor.ts`); group several cards in one tab with
-`SectionGroup` (aggregates their handles for the guard).
+(`ui/use-section-editor.ts`); group several cards in one tab with
+`SectionGroup` (`ui/section-group.tsx`, aggregates their handles for the guard).
+All primitives live under `components/ui/` — import from there in any module.
 
 ---
 

@@ -17,7 +17,7 @@ import {
   ChildDetailTabs,
   type DetailNavigate,
 } from '@/components/children/detail/child-detail-tabs';
-import { fmtDate } from '@/components/children/detail/read-view';
+import { fmtDate } from '@/components/ui/read-view';
 import { childFullName, formatAge } from '@/lib/format-child';
 
 export default function ChildDetailPage() {

@@ -23,13 +23,13 @@ import { useUpdateChildPersonality } from '@/lib/hooks/use-children';
 import type { Child } from '@/lib/types/child';
 import { Field } from '../child-form-fields';
 import { CheckboxRow, MedTextarea } from './section-fields';
-import { ReadGrid, ReadRow, CommaChips, useBoolText } from './read-view';
-import { SectionFrame } from './section-frame';
+import { ReadGrid, ReadRow, CommaChips, useBoolText } from '@/components/ui/read-view';
+import { SectionFrame } from '@/components/ui/section-frame';
 import {
   useSectionEditor,
   type SectionEditorHandle,
   type SectionProps,
-} from './use-section-editor';
+} from '@/components/ui/use-section-editor';
 import {
   buildPersBehaviorPayload,
   buildPersLikesPayload,

@@ -6,7 +6,7 @@ import { Check, Loader2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
-import { FieldEditingProvider } from '../child-form-fields';
+import { FieldEditingProvider } from './field';
 import type { SectionMode } from './use-section-editor';
 
 // Read-only card — same shell + header as SectionFrame's read mode (circular

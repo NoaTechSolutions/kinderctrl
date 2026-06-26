@@ -19,9 +19,9 @@ import { relationshipLabel, sortedParents } from '@/lib/format-child';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import type { ChildParentLink } from '@/lib/types/child';
 import { ParentEditCard } from './section-fields';
-import { EmptyHint, ReadGrid, ReadRow, joinAddress, useBoolText } from './read-view';
-import { SectionFrame } from './section-frame';
-import { useSectionEditor, type SectionProps } from './use-section-editor';
+import { EmptyHint, ReadGrid, ReadRow, joinAddress, useBoolText } from '@/components/ui/read-view';
+import { SectionFrame } from '@/components/ui/section-frame';
+import { useSectionEditor, type SectionProps } from '@/components/ui/use-section-editor';
 import {
   buildParentOps,
   emptyNewRow,

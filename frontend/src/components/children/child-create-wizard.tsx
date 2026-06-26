@@ -28,8 +28,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { ReadCard } from './detail/section-frame';
-import { ReadGrid, ReadRow } from './detail/read-view';
+import { ReadCard } from '@/components/ui/section-frame';
+import { ReadGrid, ReadRow } from '@/components/ui/read-view';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NameInput } from '@/components/ui/name-input';
