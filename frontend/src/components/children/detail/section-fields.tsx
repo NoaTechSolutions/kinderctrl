@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { ChevronDown, Trash2 } from 'lucide-react';
+import { Briefcase, ChevronDown, Link2, Mail, Phone, Trash2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NameInput } from '@/components/ui/name-input';
@@ -201,7 +201,7 @@ export function ContactCard({
   return (
     <div className="rounded-lg border p-4 space-y-4" style={{ borderColor: 'var(--kc-border)' }}>
       <div className="flex items-start gap-3">
-        <Field label={t('children.contactName')} required className="flex-1">
+        <Field icon={User} label={t('children.contactName')} required className="flex-1">
           <NameInput value={row.name} onChange={(v) => onChange({ name: v })} />
         </Field>
         <Button
@@ -218,22 +218,22 @@ export function ContactCard({
       {(has('relationship') || has('phone') || has('homePhone') || has('workPhone')) && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {has('relationship') && (
-            <Field label={t('children.relationship')}>
+            <Field icon={Link2} label={t('children.relationship')}>
               <Input value={row.relationship} onChange={(e) => onChange({ relationship: e.target.value })} />
             </Field>
           )}
           {has('phone') && (
-            <Field label={t('children.phone')}>
+            <Field icon={Phone} label={t('children.phone')}>
               <PhoneInput value={row.phone} onChange={(v) => onChange({ phone: v })} />
             </Field>
           )}
           {has('homePhone') && (
-            <Field label={t('children.homePhone')}>
+            <Field icon={Phone} label={t('children.homePhone')}>
               <PhoneInput value={row.homePhone} onChange={(v) => onChange({ homePhone: v })} />
             </Field>
           )}
           {has('workPhone') && (
-            <Field label={t('children.workPhone')}>
+            <Field icon={Briefcase} label={t('children.workPhone')}>
               <PhoneInput value={row.workPhone} onChange={(v) => onChange({ workPhone: v })} />
             </Field>
           )}
@@ -297,16 +297,16 @@ export function ParentEditCard({
 
       {row.linked ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label={t('children.firstName')}>
+          <Field icon={User} label={t('children.firstName')}>
             <Input value={row.firstName} disabled />
           </Field>
-          <Field label={t('children.middleName')}>
+          <Field icon={User} label={t('children.middleName')}>
             <Input value={row.middleName} disabled />
           </Field>
-          <Field label={t('children.lastName')}>
+          <Field icon={User} label={t('children.lastName')}>
             <Input value={row.lastName} disabled />
           </Field>
-          <Field label={t('children.email')} className="sm:col-span-full">
+          <Field icon={Mail} label={t('children.email')} className="sm:col-span-full">
             <Input value={row.displayEmail} disabled />
           </Field>
         </div>
@@ -327,7 +327,7 @@ export function ParentEditCard({
           </div>
 
           {row.mode === 'existing' ? (
-            <Field label={t('children.existingParent')} required>
+            <Field icon={User} label={t('children.existingParent')} required>
               {selected ? (
                 <div className="flex items-center justify-between gap-3 rounded-md border p-2.5" style={{ borderColor: 'var(--kc-border)' }}>
                   <span className="min-w-0 text-sm">
@@ -362,19 +362,19 @@ export function ParentEditCard({
           ) : (
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Field label={t('children.firstName')} required>
+                <Field icon={User} label={t('children.firstName')} required>
                   <NameInput value={row.firstName} onChange={(v) => onChange({ firstName: v })} />
                 </Field>
-                <Field label={t('children.middleName')}>
+                <Field icon={User} label={t('children.middleName')}>
                   <NameInput value={row.middleName} onChange={(v) => onChange({ middleName: v })} />
                 </Field>
-                <Field label={t('children.lastName')} required>
+                <Field icon={User} label={t('children.lastName')} required>
                   <NameInput value={row.lastName} onChange={(v) => onChange({ lastName: v })} />
                 </Field>
-                <Field label={t('children.email')} required>
+                <Field icon={Mail} label={t('children.email')} required>
                   <Input type="email" value={row.email} onChange={(e) => onChange({ email: e.target.value })} />
                 </Field>
-                <Field label={t('children.phone')}>
+                <Field icon={Phone} label={t('children.phone')}>
                   <PhoneInput value={row.phone} onChange={(v) => onChange({ phone: v })} />
                 </Field>
               </div>
@@ -387,7 +387,7 @@ export function ParentEditCard({
         </>
       )}
 
-      <Field label={t('children.relationship')} required className="sm:max-w-xs">
+      <Field icon={Link2} label={t('children.relationship')} required className="sm:max-w-xs">
         <PlainSelect value={row.relationship} onValueChange={(v) => onChange({ relationship: v })} options={RELATIONSHIPS} />
       </Field>
 
@@ -422,10 +422,10 @@ export function ParentEditCard({
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4 pt-3">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label={t('children.employer')}>
+                <Field icon={Briefcase} label={t('children.employer')}>
                   <NameInput value={row.workEmployer} onChange={(v) => onChange({ workEmployer: v })} />
                 </Field>
-                <Field label={t('children.workPhone')}>
+                <Field icon={Briefcase} label={t('children.workPhone')}>
                   <PhoneInput value={row.workPhone} onChange={(v) => onChange({ workPhone: v })} />
                 </Field>
               </div>

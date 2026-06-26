@@ -1,7 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Pill, ShieldCheck, Smile, Stethoscope, Thermometer } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Calendar,
+  FileText,
+  Hash,
+  Heart,
+  MapPin,
+  Phone,
+  Pill,
+  ShieldCheck,
+  Smile,
+  Stethoscope,
+  Thermometer,
+  User,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { NameInput } from '@/components/ui/name-input';
 import { NumericInput } from '@/components/ui/numeric-input';
@@ -126,35 +141,35 @@ function DoctorCard({ child, canManage, canEdit, onCardEditorChange }: MedCardPr
     >
       {ed.mode === 'read' ? (
         <ReadGrid>
-          <ReadRow label={t('children.doctorName')} value={m.doctorName} />
-          <ReadRow label={t('children.doctorPhone')} value={m.doctorPhone} />
-          <ReadRow label={t('children.doctorAddress')} value={m.doctorAddress} full />
-          <ReadRow label={t('children.doctorLastExamDate')} value={fmtDate(m.doctorLastExamDate || null, locale)} />
-          <ReadRow label={t('children.isUnderDoctorCare')} value={boolText(m.isUnderDoctorCare)} />
-          <ReadRow label={t('children.prescribedMedicationDetails')} value={m.prescribedMedicationDetails} full />
-          <ReadRow label={t('children.medicationSideEffects')} value={m.medicationSideEffects} full />
+          <ReadRow icon={User} label={t('children.doctorName')} value={m.doctorName} />
+          <ReadRow icon={Phone} label={t('children.doctorPhone')} value={m.doctorPhone} />
+          <ReadRow icon={MapPin} label={t('children.doctorAddress')} value={m.doctorAddress} full />
+          <ReadRow icon={Calendar} label={t('children.doctorLastExamDate')} value={fmtDate(m.doctorLastExamDate || null, locale)} />
+          <ReadRow icon={Heart} label={t('children.isUnderDoctorCare')} value={boolText(m.isUnderDoctorCare)} />
+          <ReadRow icon={Pill} label={t('children.prescribedMedicationDetails')} value={m.prescribedMedicationDetails} full />
+          <ReadRow icon={AlertTriangle} label={t('children.medicationSideEffects')} value={m.medicationSideEffects} full />
         </ReadGrid>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t('children.doctorName')}>
+            <Field icon={User} label={t('children.doctorName')}>
               <NameInput value={state.doctorName} onChange={(v) => set('doctorName', v)} />
             </Field>
-            <Field label={t('children.doctorPhone')}>
+            <Field icon={Phone} label={t('children.doctorPhone')}>
               <PhoneInput value={state.doctorPhone} onChange={(v) => set('doctorPhone', v)} />
             </Field>
-            <Field label={t('children.doctorAddress')} className="sm:col-span-2">
+            <Field icon={MapPin} label={t('children.doctorAddress')} className="sm:col-span-2">
               <Input value={state.doctorAddress} onChange={(e) => set('doctorAddress', e.target.value)} />
             </Field>
-            <Field label={t('children.doctorLastExamDate')}>
+            <Field icon={Calendar} label={t('children.doctorLastExamDate')}>
               <DateField value={state.doctorLastExamDate} onChange={(e) => set('doctorLastExamDate', e.target.value)} max={todayStr} />
             </Field>
           </div>
           <CheckboxRow checked={state.isUnderDoctorCare} onChange={(c) => set('isUnderDoctorCare', c)} label={t('children.isUnderDoctorCare')} />
-          <Field label={t('children.prescribedMedicationDetails')}>
+          <Field icon={Pill} label={t('children.prescribedMedicationDetails')}>
             <MedTextarea value={state.prescribedMedicationDetails} onChange={(v) => set('prescribedMedicationDetails', v)} />
           </Field>
-          <Field label={t('children.medicationSideEffects')}>
+          <Field icon={AlertTriangle} label={t('children.medicationSideEffects')}>
             <MedTextarea value={state.medicationSideEffects} onChange={(v) => set('medicationSideEffects', v)} />
           </Field>
         </div>
@@ -195,17 +210,17 @@ function AllergiesCard({ child, canManage, canEdit, onCardEditorChange }: MedCar
     >
       {ed.mode === 'read' ? (
         <ReadGrid>
-          <ReadRow label={t('children.allergies')} value={list(m.allergies)} />
-          <ReadRow label={t('children.medicationAllergies')} value={list(m.medicationAllergies)} />
-          <ReadRow label={t('children.medications')} value={list(m.medications)} />
-          <ReadRow label={t('children.medicalPlan')} value={m.medicalPlan} full />
+          <ReadRow icon={AlertTriangle} label={t('children.allergies')} value={list(m.allergies)} />
+          <ReadRow icon={AlertTriangle} label={t('children.medicationAllergies')} value={list(m.medicationAllergies)} />
+          <ReadRow icon={Pill} label={t('children.medications')} value={list(m.medications)} />
+          <ReadRow icon={FileText} label={t('children.medicalPlan')} value={m.medicalPlan} full />
         </ReadGrid>
       ) : (
         <div className="space-y-4">
-          <EditableList label={t('children.allergies')} items={state.allergies} onChange={(v) => set('allergies', v)} placeholder={t('children.addAllergy')} />
-          <EditableList label={t('children.medicationAllergies')} items={state.medicationAllergies} onChange={(v) => set('medicationAllergies', v)} placeholder={t('children.addMedicationAllergy')} />
-          <EditableList label={t('children.medications')} items={state.medications} onChange={(v) => set('medications', v)} placeholder={t('children.addMedication')} />
-          <Field label={t('children.medicalPlan')}>
+          <EditableList icon={AlertTriangle} label={t('children.allergies')} items={state.allergies} onChange={(v) => set('allergies', v)} placeholder={t('children.addAllergy')} />
+          <EditableList icon={AlertTriangle} label={t('children.medicationAllergies')} items={state.medicationAllergies} onChange={(v) => set('medicationAllergies', v)} placeholder={t('children.addMedicationAllergy')} />
+          <EditableList icon={Pill} label={t('children.medications')} items={state.medications} onChange={(v) => set('medications', v)} placeholder={t('children.addMedication')} />
+          <Field icon={FileText} label={t('children.medicalPlan')}>
             <MedTextarea value={state.medicalPlan} onChange={(v) => set('medicalPlan', v)} />
           </Field>
         </div>
@@ -246,25 +261,26 @@ function DentistCard({ child, canManage, canEdit, onCardEditorChange }: MedCardP
     >
       {ed.mode === 'read' ? (
         <ReadGrid>
-          <ReadRow label={t('children.dentistName')} value={m.dentistName} />
-          <ReadRow label={t('children.dentistPhone')} value={m.dentistPhone} />
+          <ReadRow icon={Smile} label={t('children.dentistName')} value={m.dentistName} />
+          <ReadRow icon={Phone} label={t('children.dentistPhone')} value={m.dentistPhone} />
           <ReadRow
+            icon={MapPin}
             label={t('children.dentistAddress')}
-            value={joinAddress([m.dentistAddress.street, m.dentistAddress.city, m.dentistAddress.state, m.dentistAddress.zip]) ?? '—'}
+            value={joinAddress([m.dentistAddress.street, m.dentistAddress.city, m.dentistAddress.state, m.dentistAddress.zip])}
             full
           />
-          <ReadRow label={t('children.dentalPlan')} value={m.dentalPlan} full />
+          <ReadRow icon={FileText} label={t('children.dentalPlan')} value={m.dentalPlan} full />
         </ReadGrid>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t('children.dentistName')}>
+            <Field icon={Smile} label={t('children.dentistName')}>
               <NameInput value={state.dentistName} onChange={(v) => set('dentistName', v)} />
             </Field>
-            <Field label={t('children.dentistPhone')}>
+            <Field icon={Phone} label={t('children.dentistPhone')}>
               <PhoneInput value={state.dentistPhone} onChange={(v) => set('dentistPhone', v)} />
             </Field>
-            <Field label={t('children.dentalPlan')} className="sm:col-span-2">
+            <Field icon={FileText} label={t('children.dentalPlan')} className="sm:col-span-2">
               <Input value={state.dentalPlan} onChange={(e) => set('dentalPlan', e.target.value)} />
             </Field>
           </div>
@@ -313,18 +329,19 @@ function HealthCard({ child, canManage, canEdit, onCardEditorChange }: MedCardPr
     >
       {ed.mode === 'read' ? (
         <ReadGrid>
-          <ReadRow label={t('children.medicalConditionsLabel')} value={list(m.medicalConditions)} full />
-          <ReadRow label={t('children.specialDevices')} value={m.specialDevices} full />
+          <ReadRow icon={Activity} label={t('children.medicalConditionsLabel')} value={list(m.medicalConditions)} full />
+          <ReadRow icon={Stethoscope} label={t('children.specialDevices')} value={m.specialDevices} full />
           <ReadRow
+            icon={Thermometer}
             label={t('children.frequentColds')}
             value={m.frequentColds ? `${boolText(true)}${m.frequentColdsCount ? ` (${m.frequentColdsCount})` : ''}` : boolText(false)}
           />
-          <ReadRow label={t('children.hasSpecialNeeds')} value={boolText(m.hasSpecialNeeds)} />
+          <ReadRow icon={Heart} label={t('children.hasSpecialNeeds')} value={boolText(m.hasSpecialNeeds)} />
         </ReadGrid>
       ) : (
         <div className="space-y-4">
-          <EditableList label={t('children.medicalConditionsLabel')} items={state.medicalConditions} onChange={(v) => set('medicalConditions', v)} placeholder={t('children.addMedicalCondition')} />
-          <Field label={t('children.specialDevices')}>
+          <EditableList icon={Activity} label={t('children.medicalConditionsLabel')} items={state.medicalConditions} onChange={(v) => set('medicalConditions', v)} placeholder={t('children.addMedicalCondition')} />
+          <Field icon={Stethoscope} label={t('children.specialDevices')}>
             <MedTextarea value={state.specialDevices} onChange={(v) => set('specialDevices', v)} />
           </Field>
           <div className="flex flex-wrap items-end gap-4">
@@ -374,15 +391,15 @@ function InsuranceCard({ child, canManage, canEdit, onCardEditorChange }: MedCar
     >
       {ed.mode === 'read' ? (
         <ReadGrid>
-          <ReadRow label={t('children.insuranceProvider')} value={m.insuranceProvider} />
-          <ReadRow label={t('children.insurancePolicy')} value={m.insurancePolicy} />
+          <ReadRow icon={ShieldCheck} label={t('children.insuranceProvider')} value={m.insuranceProvider} />
+          <ReadRow icon={Hash} label={t('children.insurancePolicy')} value={m.insurancePolicy} />
         </ReadGrid>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t('children.insuranceProvider')}>
+          <Field icon={ShieldCheck} label={t('children.insuranceProvider')}>
             <Input value={state.insuranceProvider} onChange={(e) => set('insuranceProvider', e.target.value)} />
           </Field>
-          <Field label={t('children.insurancePolicy')}>
+          <Field icon={Hash} label={t('children.insurancePolicy')}>
             <Input value={state.insurancePolicy} onChange={(e) => set('insurancePolicy', e.target.value)} />
           </Field>
         </div>
@@ -431,8 +448,8 @@ function IllnessesCard({ child, canManage, canEdit, onCardEditorChange }: MedCar
     >
       {ed.mode === 'read' ? (
         <ReadGrid>
-          <ReadRow label={t('children.sectionPastIllnesses')} value={checked.length ? checked.join(', ') : '—'} full />
-          <ReadRow label={t('children.otherIllnesses')} value={m.otherIllnesses} full />
+          <ReadRow icon={Thermometer} label={t('children.sectionPastIllnesses')} value={checked.length ? checked.join(', ') : ''} full />
+          <ReadRow icon={FileText} label={t('children.otherIllnesses')} value={m.otherIllnesses} full />
         </ReadGrid>
       ) : (
         <div className="space-y-3">
@@ -449,7 +466,7 @@ function IllnessesCard({ child, canManage, canEdit, onCardEditorChange }: MedCar
               />
             ))}
           </div>
-          <Field label={t('children.otherIllnesses')}>
+          <Field icon={FileText} label={t('children.otherIllnesses')}>
             <MedTextarea value={state.otherIllnesses} onChange={(v) => setState((s) => ({ ...s, otherIllnesses: v }))} />
           </Field>
         </div>

@@ -871,6 +871,23 @@ export const translations = {
       primaryTag: 'Primary',
       badgeMedication: 'Medication',
       badgeSleepPlan: 'Sleep plan',
+      // detail — grouped tabs
+      tabOverview: 'Overview',
+      tabChild: 'Child',
+      tabHealth: 'Health',
+      tabFamily: 'Family',
+      tabDailyLife: 'Daily life',
+      tabPermissions: 'Permissions',
+      // detail — Overview tab
+      overviewPrimaryContact: 'Primary contact',
+      overviewEmergencyContact: 'Emergency contact',
+      overviewKeyInfo: 'Key info',
+      overviewAttendanceToday: 'Attendance today',
+      overviewNone: 'Not recorded',
+      authorizedPickupCount: 'Authorized pickups',
+      // card design (read/edit)
+      notSet: 'Not set',
+      editingBadge: 'Editing',
       // search + filter bar
       searchClear: 'Clear search',
       filtersButton: 'Filters',
@@ -2080,6 +2097,23 @@ export const translations = {
       primaryTag: 'Principal',
       badgeMedication: 'Medicación',
       badgeSleepPlan: 'Plan de sueño',
+      // detalle — tabs agrupados
+      tabOverview: 'Resumen',
+      tabChild: 'Niño',
+      tabHealth: 'Salud',
+      tabFamily: 'Familia',
+      tabDailyLife: 'Día a día',
+      tabPermissions: 'Permisos',
+      // detalle — tab Resumen
+      overviewPrimaryContact: 'Contacto primario',
+      overviewEmergencyContact: 'Contacto de emergencia',
+      overviewKeyInfo: 'Información clave',
+      overviewAttendanceToday: 'Asistencia de hoy',
+      overviewNone: 'Sin registrar',
+      authorizedPickupCount: 'Autorizados a recoger',
+      // diseño de card (lectura/edición)
+      notSet: 'Sin definir',
+      editingBadge: 'Editando',
       // barra de búsqueda + filtros
       searchClear: 'Limpiar búsqueda',
       filtersButton: 'Filtros',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { Moon } from 'lucide-react';
+import { Baby, Bed, Calendar, Clock, Eye, FileText, Moon, Repeat, Shield, Tag } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { DateField } from '@/components/ui/date-field';
 import { useTranslation } from '@/lib/i18n';
@@ -83,47 +83,48 @@ export function InfantSleepSection({ child, canManage, onEditorChange }: Section
           <EmptyHint>{t('children.noInfantSleep')}</EmptyHint>
         ) : (
           <ReadGrid>
-            <ReadRow label={t('children.sleepLocation')} value={optionLabel(SLEEP_LOCATIONS, v.sleepLocation, t) || '—'} />
+            <ReadRow icon={Bed} label={t('children.sleepLocation')} value={optionLabel(SLEEP_LOCATIONS, v.sleepLocation, t)} />
             {v.sleepLocation === 'OTHER' && (
-              <ReadRow label={t('children.sleepLocationOther')} value={v.sleepLocationOther} />
+              <ReadRow icon={Bed} label={t('children.sleepLocationOther')} value={v.sleepLocationOther} />
             )}
-            <ReadRow label={t('children.usualSleepHours')} value={v.usualSleepHours} />
-            <ReadRow label={t('children.averageNapDuration')} value={v.averageNapDuration} />
-            <ReadRow label={t('children.usesPacifier')} value={optionLabel(PACIFIER_USE, v.usesPacifier, t) || '—'} />
-            <ReadRow label={t('children.pacifierBrand')} value={v.pacifierBrand} />
+            <ReadRow icon={Moon} label={t('children.usualSleepHours')} value={v.usualSleepHours} />
+            <ReadRow icon={Clock} label={t('children.averageNapDuration')} value={v.averageNapDuration} />
+            <ReadRow icon={Baby} label={t('children.usesPacifier')} value={optionLabel(PACIFIER_USE, v.usesPacifier, t)} />
+            <ReadRow icon={Tag} label={t('children.pacifierBrand')} value={v.pacifierBrand} />
             <ReadRow
+              icon={Repeat}
               label={t('children.canRollOver')}
               value={v.canRollOver ? `${boolText(true)}${v.rollOverDate ? ` (${fmtDate(v.rollOverDate, locale)})` : ''}` : boolText(false)}
             />
-            <ReadRow label={t('children.providerObservedRoll')} value={boolText(v.providerObservedRoll)} />
-            <ReadRow label={t('children.medicalExemption')} value={boolText(v.medicalExemption)} />
+            <ReadRow icon={Eye} label={t('children.providerObservedRoll')} value={boolText(v.providerObservedRoll)} />
+            <ReadRow icon={Shield} label={t('children.medicalExemption')} value={boolText(v.medicalExemption)} />
             {v.medicalExemption && (
-              <ReadRow label={t('children.medicalExemptionInstructions')} value={v.medicalExemptionInstructions} full />
+              <ReadRow icon={FileText} label={t('children.medicalExemptionInstructions')} value={v.medicalExemptionInstructions} full />
             )}
           </ReadGrid>
         )
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t('children.sleepLocation')}>
+            <Field icon={Bed} label={t('children.sleepLocation')}>
               <PlainSelect value={state.sleepLocation} onValueChange={(val) => set('sleepLocation', val)} options={SLEEP_LOCATIONS} />
             </Field>
             {state.sleepLocation === 'OTHER' && (
-              <Field label={t('children.sleepLocationOther')}>
+              <Field icon={Bed} label={t('children.sleepLocationOther')}>
                 <Input value={state.sleepLocationOther} onChange={(e) => set('sleepLocationOther', e.target.value)} />
               </Field>
             )}
-            <Field label={t('children.usualSleepHours')}>
+            <Field icon={Moon} label={t('children.usualSleepHours')}>
               <Input value={state.usualSleepHours} onChange={(e) => set('usualSleepHours', e.target.value)} placeholder="7pm – 6am" />
             </Field>
-            <Field label={t('children.averageNapDuration')}>
+            <Field icon={Clock} label={t('children.averageNapDuration')}>
               <Input value={state.averageNapDuration} onChange={(e) => set('averageNapDuration', e.target.value)} placeholder="45 min" />
             </Field>
-            <Field label={t('children.usesPacifier')}>
+            <Field icon={Baby} label={t('children.usesPacifier')}>
               <PlainSelect value={state.usesPacifier} onValueChange={(val) => set('usesPacifier', val)} options={PACIFIER_USE} />
             </Field>
             {showPacifierBrand && (
-              <Field label={t('children.pacifierBrand')}>
+              <Field icon={Tag} label={t('children.pacifierBrand')}>
                 <Input value={state.pacifierBrand} onChange={(e) => set('pacifierBrand', e.target.value)} />
               </Field>
             )}
@@ -131,7 +132,7 @@ export function InfantSleepSection({ child, canManage, onEditorChange }: Section
 
           <CheckboxRow checked={state.canRollOver} onChange={(c) => set('canRollOver', c)} label={t('children.canRollOver')} />
           {state.canRollOver && (
-            <Field label={t('children.rollOverDate')} className="sm:max-w-xs">
+            <Field icon={Calendar} label={t('children.rollOverDate')} className="sm:max-w-xs">
               <DateField value={state.rollOverDate} onChange={(e) => set('rollOverDate', e.target.value)} />
             </Field>
           )}
@@ -139,7 +140,7 @@ export function InfantSleepSection({ child, canManage, onEditorChange }: Section
 
           <CheckboxRow checked={state.medicalExemption} onChange={(c) => set('medicalExemption', c)} label={t('children.medicalExemption')} />
           {state.medicalExemption && (
-            <Field label={t('children.medicalExemptionInstructions')}>
+            <Field icon={FileText} label={t('children.medicalExemptionInstructions')}>
               <MedTextarea value={state.medicalExemptionInstructions} onChange={(val) => set('medicalExemptionInstructions', val)} />
             </Field>
           )}

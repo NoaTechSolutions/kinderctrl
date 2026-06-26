@@ -236,6 +236,9 @@ export interface Child {
   personality?: ChildPersonality | null;
   consents?: ChildConsent | null;
   infantSleep?: ChildInfantSleep | null;
+  // Today's attendance (detail endpoint, same proxy as the list) — for the
+  // detail Overview tab.
+  attendanceToday?: ChildAttendanceToday;
 }
 
 export interface ChildrenQuery {

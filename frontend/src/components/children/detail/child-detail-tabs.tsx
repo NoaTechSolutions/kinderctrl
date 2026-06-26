@@ -16,6 +16,7 @@ import { FilterTabs, type FilterTab } from '@/components/ui/filter-tabs';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
 import { useTranslation } from '@/lib/i18n';
 import type { Child } from '@/lib/types/child';
+import { OverviewSection } from './overview-section';
 import { ChildDetailsSection } from './child-details-section';
 import { ParentsSection } from './parents-section';
 import { MedicalSection } from './medical-section';
@@ -26,19 +27,30 @@ import { ToiletSection } from './toilet-section';
 import { PersonalitySection } from './personality-section';
 import { PermissionsSection } from './permissions-section';
 import { InfantSleepSection } from './infant-sleep-section';
-import type { SectionEditorHandle } from './use-section-editor';
+import { SectionGroup } from './section-group';
+import type { SectionEditorHandle, SectionProps } from './use-section-editor';
 
 export type DetailTab =
+  | 'overview'
   | 'child'
-  | 'parents'
-  | 'medical'
-  | 'contacts'
-  | 'development'
-  | 'routines'
-  | 'toilet'
-  | 'infantSleep'
-  | 'personality'
+  | 'family'
+  | 'health'
+  | 'dailyLife'
   | 'permissions';
+
+// Grouped tabs stack several inline-edit sections (handles aggregated by
+// SectionGroup). Family is people-only; the child's own fields are their own tab.
+const FAMILY_SECTIONS: ReadonlyArray<React.ComponentType<SectionProps>> = [
+  ParentsSection,
+  ContactsSection,
+];
+const DAILY_SECTIONS: ReadonlyArray<React.ComponentType<SectionProps>> = [
+  DevelopmentSection,
+  RoutinesSection,
+  ToiletSection,
+  PersonalitySection,
+  InfantSleepSection,
+];
 
 // A guarded navigator the header badges call: jump to a tab and (optionally)
 // scroll to a card by element id. Goes through the same unsaved-changes guard
@@ -55,7 +67,7 @@ export function ChildDetailTabs({
   navRef?: RefObject<DetailNavigate | null>;
 }) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<DetailTab>('child');
+  const [tab, setTab] = useState<DetailTab>('overview');
   const [anchor, setAnchor] = useState<string | null>(null);
   const [pendingTab, setPendingTab] = useState<DetailTab | null>(null);
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
@@ -65,16 +77,12 @@ export function ChildDetailTabs({
   const onEditorChange = useCallback((h: SectionEditorHandle) => setActiveHandle(h), []);
 
   const TABS: ReadonlyArray<FilterTab<DetailTab>> = [
-    { value: 'child', label: t('children.childDetails') },
-    { value: 'parents', label: t('children.colParents') },
-    { value: 'medical', label: t('children.medical') },
-    { value: 'contacts', label: t('children.contacts') },
-    { value: 'development', label: t('children.development') },
-    { value: 'routines', label: t('children.routines') },
-    { value: 'toilet', label: t('children.toilet') },
-    { value: 'infantSleep', label: t('children.infantSleep') },
-    { value: 'personality', label: t('children.personality') },
-    { value: 'permissions', label: t('children.permissions') },
+    { value: 'overview', label: t('children.tabOverview') },
+    { value: 'child', label: t('children.tabChild') },
+    { value: 'family', label: t('children.tabFamily') },
+    { value: 'health', label: t('children.tabHealth') },
+    { value: 'dailyLife', label: t('children.tabDailyLife') },
+    { value: 'permissions', label: t('children.tabPermissions') },
   ];
 
   // The active section is "blocking" only while it's in edit mode AND dirty.
@@ -123,15 +131,11 @@ export function ChildDetailTabs({
     <div className="space-y-4">
       <FilterTabs tabs={TABS} value={tab} onChange={(next) => requestTab(next)} ariaLabel={t('children.editSectionsAria')} />
 
+      {tab === 'overview' && <OverviewSection {...sectionProps} />}
       {tab === 'child' && <ChildDetailsSection {...sectionProps} />}
-      {tab === 'parents' && <ParentsSection {...sectionProps} />}
-      {tab === 'medical' && <MedicalSection {...sectionProps} />}
-      {tab === 'contacts' && <ContactsSection {...sectionProps} />}
-      {tab === 'development' && <DevelopmentSection {...sectionProps} />}
-      {tab === 'routines' && <RoutinesSection {...sectionProps} />}
-      {tab === 'toilet' && <ToiletSection {...sectionProps} />}
-      {tab === 'infantSleep' && <InfantSleepSection {...sectionProps} />}
-      {tab === 'personality' && <PersonalitySection {...sectionProps} />}
+      {tab === 'health' && <MedicalSection {...sectionProps} />}
+      {tab === 'family' && <SectionGroup {...sectionProps} sections={FAMILY_SECTIONS} />}
+      {tab === 'dailyLife' && <SectionGroup {...sectionProps} sections={DAILY_SECTIONS} />}
       {tab === 'permissions' && <PermissionsSection {...sectionProps} />}
 
       {/* Tab-switch guard — active section has unsaved edits */}

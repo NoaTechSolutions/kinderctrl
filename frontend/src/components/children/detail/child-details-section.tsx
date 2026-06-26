@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Baby } from 'lucide-react';
+import { Baby, Cake, Calendar, FileText, MapPin, Phone, Tag, User, Users } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -108,67 +108,64 @@ export function ChildDetailsSection({ child, canManage, onEditorChange }: Sectio
       >
         {ed.mode === 'read' ? (
           <ReadGrid cols={4}>
-            <ReadRow label={t('children.firstName')} value={child.firstName} />
-            <ReadRow label={t('children.middleName')} value={child.middleName ?? '—'} />
-            <ReadRow label={t('children.lastName')} value={child.lastName} />
-            <ReadRow label={t('children.dateOfBirth')} value={fmtDate(child.dateOfBirth, locale)} />
-            <ReadRow label={t('children.gender')} value={genderLabel(child.gender, t)} />
-            <ReadRow label={t('children.enrollmentStatus')}>
+            <ReadRow icon={User} label={t('children.firstName')} value={child.firstName} />
+            <ReadRow icon={User} label={t('children.middleName')} value={child.middleName} />
+            <ReadRow icon={User} label={t('children.lastName')} value={child.lastName} />
+            <ReadRow icon={Cake} label={t('children.dateOfBirth')} value={fmtDate(child.dateOfBirth, locale)} />
+            <ReadRow icon={Users} label={t('children.gender')} value={genderLabel(child.gender, t)} />
+            <ReadRow icon={Tag} label={t('children.enrollmentStatus')}>
               <ChildStatusBadge status={child.enrollmentStatus} />
             </ReadRow>
-            <ReadRow label={t('children.phone')}>
-              {primary ? (
+            <ReadRow icon={Phone} label={t('children.phone')}>
+              {primary && primary.parent.homePhone ? (
                 <>
-                  {primary.parent.homePhone ? formatPhoneUS(primary.parent.homePhone) : '—'}
+                  {formatPhoneUS(primary.parent.homePhone)}
                   <span className="mt-0.5 block text-xs" style={{ color: 'var(--kc-text-3)' }}>
                     {t('children.phonePrimaryContactHint').replace('{name}', primaryName)}
                   </span>
                 </>
-              ) : (
-                '—'
-              )}
+              ) : null}
             </ReadRow>
             <ReadRow
+              icon={MapPin}
               label={t('children.address')}
               full
-              value={
-                joinAddress([
-                  child.addressNumber,
-                  child.addressStreet,
-                  child.addressCity,
-                  child.addressState,
-                  child.addressZip,
-                ]) ?? '—'
-              }
+              value={joinAddress([
+                child.addressNumber,
+                child.addressStreet,
+                child.addressCity,
+                child.addressState,
+                child.addressZip,
+              ])}
             />
-            <ReadRow label={t('children.admissionDate')} value={fmtDate(child.admissionDate, locale)} />
-            <ReadRow label={t('children.firstDayOfCare')} value={fmtDate(child.firstCareDay, locale)} />
-            <ReadRow label={t('children.lastEnrollmentDate')} value={fmtDate(child.lastEnrollmentDate, locale)} />
-            <ReadRow label={t('children.reasonForCare')} value={child.reasonForCare ?? '—'} full />
+            <ReadRow icon={Calendar} label={t('children.admissionDate')} value={fmtDate(child.admissionDate, locale)} />
+            <ReadRow icon={Calendar} label={t('children.firstDayOfCare')} value={fmtDate(child.firstCareDay, locale)} />
+            <ReadRow icon={Calendar} label={t('children.lastEnrollmentDate')} value={fmtDate(child.lastEnrollmentDate, locale)} />
+            <ReadRow icon={FileText} label={t('children.reasonForCare')} value={child.reasonForCare} full />
           </ReadGrid>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label={t('children.firstName')} required>
+              <Field icon={User} label={t('children.firstName')} required>
                 <NameInput value={state.firstName} onChange={(v) => setC('firstName', v)} />
               </Field>
-              <Field label={t('children.middleName')}>
+              <Field icon={User} label={t('children.middleName')}>
                 <NameInput value={state.middleName} onChange={(v) => setC('middleName', v)} />
               </Field>
-              <Field label={t('children.lastName')} required>
+              <Field icon={User} label={t('children.lastName')} required>
                 <NameInput value={state.lastName} onChange={(v) => setC('lastName', v)} />
               </Field>
-              <Field label={t('children.birthDate')} required>
+              <Field icon={Cake} label={t('children.birthDate')} required>
                 <DateField value={state.birthDate} onChange={(e) => setC('birthDate', e.target.value)} max={todayStr} />
               </Field>
-              <Field label={t('children.gender')} required>
+              <Field icon={Users} label={t('children.gender')} required>
                 <PlainSelect value={state.gender} onValueChange={(v) => setC('gender', v)} options={GENDERS} />
               </Field>
-              <Field label={t('children.enrollmentStatus')} required>
+              <Field icon={Tag} label={t('children.enrollmentStatus')} required>
                 <PlainSelect value={state.enrollmentStatus} onValueChange={(v) => setC('enrollmentStatus', v)} options={ENROLLMENT_STATUSES} />
               </Field>
               {primary && (
-                <Field label={t('children.phone')} className="sm:col-span-full">
+                <Field icon={Phone} label={t('children.phone')} className="sm:col-span-full">
                   <PhoneInput value={state.phone} onChange={(v) => setC('phone', v)} />
                   <span className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
                     {t('children.phonePrimaryContactHint').replace('{name}', primaryName)}
@@ -183,17 +180,17 @@ export function ChildDetailsSection({ child, canManage, onEditorChange }: Sectio
               <AddressFields value={state.address} onChange={(f, v) => setC('address', { ...state.address, [f]: v })} />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label={t('children.admissionDate')}>
+              <Field icon={Calendar} label={t('children.admissionDate')}>
                 <DateField value={state.admissionDate} onChange={(e) => setC('admissionDate', e.target.value)} />
               </Field>
-              <Field label={t('children.firstDayOfCare')}>
+              <Field icon={Calendar} label={t('children.firstDayOfCare')}>
                 <DateField value={state.firstCareDay} onChange={(e) => setC('firstCareDay', e.target.value)} />
               </Field>
-              <Field label={t('children.lastEnrollmentDate')}>
+              <Field icon={Calendar} label={t('children.lastEnrollmentDate')}>
                 <DateField value={state.lastEnrollmentDate} onChange={(e) => setC('lastEnrollmentDate', e.target.value)} />
               </Field>
             </div>
-            <Field label={t('children.reasonForCare')}>
+            <Field icon={FileText} label={t('children.reasonForCare')}>
               <MedTextarea value={state.reasonForCare} onChange={(v) => setC('reasonForCare', v)} />
             </Field>
           </div>

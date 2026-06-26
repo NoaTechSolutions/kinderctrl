@@ -850,8 +850,9 @@ function ParentCard({
 
 // ───────────────────────────────────────────── Step 3: Review
 
-const dash = (v?: string | null) => (v && v.trim() ? v : '—');
-const addrStr = (a: Addr) => [a.street, a.city, a.state, a.zip].filter(Boolean).join(', ') || '—';
+// Empty = empty (global rule) — no placeholder dash for unfilled review fields.
+const dash = (v?: string | null) => (v && v.trim() ? v : '');
+const addrStr = (a: Addr) => [a.street, a.city, a.state, a.zip].filter(Boolean).join(', ');
 
 // Full review — every field, filled OR empty (empty shows "—"), grouped into
 // Child / Parents / Medical sections so the user sees everything before saving.
@@ -873,7 +874,7 @@ function StepReview({
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
           <ReviewRow label={t('children.colName')} value={dash(childName)} />
           <ReviewRow label={t('children.birthDate')} value={dash(form.birthDate)} />
-          <ReviewRow label={t('children.gender')} value={form.gender ? genderLabel(form.gender, t) : '—'} />
+          <ReviewRow label={t('children.gender')} value={form.gender ? genderLabel(form.gender, t) : ''} />
           <ReviewRow label={t('children.enrollmentStatus')} value={t('children.statusPending')} />
           <ReviewRow label={t('children.address')} value={addrStr(form.address)} full />
           <ReviewRow label={t('children.admissionDate')} value={dash(form.admissionDate)} />
@@ -902,7 +903,7 @@ function StepReview({
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
                   <ReviewRow label={t('children.fullName')} value={dash(rawName)} full />
                   <ReviewRow label={t('children.type')} value={p.mode === 'existing' ? t('children.existingParent') : t('children.newParentBtn')} />
-                  <ReviewRow label={t('children.relationship')} value={p.relationship ? relationshipLabel(p.relationship, t) : '—'} />
+                  <ReviewRow label={t('children.relationship')} value={p.relationship ? relationshipLabel(p.relationship, t) : ''} />
                   <ReviewRow label={t('children.primaryContact')} value={p.isPrimary ? t('children.yes') : t('children.no')} />
                   <ReviewRow label={t('children.livesWithChild')} value={p.livesWithChild ? t('children.yes') : t('children.no')} />
                   {p.mode === 'existing' ? (

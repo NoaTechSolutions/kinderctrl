@@ -1,7 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles, StickyNote, Users } from 'lucide-react';
+import {
+  Bed,
+  FileText,
+  Frown,
+  Gift,
+  Heart,
+  Home,
+  Lightbulb,
+  Shield,
+  Smile,
+  Sparkles,
+  StickyNote,
+  Trees,
+  Users,
+  Utensils,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useTranslation } from '@/lib/i18n';
 import { useUpdateChildPersonality } from '@/lib/hooks/use-children';
@@ -103,21 +118,22 @@ function LikesCard({ child, canManage, canEdit, onCardEditorChange }: PersCardPr
     >
       {ed.mode === 'read' ? (
         <ReadGrid>
-          <ReadRow label={t('children.personalityWords')} full>
+          <ReadRow icon={Sparkles} label={t('children.personalityWords')} full>
             <CommaChips value={p.personalityWords} />
           </ReadRow>
-          <ReadRow label={t('children.likesToDo')} value={p.likesToDo} full />
-          <ReadRow label={t('children.favoriteFoods')}>
+          <ReadRow icon={Heart} label={t('children.likesToDo')} value={p.likesToDo} full />
+          <ReadRow icon={Utensils} label={t('children.favoriteFoods')}>
             <CommaChips value={p.favoriteFoods} />
           </ReadRow>
-          <ReadRow label={t('children.dislikedFoods')}>
+          <ReadRow icon={Utensils} label={t('children.dislikedFoods')}>
             <CommaChips value={p.dislikedFoods} />
           </ReadRow>
-          <ReadRow label={t('children.fears')} value={p.fears} />
-          <ReadRow label={t('children.favoriteToy')} value={p.favoriteToy} />
-          <ReadRow label={t('children.favoriteIndoorActivity')} value={p.favoriteIndoorActivity} />
-          <ReadRow label={t('children.favoriteOutdoorActivity')} value={p.favoriteOutdoorActivity} />
+          <ReadRow icon={Frown} label={t('children.fears')} value={p.fears} />
+          <ReadRow icon={Gift} label={t('children.favoriteToy')} value={p.favoriteToy} />
+          <ReadRow icon={Home} label={t('children.favoriteIndoorActivity')} value={p.favoriteIndoorActivity} />
+          <ReadRow icon={Trees} label={t('children.favoriteOutdoorActivity')} value={p.favoriteOutdoorActivity} />
           <ReadRow
+            icon={Bed}
             label={t('children.napsAtHome')}
             value={p.napsAtHome ? `${boolText(true)}${p.napTimeAtHome ? ` (${p.napTimeAtHome})` : ''}` : boolText(false)}
           />
@@ -125,35 +141,35 @@ function LikesCard({ child, canManage, canEdit, onCardEditorChange }: PersCardPr
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t('children.personalityWords')} className="sm:col-span-2">
+            <Field icon={Sparkles} label={t('children.personalityWords')} className="sm:col-span-2">
               <Input value={state.personalityWords} onChange={(e) => set('personalityWords', e.target.value)} placeholder={t('children.commaHint')} />
             </Field>
-            <Field label={t('children.likesToDo')} className="sm:col-span-2">
+            <Field icon={Heart} label={t('children.likesToDo')} className="sm:col-span-2">
               <Input value={state.likesToDo} onChange={(e) => set('likesToDo', e.target.value)} />
             </Field>
-            <Field label={t('children.favoriteFoods')}>
+            <Field icon={Utensils} label={t('children.favoriteFoods')}>
               <Input value={state.favoriteFoods} onChange={(e) => set('favoriteFoods', e.target.value)} placeholder={t('children.commaHint')} />
             </Field>
-            <Field label={t('children.dislikedFoods')}>
+            <Field icon={Utensils} label={t('children.dislikedFoods')}>
               <Input value={state.dislikedFoods} onChange={(e) => set('dislikedFoods', e.target.value)} placeholder={t('children.commaHint')} />
             </Field>
-            <Field label={t('children.fears')}>
+            <Field icon={Frown} label={t('children.fears')}>
               <Input value={state.fears} onChange={(e) => set('fears', e.target.value)} />
             </Field>
-            <Field label={t('children.favoriteToy')}>
+            <Field icon={Gift} label={t('children.favoriteToy')}>
               <Input value={state.favoriteToy} onChange={(e) => set('favoriteToy', e.target.value)} />
             </Field>
-            <Field label={t('children.favoriteIndoorActivity')}>
+            <Field icon={Home} label={t('children.favoriteIndoorActivity')}>
               <Input value={state.favoriteIndoorActivity} onChange={(e) => set('favoriteIndoorActivity', e.target.value)} />
             </Field>
-            <Field label={t('children.favoriteOutdoorActivity')}>
+            <Field icon={Trees} label={t('children.favoriteOutdoorActivity')}>
               <Input value={state.favoriteOutdoorActivity} onChange={(e) => set('favoriteOutdoorActivity', e.target.value)} />
             </Field>
           </div>
           <div className="flex flex-wrap items-end gap-4">
             <CheckboxRow checked={state.napsAtHome} onChange={(c) => set('napsAtHome', c)} label={t('children.napsAtHome')} />
             {state.napsAtHome && (
-              <Field label={t('children.napTimeAtHome')} className="w-48">
+              <Field icon={Bed} label={t('children.napTimeAtHome')} className="w-48">
                 <Input value={state.napTimeAtHome} onChange={(e) => set('napTimeAtHome', e.target.value)} placeholder="1-3pm" />
               </Field>
             )}
@@ -196,27 +212,27 @@ function BehaviorCard({ child, canManage, canEdit, onCardEditorChange }: PersCar
     >
       {ed.mode === 'read' ? (
         <ReadGrid>
-          <ReadRow label={t('children.expressesEmotions')} value={p.expressesEmotions} full />
-          <ReadRow label={t('children.homeDiscipline')} value={p.homeDiscipline} full />
-          <ReadRow label={t('children.getsAlongWith')} value={p.getsAlongWith} full />
-          <ReadRow label={t('children.groupPlayExperience')} value={p.groupPlayExperience} full />
-          <ReadRow label={t('children.sickCarePlan')} value={p.sickCarePlan} full />
+          <ReadRow icon={Smile} label={t('children.expressesEmotions')} value={p.expressesEmotions} full />
+          <ReadRow icon={Shield} label={t('children.homeDiscipline')} value={p.homeDiscipline} full />
+          <ReadRow icon={Users} label={t('children.getsAlongWith')} value={p.getsAlongWith} full />
+          <ReadRow icon={Users} label={t('children.groupPlayExperience')} value={p.groupPlayExperience} full />
+          <ReadRow icon={Heart} label={t('children.sickCarePlan')} value={p.sickCarePlan} full />
         </ReadGrid>
       ) : (
         <div className="space-y-4">
-          <Field label={t('children.expressesEmotions')}>
+          <Field icon={Smile} label={t('children.expressesEmotions')}>
             <MedTextarea value={state.expressesEmotions} onChange={(v) => set('expressesEmotions', v)} />
           </Field>
-          <Field label={t('children.homeDiscipline')}>
+          <Field icon={Shield} label={t('children.homeDiscipline')}>
             <MedTextarea value={state.homeDiscipline} onChange={(v) => set('homeDiscipline', v)} />
           </Field>
-          <Field label={t('children.getsAlongWith')}>
+          <Field icon={Users} label={t('children.getsAlongWith')}>
             <MedTextarea value={state.getsAlongWith} onChange={(v) => set('getsAlongWith', v)} />
           </Field>
-          <Field label={t('children.groupPlayExperience')}>
+          <Field icon={Users} label={t('children.groupPlayExperience')}>
             <MedTextarea value={state.groupPlayExperience} onChange={(v) => set('groupPlayExperience', v)} />
           </Field>
-          <Field label={t('children.sickCarePlan')}>
+          <Field icon={Heart} label={t('children.sickCarePlan')}>
             <MedTextarea value={state.sickCarePlan} onChange={(v) => set('sickCarePlan', v)} />
           </Field>
         </div>
@@ -257,15 +273,15 @@ function NotesCard({ child, canManage, canEdit, onCardEditorChange }: PersCardPr
     >
       {ed.mode === 'read' ? (
         <ReadGrid>
-          <ReadRow label={t('children.transitionTips')} value={p.transitionTips} full />
-          <ReadRow label={t('children.anythingElse')} value={p.anythingElse} full />
+          <ReadRow icon={Lightbulb} label={t('children.transitionTips')} value={p.transitionTips} full />
+          <ReadRow icon={FileText} label={t('children.anythingElse')} value={p.anythingElse} full />
         </ReadGrid>
       ) : (
         <div className="space-y-4">
-          <Field label={t('children.transitionTips')}>
+          <Field icon={Lightbulb} label={t('children.transitionTips')}>
             <MedTextarea value={state.transitionTips} onChange={(v) => set('transitionTips', v)} />
           </Field>
-          <Field label={t('children.anythingElse')}>
+          <Field icon={FileText} label={t('children.anythingElse')}>
             <MedTextarea value={state.anythingElse} onChange={(v) => set('anythingElse', v)} />
           </Field>
         </div>

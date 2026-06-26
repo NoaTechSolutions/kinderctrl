@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { Droplets } from 'lucide-react';
+import { AlertTriangle, CircleCheck, Clock, Droplet, Droplets, Hand, MessageSquare, Repeat } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useTranslation } from '@/lib/i18n';
 import { useUpdateChildDevelopment } from '@/lib/hooks/use-children';
@@ -63,36 +63,36 @@ export function ToiletSection({ child, canManage, onEditorChange }: SectionProps
           <EmptyHint>{t('children.noToilet')}</EmptyHint>
         ) : (
           <ReadGrid>
-            <ReadRow label={t('children.toiletTrained')} value={boolText(v.toiletTrained)} />
-            <ReadRow label={t('children.toiletHelpLevel')} value={optionLabel(TOILET_HELP_LEVELS, v.toiletHelpLevel, t) || '—'} />
-            <ReadRow label={t('children.toiletWordBowel')} value={v.toiletWordBowel} />
-            <ReadRow label={t('children.toiletWordUrination')} value={v.toiletWordUrination} />
-            <ReadRow label={t('children.bowelMovementsRegular')} value={triText(v.bowelMovementsRegular, t)} />
-            <ReadRow label={t('children.bowelMovementTime')} value={v.bowelMovementTime} />
-            <ReadRow label={t('children.toiletAccidents')} value={v.toiletAccidents} full />
+            <ReadRow icon={CircleCheck} label={t('children.toiletTrained')} value={boolText(v.toiletTrained)} />
+            <ReadRow icon={Hand} label={t('children.toiletHelpLevel')} value={optionLabel(TOILET_HELP_LEVELS, v.toiletHelpLevel, t)} />
+            <ReadRow icon={MessageSquare} label={t('children.toiletWordBowel')} value={v.toiletWordBowel} />
+            <ReadRow icon={Droplet} label={t('children.toiletWordUrination')} value={v.toiletWordUrination} />
+            <ReadRow icon={Repeat} label={t('children.bowelMovementsRegular')} value={triText(v.bowelMovementsRegular, t)} />
+            <ReadRow icon={Clock} label={t('children.bowelMovementTime')} value={v.bowelMovementTime} />
+            <ReadRow icon={AlertTriangle} label={t('children.toiletAccidents')} value={v.toiletAccidents} full />
           </ReadGrid>
         )
       ) : (
         <div className="space-y-4">
           <CheckboxRow checked={state.toiletTrained} onChange={(c) => setT('toiletTrained', c)} label={t('children.toiletTrained')} />
-          <Field label={t('children.toiletHelpLevel')} className="sm:max-w-xs">
+          <Field icon={Hand} label={t('children.toiletHelpLevel')} className="sm:max-w-xs">
             <PlainSelect value={state.toiletHelpLevel} onValueChange={(val) => setT('toiletHelpLevel', val)} options={TOILET_HELP_LEVELS} />
           </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t('children.toiletWordBowel')}>
+            <Field icon={MessageSquare} label={t('children.toiletWordBowel')}>
               <Input value={state.toiletWordBowel} onChange={(e) => setT('toiletWordBowel', e.target.value)} />
             </Field>
-            <Field label={t('children.toiletWordUrination')}>
+            <Field icon={Droplet} label={t('children.toiletWordUrination')}>
               <Input value={state.toiletWordUrination} onChange={(e) => setT('toiletWordUrination', e.target.value)} />
             </Field>
           </div>
-          <Field label={t('children.bowelMovementsRegular')}>
+          <Field icon={Repeat} label={t('children.bowelMovementsRegular')}>
             <TriStateField value={state.bowelMovementsRegular} onChange={(val) => setT('bowelMovementsRegular', val)} />
           </Field>
-          <Field label={t('children.bowelMovementTime')}>
+          <Field icon={Clock} label={t('children.bowelMovementTime')}>
             <Input value={state.bowelMovementTime} onChange={(e) => setT('bowelMovementTime', e.target.value)} />
           </Field>
-          <Field label={t('children.toiletAccidents')}>
+          <Field icon={AlertTriangle} label={t('children.toiletAccidents')}>
             <MedTextarea value={state.toiletAccidents} onChange={(val) => setT('toiletAccidents', val)} />
           </Field>
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Users } from 'lucide-react';
+import { Home, Link2, Mail, MapPin, Phone, Plus, Star, User, Users } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -179,18 +179,19 @@ function ParentReadRow({ link }: { link: ChildParentLink }) {
   return (
     <div className="rounded-lg border p-4" style={{ borderColor: 'var(--kc-border)' }}>
       <ReadGrid cols={3}>
-        <ReadRow label={t('children.firstName')} value={link.parent.firstName} />
-        <ReadRow label={t('children.middleName')} value={link.parent.middleName ?? '—'} />
-        <ReadRow label={t('children.lastName')} value={link.parent.lastName} />
-        <ReadRow label={t('children.relationship')} value={relationshipLabel(link.relationship, t) || '—'} />
-        <ReadRow label={t('children.email')} value={link.parent.email} />
+        <ReadRow icon={User} label={t('children.firstName')} value={link.parent.firstName} />
+        <ReadRow icon={User} label={t('children.middleName')} value={link.parent.middleName} />
+        <ReadRow icon={User} label={t('children.lastName')} value={link.parent.lastName} />
+        <ReadRow icon={Link2} label={t('children.relationship')} value={relationshipLabel(link.relationship, t)} />
+        <ReadRow icon={Mail} label={t('children.email')} value={link.parent.email} />
         <ReadRow
+          icon={Phone}
           label={t('children.homePhone')}
-          value={link.parent.homePhone ? formatPhoneUS(link.parent.homePhone) : '—'}
+          value={link.parent.homePhone ? formatPhoneUS(link.parent.homePhone) : ''}
         />
-        <ReadRow label={t('children.primaryContact')} value={boolText(link.isPrimary)} />
-        <ReadRow label={t('children.livesWithChild')} value={boolText(link.livesWithChild)} />
-        <ReadRow label={t('children.homeAddress')} value={homeAddr ?? '—'} full />
+        <ReadRow icon={Star} label={t('children.primaryContact')} value={boolText(link.isPrimary)} />
+        <ReadRow icon={Home} label={t('children.livesWithChild')} value={boolText(link.livesWithChild)} />
+        <ReadRow icon={MapPin} label={t('children.homeAddress')} value={homeAddr} full />
       </ReadGrid>
     </div>
   );

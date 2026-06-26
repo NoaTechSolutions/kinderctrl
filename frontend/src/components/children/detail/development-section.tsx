@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { Baby, FileText, Footprints, MessageCircle, TrendingUp } from 'lucide-react';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useTranslation } from '@/lib/i18n';
 import { useUpdateChildDevelopment } from '@/lib/hooks/use-children';
@@ -50,26 +50,26 @@ export function DevelopmentSection({ child, canManage, onEditorChange }: Section
           <EmptyHint>{t('children.noDevelopment')}</EmptyHint>
         ) : (
           <ReadGrid>
-            <ReadRow label={t('children.walkedAtMonths')} value={d.walkedAtMonths || '—'} />
-            <ReadRow label={t('children.talkedAtMonths')} value={d.talkedAtMonths || '—'} />
-            <ReadRow label={t('children.toiletTrainedAtMonths')} value={d.toiletTrainedAtMonths || '—'} />
-            <ReadRow label={t('children.developmentNotes')} value={d.developmentNotes} full />
+            <ReadRow icon={Footprints} label={t('children.walkedAtMonths')} value={d.walkedAtMonths} />
+            <ReadRow icon={MessageCircle} label={t('children.talkedAtMonths')} value={d.talkedAtMonths} />
+            <ReadRow icon={Baby} label={t('children.toiletTrainedAtMonths')} value={d.toiletTrainedAtMonths} />
+            <ReadRow icon={FileText} label={t('children.developmentNotes')} value={d.developmentNotes} full />
           </ReadGrid>
         )
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label={t('children.walkedAtMonths')}>
+            <Field icon={Footprints} label={t('children.walkedAtMonths')}>
               <NumericInput value={state.walkedAtMonths} onChange={(v) => setD('walkedAtMonths', v)} maxLength={3} />
             </Field>
-            <Field label={t('children.talkedAtMonths')}>
+            <Field icon={MessageCircle} label={t('children.talkedAtMonths')}>
               <NumericInput value={state.talkedAtMonths} onChange={(v) => setD('talkedAtMonths', v)} maxLength={3} />
             </Field>
-            <Field label={t('children.toiletTrainedAtMonths')}>
+            <Field icon={Baby} label={t('children.toiletTrainedAtMonths')}>
               <NumericInput value={state.toiletTrainedAtMonths} onChange={(v) => setD('toiletTrainedAtMonths', v)} maxLength={3} />
             </Field>
           </div>
-          <Field label={t('children.developmentNotes')}>
+          <Field icon={FileText} label={t('children.developmentNotes')}>
             <MedTextarea value={state.developmentNotes} onChange={(v) => setD('developmentNotes', v)} />
           </Field>
         </div>

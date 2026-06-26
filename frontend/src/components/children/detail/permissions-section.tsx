@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { Check, ShieldCheck, X } from 'lucide-react';
+import { Calendar, Check, FileText, ShieldCheck, Sun, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { DateField } from '@/components/ui/date-field';
 import { useTranslation } from '@/lib/i18n';
@@ -77,8 +77,8 @@ export function PermissionsSection({ child, canManage, onEditorChange }: Section
     : '';
   const dateRange =
     c.sunscreenStartDate || c.sunscreenEndDate
-      ? `${c.sunscreenStartDate ? fmtDate(c.sunscreenStartDate, locale) : '—'} → ${c.sunscreenEndDate ? fmtDate(c.sunscreenEndDate, locale) : '—'}`
-      : '—';
+      ? `${c.sunscreenStartDate ? fmtDate(c.sunscreenStartDate, locale) : ''} → ${c.sunscreenEndDate ? fmtDate(c.sunscreenEndDate, locale) : ''}`
+      : '';
 
   return (
     <SectionFrame
@@ -106,8 +106,8 @@ export function PermissionsSection({ child, canManage, onEditorChange }: Section
             </div>
             {c.sunscreenRepellent && (
               <dl>
-                <SubDetail label={t('children.sunscreenProducts')}>{c.sunscreenProducts || '—'}</SubDetail>
-                <SubDetail label={t('children.sunscreenInstructions')}>{c.sunscreenInstructions || '—'}</SubDetail>
+                <SubDetail label={t('children.sunscreenProducts')}>{c.sunscreenProducts}</SubDetail>
+                <SubDetail label={t('children.sunscreenInstructions')}>{c.sunscreenInstructions}</SubDetail>
                 <SubDetail label={t('children.sunscreenDates')}>{dateRange}</SubDetail>
               </dl>
             )}
@@ -134,17 +134,17 @@ export function PermissionsSection({ child, canManage, onEditorChange }: Section
             <CheckboxRow checked={state.sunscreenRepellent} onChange={(v) => set('sunscreenRepellent', v)} label={t('children.consentSunscreen')} />
             {state.sunscreenRepellent && (
               <div className="space-y-4">
-                <Field label={t('children.sunscreenProducts')}>
+                <Field icon={Sun} label={t('children.sunscreenProducts')}>
                   <Input value={state.sunscreenProducts} onChange={(e) => set('sunscreenProducts', e.target.value)} />
                 </Field>
-                <Field label={t('children.sunscreenInstructions')}>
+                <Field icon={FileText} label={t('children.sunscreenInstructions')}>
                   <MedTextarea value={state.sunscreenInstructions} onChange={(v) => set('sunscreenInstructions', v)} />
                 </Field>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Field label={t('children.sunscreenStartDate')}>
+                  <Field icon={Calendar} label={t('children.sunscreenStartDate')}>
                     <DateField value={state.sunscreenStartDate} onChange={(e) => set('sunscreenStartDate', e.target.value)} />
                   </Field>
-                  <Field label={t('children.sunscreenEndDate')}>
+                  <Field icon={Calendar} label={t('children.sunscreenEndDate')}>
                     <DateField value={state.sunscreenEndDate} onChange={(e) => set('sunscreenEndDate', e.target.value)} />
                   </Field>
                 </div>

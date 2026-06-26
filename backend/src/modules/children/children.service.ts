@@ -25,7 +25,9 @@ import { UpdateChildContactDto } from './dto/update-child-contact.dto';
 // (with their HOME/WORK contact + the User account status). Keeps the payload
 // consistent across create / findOne / update so the frontend reads one shape.
 const CHILD_DETAIL_INCLUDE = {
-  center: { select: { id: true, name: true } },
+  // timezone drives attendanceToday's "today" in findOne (stripped shape stays
+  // additive — the client already reads center.{id,name}).
+  center: { select: { id: true, name: true, timezone: true } },
   medicalInfo: true,
   // Fase 2 (2A) — contacts travel with the child detail so the edit-form tabs
   // read one shape (ordered by type, then creation for a stable list).
@@ -474,6 +476,19 @@ export class ChildrenService {
       userRole,
     );
 
+    // Today's attendance (same proxy as the list) so the detail's Overview can
+    // show it without a second request. Dormant table today → resolves to the
+    // enrollment-status proxy; real data once the children-attendance module lands.
+    const today = dateInTimezone(new Date(), child.center.timezone);
+    const att = await this.prisma.attendance.findUnique({
+      where: { childId_date: { childId: child.id, date: today } },
+      select: { status: true, checkInTime: true, checkOutTime: true },
+    });
+    const attendanceToday = mapAttendanceToday(
+      att ?? undefined,
+      child.enrollmentStatus,
+    );
+
     // Resolve the consent signer's name for the detail's audit line
     // ("Registered by {name}"). signedByUserId is a plain Uuid (no relation,
     // per the audit-column convention), so we look it up here — one extra
@@ -483,10 +498,14 @@ export class ChildrenService {
         where: { id: child.consents.signedByUserId },
         select: { firstName: true, lastName: true, email: true },
       });
-      return { ...child, consents: { ...child.consents, signedBy: signer } };
+      return {
+        ...child,
+        attendanceToday,
+        consents: { ...child.consents, signedBy: signer },
+      };
     }
 
-    return child;
+    return { ...child, attendanceToday };
   }
 
   // ───────────────────────────────────────────── UPDATE

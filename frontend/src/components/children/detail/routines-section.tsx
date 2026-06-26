@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { Clock } from 'lucide-react';
+import { Bed, Clock, FileText, Moon, Sunrise, Utensils } from 'lucide-react';
 import { TimeField } from '@/components/ui/time-field';
 import { useTranslation } from '@/lib/i18n';
 import { useUpdateChildDevelopment } from '@/lib/hooks/use-children';
@@ -68,46 +68,46 @@ export function RoutinesSection({ child, canManage, onEditorChange }: SectionPro
           <EmptyHint>{t('children.noRoutines')}</EmptyHint>
         ) : (
           <ReadGrid>
-            <ReadRow label={t('children.wakeUpTime')} value={r.wakeUpTime || '—'} />
-            <ReadRow label={t('children.bedTime')} value={r.bedTime || '—'} />
-            <ReadRow label={t('children.takesNap')} value={napText} />
-            <ReadRow label={t('children.sleepsWell')} value={triText(r.sleepsWell, t)} />
-            <ReadRow label={t('children.diet')} value={r.diet} full />
-            <ReadRow label={t('children.mealTimes')} value={r.mealTimes} full />
-            <ReadRow label={t('children.eatingProblems')} value={r.eatingProblems} full />
+            <ReadRow icon={Sunrise} label={t('children.wakeUpTime')} value={r.wakeUpTime} />
+            <ReadRow icon={Moon} label={t('children.bedTime')} value={r.bedTime} />
+            <ReadRow icon={Bed} label={t('children.takesNap')} value={napText} />
+            <ReadRow icon={Bed} label={t('children.sleepsWell')} value={triText(r.sleepsWell, t)} />
+            <ReadRow icon={Utensils} label={t('children.diet')} value={r.diet} full />
+            <ReadRow icon={Utensils} label={t('children.mealTimes')} value={r.mealTimes} full />
+            <ReadRow icon={FileText} label={t('children.eatingProblems')} value={r.eatingProblems} full />
           </ReadGrid>
         )
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t('children.wakeUpTime')}>
+            <Field icon={Sunrise} label={t('children.wakeUpTime')}>
               <TimeField value={state.wakeUpTime} onChange={(e) => setR('wakeUpTime', e.target.value)} />
             </Field>
-            <Field label={t('children.bedTime')}>
+            <Field icon={Moon} label={t('children.bedTime')}>
               <TimeField value={state.bedTime} onChange={(e) => setR('bedTime', e.target.value)} />
             </Field>
           </div>
           <CheckboxRow checked={state.takesNap} onChange={(c) => setR('takesNap', c)} label={t('children.takesNap')} />
           {state.takesNap && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label={t('children.napStartTime')}>
+              <Field icon={Clock} label={t('children.napStartTime')}>
                 <TimeField value={state.napStartTime} onChange={(e) => setR('napStartTime', e.target.value)} />
               </Field>
-              <Field label={t('children.napEndTime')}>
+              <Field icon={Clock} label={t('children.napEndTime')}>
                 <TimeField value={state.napEndTime} onChange={(e) => setR('napEndTime', e.target.value)} />
               </Field>
             </div>
           )}
-          <Field label={t('children.sleepsWell')}>
+          <Field icon={Bed} label={t('children.sleepsWell')}>
             <TriStateField value={state.sleepsWell} onChange={(v) => setR('sleepsWell', v)} />
           </Field>
-          <Field label={t('children.diet')}>
+          <Field icon={Utensils} label={t('children.diet')}>
             <MedTextarea value={state.diet} onChange={(v) => setR('diet', v)} />
           </Field>
-          <Field label={t('children.mealTimes')}>
+          <Field icon={Utensils} label={t('children.mealTimes')}>
             <MedTextarea value={state.mealTimes} onChange={(v) => setR('mealTimes', v)} />
           </Field>
-          <Field label={t('children.eatingProblems')}>
+          <Field icon={FileText} label={t('children.eatingProblems')}>
             <MedTextarea value={state.eatingProblems} onChange={(v) => setR('eatingProblems', v)} />
           </Field>
         </div>
