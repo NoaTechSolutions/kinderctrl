@@ -29,7 +29,8 @@ export function ProfileRow({
   icon: Icon,
   label,
   value,
-  emptyPlaceholder = '—',
+  // emptyPlaceholder kept in the props for caller compat but no longer rendered
+  // (empty = empty, global rule).
   action,
 }: ProfileRowProps) {
   // Empty heuristic: explicit null/undefined OR an empty string. Other
@@ -62,7 +63,8 @@ export function ProfileRow({
               : { color: 'var(--kc-text-1)' }
           }
         >
-          {isEmpty ? emptyPlaceholder : value}
+          {/* Empty = empty (global rule): no placeholder, just blank. */}
+          {isEmpty ? null : value}
         </div>
       </div>
       {action && <div className="flex-none">{action}</div>}

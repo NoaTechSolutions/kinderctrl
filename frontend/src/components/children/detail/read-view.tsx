@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type { Locale } from '@/lib/i18n';
 
@@ -24,36 +25,58 @@ export function joinAddress(parts: Array<string | null | undefined>): string | n
 // Responsive definition grid. Always 1 column below `sm` (≤375). `cols={4}`
 // scales 1 → 2 (sm/tablet) → 4 (lg) so it never gets cramped on tablet.
 const READ_GRID_COLS: Record<2 | 3 | 4, string> = {
-  2: 'sm:grid-cols-2',
-  3: 'sm:grid-cols-3',
-  4: 'sm:grid-cols-2 lg:grid-cols-4',
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-3',
+  4: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
 };
 export function ReadGrid({ children, cols = 2 }: { children: ReactNode; cols?: 2 | 3 | 4 }) {
   return <dl className={`grid gap-x-6 gap-y-4 ${READ_GRID_COLS[cols]}`}>{children}</dl>;
 }
 
-// One label/value pair. `value` of null/'' renders an em-dash. `full` spans both
-// columns (for long text like notes / plans).
+// One label/value pair (card design). Label row = optional semantic icon +
+// uppercase 10px muted label; value is clean text below (no box/border/bg).
+// Empty renders NOTHING (no dash / "Not set") — the field-to-field gap separates.
+// `full` spans both columns (long text like notes / plans).
 export function ReadRow({
   label,
   value,
   full,
+  icon: Icon,
   children,
 }: {
   label: string;
   value?: string | null;
   full?: boolean;
+  icon?: LucideIcon;
   children?: ReactNode;
 }) {
-  const display = children ?? (value && value.trim() ? value : '—');
+  // Empty = empty (global rule). A lone placeholder ('—' / '–' / 'N/A') counts
+  // as empty too, so the many callers still passing one render blank without
+  // each needing an edit.
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  const valueEmpty = trimmed === '' || trimmed === '—' || trimmed === '–' || trimmed === 'N/A';
+  const hasValue = children != null || !valueEmpty;
   return (
-    <div className={full ? 'sm:col-span-full' : undefined}>
-      <dt className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
+    // Fixed min-height so a value-less field still holds its grid slot (label +
+    // icon only) — the grid never collapses/reflows whether data is present.
+    <div className={full ? 'min-h-12 sm:col-span-full' : 'min-h-12'}>
+      <dt
+        className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
+        style={{ color: 'var(--kc-text-3)' }}
+      >
+        {Icon && (
+          <Icon className="h-3.5 w-3.5 flex-none" style={{ color: 'var(--kc-p-600)' }} />
+        )}
         {label}
       </dt>
-      <dd className="mt-0.5 text-sm break-words whitespace-pre-wrap" style={{ color: 'var(--kc-text-1)' }}>
-        {display}
-      </dd>
+      {hasValue && (
+        <dd
+          className="mt-1 text-[13px] break-words whitespace-pre-wrap"
+          style={{ color: 'var(--kc-text-1)' }}
+        >
+          {children ?? value}
+        </dd>
+      )}
     </div>
   );
 }

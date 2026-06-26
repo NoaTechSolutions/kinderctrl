@@ -1,13 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
+import { X, type LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { NameInput } from '@/components/ui/name-input';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+
+// True only inside a detail card that's in edit mode (SectionFrame provides it).
+// Drives the card-design field styling (purple uppercase label) WITHOUT touching
+// the wizard / other forms, which render Field with no provider (defaults false).
+export const FieldEditingContext = createContext(false);
+export function FieldEditingProvider({
+  editing,
+  children,
+}: {
+  editing: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <FieldEditingContext.Provider value={editing}>
+      {children}
+    </FieldEditingContext.Provider>
+  );
+}
 
 // Shared form primitives for the Children create wizard AND the edit form, so
 // the two stay byte-identical. AddressFields is the global SAAS address layout
@@ -25,16 +43,37 @@ export function Field({
   label,
   required,
   className,
+  icon: Icon,
   children,
 }: {
   label: string;
   required?: boolean;
   className?: string;
-  children: React.ReactNode;
+  // Semantic icon shown next to the label (card design). Optional — the wizard
+  // and other forms pass none.
+  icon?: LucideIcon;
+  children: ReactNode;
 }) {
+  const editing = useContext(FieldEditingContext);
+  // Inside an editing detail card: purple uppercase label (the card design).
+  // Everywhere else (wizard, other forms): the classic 14px medium label.
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
+      <label
+        className={cn(
+          'flex items-center gap-1.5',
+          editing
+            ? 'text-[10px] font-semibold uppercase tracking-[0.05em]'
+            : 'text-sm font-medium',
+        )}
+        style={{ color: editing ? 'var(--kc-p-400)' : 'var(--kc-text-1)' }}
+      >
+        {Icon && (
+          <Icon
+            className="h-3.5 w-3.5 flex-none"
+            style={{ color: editing ? 'var(--kc-p-400)' : 'var(--kc-p-600)' }}
+          />
+        )}
         {label}
         {required && <span style={{ color: 'var(--kc-error)' }}> *</span>}
       </label>
@@ -83,11 +122,13 @@ export function EditableList({
   items,
   onChange,
   placeholder,
+  icon,
 }: {
   label: string;
   items: string[];
   onChange: (items: string[]) => void;
   placeholder?: string;
+  icon?: LucideIcon;
 }) {
   const { t } = useTranslation();
   const [buf, setBuf] = useState('');
@@ -97,7 +138,7 @@ export function EditableList({
     setBuf('');
   };
   return (
-    <Field label={label}>
+    <Field label={label} icon={icon}>
       <div className="flex gap-2">
         <Input
           value={buf}
