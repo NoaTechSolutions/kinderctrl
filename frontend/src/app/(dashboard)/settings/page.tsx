@@ -1,7 +1,14 @@
 'use client';
 
-import { Building2, Server, SlidersHorizontal } from 'lucide-react';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import {
+  Building2,
+  Clock,
+  Palette,
+  Server,
+  SlidersHorizontal,
+  type LucideIcon,
+} from 'lucide-react';
+import { ReadCard } from '@/components/ui/section-frame';
 import { ThemeDropdown } from '@/components/auth/theme-dropdown';
 import { TimeFormatDropdown } from '@/components/auth/time-format-dropdown';
 import { useRequireRole } from '@/lib/hooks/use-require-role';
@@ -39,50 +46,61 @@ export default function SettingsPage() {
       </h1>
 
       {/* Personal — every role */}
-      <CardWithHeader icon={SlidersHorizontal} title={t('settings.personalTitle')}>
+      <ReadCard icon={SlidersHorizontal} title={t('settings.personalTitle')}>
         {/* 2-column grid from 360px up (matches the old Profile Preferences
             card). Each cell stacks its label over the control so long labels
             never compete with the dropdown for width. */}
         <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
-          <SettingRow label={t('settings.theme')}>
+          <SettingRow icon={Palette} label={t('settings.theme')}>
             <ThemeDropdown />
           </SettingRow>
-          <SettingRow label={t('settings.timeFormat')}>
+          <SettingRow icon={Clock} label={t('settings.timeFormat')}>
             <TimeFormatDropdown />
           </SettingRow>
         </div>
-      </CardWithHeader>
+      </ReadCard>
 
       {/* Center — DIRECTOR + SUPER_ADMIN */}
       {canSeeCenter && (
-        <CardWithHeader icon={Building2} title={t('settings.centerTitle')}>
+        <ReadCard icon={Building2} title={t('settings.centerTitle')}>
           <ComingSoon label={t('settings.comingSoon')} />
-        </CardWithHeader>
+        </ReadCard>
       )}
 
       {/* System — SUPER_ADMIN only */}
       {isSuperAdmin && (
-        <CardWithHeader icon={Server} title={t('settings.systemTitle')}>
+        <ReadCard icon={Server} title={t('settings.systemTitle')}>
           <ComingSoon label={t('settings.comingSoon')} />
-        </CardWithHeader>
+        </ReadCard>
       )}
     </div>
   );
 }
 
-// Label-over-control cell — mirrors the old Profile PreferenceRow so the
-// Personal section reads identically to where these settings used to live.
+// Label-over-control cell. Card-pattern label (10px uppercase + purple icon,
+// matching ReadRow / the Settings cards in Centers) over a live dropdown — the
+// controls themselves stay as-is (these are simple selects, not edit fields).
 function SettingRow({
+  icon: Icon,
   label,
   children,
 }: {
+  icon: LucideIcon;
   label: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <p className="truncate text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-        {label}
+      <p
+        className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
+        style={{ color: 'var(--kc-text-3)' }}
+      >
+        <Icon
+          className="h-3.5 w-3.5 flex-none"
+          style={{ color: 'var(--kc-p-600)' }}
+          aria-hidden
+        />
+        <span className="truncate">{label}</span>
       </p>
       <div>{children}</div>
     </div>
