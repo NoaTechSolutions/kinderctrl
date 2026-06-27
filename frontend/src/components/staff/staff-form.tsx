@@ -7,15 +7,31 @@ import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   Briefcase,
+  Building2,
+  Cake,
+  Calendar,
+  CalendarClock,
+  DollarSign,
+  FileText,
+  Hash,
+  HeartPulse,
   Home,
+  Link2,
   Loader2,
+  Mail,
+  Map,
+  MapPin,
+  Phone,
   PhoneCall,
   ShieldCheck,
+  Tag,
   ToggleLeft,
   User as UserIcon,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { ReadCard } from '@/components/ui/section-frame';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DateField } from '@/components/ui/date-field';
 import { Input } from '@/components/ui/input';
@@ -375,6 +391,7 @@ export function StaffForm({
             blur-time so we don't fight their keystrokes. */}
         <Field
           id="firstName"
+          icon={UserIcon}
           label={t('staff.firstName')}
           error={form.formState.errors.firstName?.message}
           required
@@ -400,6 +417,7 @@ export function StaffForm({
 
         <Field
           id="lastName"
+          icon={UserIcon}
           label={t('staff.lastName')}
           error={form.formState.errors.lastName?.message}
           required
@@ -431,6 +449,7 @@ export function StaffForm({
             "Email cannot be changed" hint. */}
         <Field
           id="email"
+          icon={Mail}
           label={t('staff.email')}
           error={form.formState.errors.email?.message}
           required
@@ -458,6 +477,7 @@ export function StaffForm({
 
         <Field
           id="phone"
+          icon={Phone}
           label={t('staff.phone')}
           error={form.formState.errors.phone?.message}
         >
@@ -490,6 +510,7 @@ export function StaffForm({
             app — no DatePicker component needed. */}
         <Field
           id="dateOfBirth"
+          icon={Cake}
           label={t('staff.dateOfBirth')}
           error={form.formState.errors.dateOfBirth?.message}
         >
@@ -510,6 +531,7 @@ export function StaffForm({
       <Section icon={Home} title={t('staff.addressSection')}>
         <Field
           id="street"
+          icon={MapPin}
           label={t('centers.street')}
           error={form.formState.errors.street?.message}
           full
@@ -528,6 +550,7 @@ export function StaffForm({
             so the modal stays balanced. */}
         <Field
           id="city"
+          icon={Building2}
           label={t('centers.city')}
           error={form.formState.errors.city?.message}
           full
@@ -543,6 +566,7 @@ export function StaffForm({
         <div className="sm:col-span-2 grid grid-cols-2 gap-3 [&>*]:min-w-0">
           <Field
             id="state"
+            icon={Map}
             label={t('centers.state')}
             error={form.formState.errors.state?.message}
           >
@@ -560,6 +584,7 @@ export function StaffForm({
 
           <Field
             id="zipCode"
+            icon={Hash}
             label={t('centers.zipCode')}
             error={form.formState.errors.zipCode?.message}
           >
@@ -644,6 +669,7 @@ export function StaffForm({
             hint below reinforces the temporary nature of the lock. */}
         <Field
           id="role"
+          icon={Tag}
           label={t('staff.role')}
           error={form.formState.errors.role?.message}
           required
@@ -671,6 +697,7 @@ export function StaffForm({
         {showCenterSelect && (
           <Field
             id="centerId"
+            icon={Building2}
             label={
               mode === 'create' ? t('staff.assignToCenter') : t('staff.center')
             }
@@ -699,6 +726,7 @@ export function StaffForm({
 
         <Field
           id="employmentType"
+          icon={Briefcase}
           label={t('staff.employmentType')}
           error={form.formState.errors.employmentType?.message}
         >
@@ -729,6 +757,7 @@ export function StaffForm({
 
         <Field
           id="hireDate"
+          icon={Calendar}
           label={t('staff.hireDate')}
           error={form.formState.errors.hireDate?.message}
         >
@@ -742,6 +771,7 @@ export function StaffForm({
 
         <Field
           id="hourlyRate"
+          icon={DollarSign}
           label={t('staff.hourlyRate')}
           error={form.formState.errors.hourlyRate?.message}
         >
@@ -900,7 +930,7 @@ export function StaffForm({
 
       {showSection('notes') && (
       <Section icon={UserIcon} title={t('staff.notes')}>
-        <Field id="notes" label={t('staff.notes')} full>
+        <Field id="notes" icon={FileText} label={t('staff.notes')} full>
           <textarea
             id="notes"
             placeholder={t('staff.notesPlaceholder')}
@@ -986,23 +1016,17 @@ function Section({
   title,
   children,
 }: {
-  icon: typeof UserIcon;
+  icon: LucideIcon;
   title: string;
   children: React.ReactNode;
 }) {
-  // Visually matches the shared CardWithHeader (legend badge that notches the
-  // top border) while keeping fieldset semantics + the 2-col field grid. Same
-  // neutral tokens as CardWithHeader: border/foreground/muted-foreground.
+  // Card pattern: ReadCard gives the circular purple icon badge + 15px title
+  // header (same shell the detail cards + Children wizard steps use). Body is
+  // the same 2-col field grid as before.
   return (
-    <fieldset className="card-legend rounded-lg border border-border bg-card p-4 pt-5">
-      <legend className="ml-1 flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
-          {title}
-        </span>
-      </legend>
-      <div className="grid gap-4 sm:grid-cols-2 mt-2">{children}</div>
-    </fieldset>
+    <ReadCard icon={Icon} title={title}>
+      <div className="grid gap-4 sm:grid-cols-2">{children}</div>
+    </ReadCard>
   );
 }
 
@@ -1015,6 +1039,7 @@ function Field({
   requiredLabel,
   hint,
   hintTone = 'default',
+  icon: Icon,
   children,
 }: {
   id: string;
@@ -1029,6 +1054,9 @@ function Field({
   // someone else's email rotates sessions + sends a setup link). The
   // default tone stays subdued gray, same as before.
   hintTone?: 'default' | 'warning';
+  // Card-pattern: a semantic Lucide icon beside the label (purple
+  // --kc-p-600), matching the Children create wizard / ReadRow.
+  icon?: LucideIcon;
   children: React.ReactNode;
 }) {
   const hintId = hint ? `${id}-hint` : undefined;
@@ -1050,8 +1078,16 @@ function Field({
     >
       <Label
         htmlFor={id}
-        className="text-sm font-medium inline-flex items-center gap-1"
+        className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
+        style={{ color: 'var(--kc-text-3)' }}
       >
+        {Icon && (
+          <Icon
+            className="h-3.5 w-3.5 flex-none"
+            style={{ color: 'var(--kc-p-600)' }}
+            aria-hidden
+          />
+        )}
         {label}
         {required && (
           <span
@@ -1252,8 +1288,14 @@ function ComplianceEditBlock({
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="cprStatusEdit"
-                    className="text-sm font-medium"
+                    className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
+                    style={{ color: 'var(--kc-text-3)' }}
                   >
+                    <HeartPulse
+                      className="h-3.5 w-3.5 flex-none"
+                      style={{ color: 'var(--kc-p-600)' }}
+                      aria-hidden
+                    />
                     {t('staff.cprStatus')}
                   </Label>
                   <Select
@@ -1284,6 +1326,7 @@ function ComplianceEditBlock({
                 </div>
                 <Field
                   id="cprExpiryDate"
+                  icon={CalendarClock}
                   label={
                     expiryRequired
                       ? `${t('staff.cprExpiryDate')} *`
@@ -1307,6 +1350,7 @@ function ComplianceEditBlock({
                 </Field>
                 <Field
                   id="cprNotes"
+                  icon={FileText}
                   label={t('staff.cprNotes')}
                   error={form.formState.errors.cprNotes?.message}
                   full
@@ -1358,6 +1402,7 @@ function EmergencyContactBlock({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 [&>*]:min-w-0">
         <Field
           id={nameField}
+          icon={UserIcon}
           label={t('staff.emergencyName')}
           error={form.formState.errors[nameField]?.message as string | undefined}
         >
@@ -1371,6 +1416,7 @@ function EmergencyContactBlock({
 
         <Field
           id={phoneField}
+          icon={Phone}
           label={t('staff.emergencyPhone')}
           error={form.formState.errors[phoneField]?.message as string | undefined}
         >
@@ -1400,6 +1446,7 @@ function EmergencyContactBlock({
         <div className="sm:col-span-2 min-w-0">
           <Field
             id={relField}
+            icon={Link2}
             label={t('staff.emergencyRelationship')}
             error={form.formState.errors[relField]?.message as string | undefined}
             full

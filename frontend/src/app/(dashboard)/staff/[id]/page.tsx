@@ -7,18 +7,35 @@ import { useMediaQuery } from '@/lib/hooks/use-media-query';
 import {
   AlertTriangle,
   ArrowLeft,
+  Award,
   Briefcase,
+  Building2,
+  Cake,
+  Calendar,
+  CalendarClock,
+  DollarSign,
   Edit,
+  FileText,
+  Hash,
+  HeartPulse,
   KeyRound,
+  Link2,
   Loader2,
+  Mail,
+  Map,
   MapPin,
+  Phone,
   PhoneCall,
+  ShieldCheck,
   StickyNote,
+  Tag,
+  ToggleLeft,
   User as UserIcon,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
+import { ReadGrid, ReadRow } from '@/components/ui/read-view';
 import { KioskPinSection } from '@/components/staff/kiosk-pin-dialog';
 import {
   AlertDialog,
@@ -277,7 +294,7 @@ export default function StaffDetailPage() {
           push cards past the viewport on small phones (320×568,
           375×812). Same root-cause pattern as QA #18 / #21 / #33. */}
       <div className="grid gap-6 md:grid-cols-2 [&>*]:min-w-0">
-        <CardWithHeader
+        <ReadCard
           icon={UserIcon}
           title={t('staff.detailPersonal')}
           action={
@@ -294,34 +311,30 @@ export default function StaffDetailPage() {
             ) : undefined
           }
         >
-          <dl className="space-y-3">
-            <DetailRow label={t('staff.detailFullName')}>
-              {fullName}
-            </DetailRow>
-            <DetailRow label={t('staff.email')}>
-              <span className="break-all">{staff.email}</span>
-            </DetailRow>
-            <DetailRow label={t('staff.phone')}>
-              {staff.phone ? (
-                <span className="font-mono">
-                  {formatPhoneUS(staff.phone)}
-                </span>
-              ) : (
-                '—'
-              )}
-            </DetailRow>
-            <DetailRow label={t('staff.dateOfBirth')}>
-              {staff.dateOfBirth
-                ? new Date(staff.dateOfBirth).toLocaleDateString()
-                : '—'}
-            </DetailRow>
-            <DetailRow label={t('staff.status')}>
+          <ReadGrid cols={2}>
+            <ReadRow icon={UserIcon} label={t('staff.detailFullName')} value={fullName} />
+            <ReadRow icon={Mail} label={t('staff.email')} value={staff.email} />
+            <ReadRow
+              icon={Phone}
+              label={t('staff.phone')}
+              value={staff.phone ? formatPhoneUS(staff.phone) : null}
+            />
+            <ReadRow
+              icon={Cake}
+              label={t('staff.dateOfBirth')}
+              value={
+                staff.dateOfBirth
+                  ? new Date(staff.dateOfBirth).toLocaleDateString()
+                  : null
+              }
+            />
+            <ReadRow icon={ToggleLeft} label={t('staff.status')}>
               <StaffStatusBadge status={staff.status} />
-            </DetailRow>
-          </dl>
-        </CardWithHeader>
+            </ReadRow>
+          </ReadGrid>
+        </ReadCard>
 
-        <CardWithHeader
+        <ReadCard
           icon={MapPin}
           title={t('staff.detailAddress')}
           action={
@@ -339,26 +352,18 @@ export default function StaffDetailPage() {
           }
         >
           {staff.street || staff.city || staff.state || staff.zipCode ? (
-            <dl className="space-y-3">
-              <DetailRow label={t('staff.detailStreet')}>
-                {staff.street ?? '—'}
-              </DetailRow>
-              <DetailRow label={t('staff.detailCity')}>
-                {staff.city ?? '—'}
-              </DetailRow>
-              <DetailRow label={t('staff.detailState')}>
-                {staff.state ?? '—'}
-              </DetailRow>
-              <DetailRow label={t('staff.detailZip')}>
-                {staff.zipCode ?? '—'}
-              </DetailRow>
-            </dl>
+            <ReadGrid cols={2}>
+              <ReadRow icon={MapPin} label={t('staff.detailStreet')} value={staff.street} />
+              <ReadRow icon={Building2} label={t('staff.detailCity')} value={staff.city} />
+              <ReadRow icon={Map} label={t('staff.detailState')} value={staff.state} />
+              <ReadRow icon={Hash} label={t('staff.detailZip')} value={staff.zipCode} />
+            </ReadGrid>
           ) : (
             <EmptyMessage>{t('staff.detailNoAddress')}</EmptyMessage>
           )}
-        </CardWithHeader>
+        </ReadCard>
 
-        <CardWithHeader
+        <ReadCard
           icon={PhoneCall}
           title={t('staff.detailEmergency')}
           action={
@@ -378,9 +383,9 @@ export default function StaffDetailPage() {
           {/* PO QA #39: tabs on the view (display) card to mirror the
               edit modal's tab layout. */}
           <EmergencyContactsDisplay staff={staff} t={t} />
-        </CardWithHeader>
+        </ReadCard>
 
-        <CardWithHeader
+        <ReadCard
           icon={Briefcase}
           title={t('staff.detailEmployment')}
           action={
@@ -407,12 +412,17 @@ export default function StaffDetailPage() {
             employmentKey={employmentKey}
             t={t}
           />
-        </CardWithHeader>
+        </ReadCard>
 
+        {/* ReadCard has no className prop — wrap for the 2-col span. */}
         {staff.notes && (
-          <CardWithHeader icon={StickyNote} title={t('staff.notes')} className="md:col-span-2">
-            <p className="text-sm whitespace-pre-wrap">{staff.notes}</p>
-          </CardWithHeader>
+          <div className="md:col-span-2">
+            <ReadCard icon={StickyNote} title={t('staff.notes')}>
+              <ReadGrid cols={2}>
+                <ReadRow icon={FileText} label={t('staff.notes')} value={staff.notes} full />
+              </ReadGrid>
+            </ReadCard>
+          </div>
         )}
 
         {canManage && (
@@ -503,30 +513,6 @@ export default function StaffDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
-}
-
-// Label-on-left, value-on-right row used by every detail section card.
-// Definition-list semantics (<dt>/<dd>) preserved for screen readers.
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex justify-between items-start gap-3 text-sm min-w-0">
-      <dt
-        className="flex-none"
-        style={{ color: 'var(--kc-text-3)' }}
-      >
-        {label}
-      </dt>
-      <dd className="font-medium text-right min-w-0 break-words">
-        {children}
-      </dd>
     </div>
   );
 }
@@ -640,84 +626,102 @@ function EmploymentDetailTabs({
   // sub-components — they would just add ceremony without adding any
   // reuse outside this function.
   const employmentBody = (
-    <dl className="space-y-3">
-      <DetailRow label={t('staff.center')}>
-        {staff.centerName ?? '—'}
-      </DetailRow>
-      <DetailRow label={t('staff.role')}>
-        {t(ROLE_LABEL_KEY[staff.role])}
-      </DetailRow>
-      <DetailRow label={t('staff.employmentType')}>
-        {employmentKey ? t(employmentKey) : staff.employmentType}
-      </DetailRow>
-      <DetailRow label={t('staff.hireDate')}>
-        {new Date(staff.hireDate).toLocaleDateString()}
-      </DetailRow>
-      <DetailRow label={t('staff.hourlyRate')}>
-        {staff.hourlyRate != null
-          ? `$${staff.hourlyRate.toFixed(2)}/hr`
-          : '—'}
-      </DetailRow>
-    </dl>
+    <ReadGrid cols={2}>
+      <ReadRow icon={Building2} label={t('staff.center')} value={staff.centerName} />
+      <ReadRow icon={Tag} label={t('staff.role')} value={t(ROLE_LABEL_KEY[staff.role])} />
+      <ReadRow
+        icon={Briefcase}
+        label={t('staff.employmentType')}
+        value={employmentKey ? t(employmentKey) : staff.employmentType}
+      />
+      <ReadRow
+        icon={Calendar}
+        label={t('staff.hireDate')}
+        value={new Date(staff.hireDate).toLocaleDateString()}
+      />
+      <ReadRow
+        icon={DollarSign}
+        label={t('staff.hourlyRate')}
+        value={
+          staff.hourlyRate != null ? `$${staff.hourlyRate.toFixed(2)}/hr` : null
+        }
+      />
+    </ReadGrid>
   );
 
   const bgBody = (
-    <dl className="space-y-3">
-      <DetailRow label={t('staff.bgStatus')}>
-        <span className="inline-flex items-center gap-2">
-          <BackgroundCheckBadge
-            status={staff.backgroundCheckStatus}
-            approved={staff.backgroundCheckApproved}
-            variant="full"
-          />
-          {showEditAction && (
+    <ReadGrid cols={2}>
+      <ReadRow
+        icon={ShieldCheck}
+        label={t('staff.bgStatus')}
+        full
+        action={
+          showEditAction ? (
             <Button
               variant="ghost"
               size="icon"
+              className="h-7 w-7"
               onClick={onEditBg}
               aria-label={t('staff.bgEditTitle')}
             >
               <Edit className="h-3.5 w-3.5" />
             </Button>
-          )}
-        </span>
-      </DetailRow>
-    </dl>
+          ) : undefined
+        }
+      >
+        <BackgroundCheckBadge
+          status={staff.backgroundCheckStatus}
+          approved={staff.backgroundCheckApproved}
+          variant="full"
+        />
+      </ReadRow>
+    </ReadGrid>
   );
 
   const cprBody = (
-    <dl className="space-y-3">
-      <DetailRow label={t('staff.status')}>
-        <span className="inline-flex items-center gap-2">
-          <CprStatusBadge status={staff.cprStatus} variant="full" />
-          {showEditAction && (
+    <ReadGrid cols={2}>
+      <ReadRow
+        icon={HeartPulse}
+        label={t('staff.status')}
+        full
+        action={
+          showEditAction ? (
             <Button
               variant="ghost"
               size="icon"
+              className="h-7 w-7"
               onClick={onEditCpr}
               aria-label={t('staff.cprEditTitle')}
             >
               <Edit className="h-3.5 w-3.5" />
             </Button>
-          )}
-        </span>
-      </DetailRow>
+          ) : undefined
+        }
+      >
+        <CprStatusBadge status={staff.cprStatus} variant="full" />
+      </ReadRow>
       {cprHasRecord && staff.cprCertificationDate && (
-        <DetailRow label={t('staff.cprCertificationDate')}>
-          {formatDate(staff.cprCertificationDate)}
-        </DetailRow>
+        <ReadRow
+          icon={Calendar}
+          label={t('staff.cprCertificationDate')}
+          value={formatDate(staff.cprCertificationDate)}
+        />
       )}
       {cprHasRecord && staff.cprExpiryDate && (
-        <DetailRow label={t('staff.cprExpiryDate')}>
-          {formatDate(staff.cprExpiryDate)}
-        </DetailRow>
+        <ReadRow
+          icon={CalendarClock}
+          label={t('staff.cprExpiryDate')}
+          value={formatDate(staff.cprExpiryDate)}
+        />
       )}
       {cprHasRecord && staff.cprCertificationProvider && (
-        <DetailRow label={t('staff.cprProvider')}>
-          {staff.cprCertificationProvider}
-        </DetailRow>
+        <ReadRow
+          icon={Award}
+          label={t('staff.cprProvider')}
+          value={staff.cprCertificationProvider}
+        />
       )}
-    </dl>
+    </ReadGrid>
   );
 
   // Mobile: stacked sections with their own headings — no tab strip
@@ -816,23 +820,25 @@ function EmergencyContactsTabs({
       );
     }
     return (
-      <dl className="space-y-3">
-        <DetailRow label={t('staff.detailContactName')}>
-          {name ?? '—'}
-        </DetailRow>
-        <DetailRow label={t('staff.detailContactPhone')}>
-          {phone ? (
-            <span className="font-mono">{formatPhoneUS(phone)}</span>
-          ) : (
-            '—'
-          )}
-        </DetailRow>
+      <ReadGrid cols={2}>
+        <ReadRow
+          icon={UserIcon}
+          label={t('staff.detailContactName')}
+          value={name}
+        />
+        <ReadRow
+          icon={Phone}
+          label={t('staff.detailContactPhone')}
+          value={phone ? formatPhoneUS(phone) : null}
+        />
         {relationship && (
-          <DetailRow label={t('staff.emergencyRelationship')}>
-            {t(`staff.rel${capitalizeRel(relationship)}`)}
-          </DetailRow>
+          <ReadRow
+            icon={Link2}
+            label={t('staff.emergencyRelationship')}
+            value={t(`staff.rel${capitalizeRel(relationship)}`)}
+          />
         )}
-      </dl>
+      </ReadGrid>
     );
   };
 

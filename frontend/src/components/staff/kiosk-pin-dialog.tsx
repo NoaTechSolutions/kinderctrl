@@ -2,7 +2,15 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Eye, EyeOff, KeyRound, Loader2, Trash2, Unlock } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  ShieldCheck,
+  Trash2,
+  Unlock,
+} from 'lucide-react';
 
 import {
   Dialog,
@@ -14,7 +22,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
+import { ReadGrid, ReadRow } from '@/components/ui/read-view';
 import {
   useSetStaffKioskPin,
   useRemoveStaffKioskPin,
@@ -226,37 +235,47 @@ export function KioskPinSection({ staff }: { staff: Staff }) {
     }
   };
 
+  // Status description text (kept hardcoded — the whole kiosk-pin module is
+  // not i18n'd yet; that's separate tech debt, out of scope for this card
+  // migration).
+  const statusDescription = staff.kioskPinLocked
+    ? 'Locked after 3 failed attempts'
+    : staff.kioskPinSet
+      ? '4-digit PIN for kiosk clock-in/out'
+      : 'No PIN — staff can’t use the kiosk yet';
+
   return (
-    <CardWithHeader icon={KeyRound} title="Kiosk PIN">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm">
-          <KioskPinBadge staff={staff} />
-          <span style={{ color: 'var(--kc-text-3)' }}>
-            {staff.kioskPinLocked
-              ? 'Locked after 3 failed attempts'
-              : staff.kioskPinSet
-                ? '4-digit PIN for kiosk clock-in/out'
-                : 'No PIN — staff can’t use the kiosk yet'}
+    <ReadCard icon={KeyRound} title="Kiosk PIN">
+      <ReadGrid cols={2}>
+        <ReadRow icon={ShieldCheck} label="Status" full>
+          <span className="flex flex-wrap items-center gap-2">
+            <KioskPinBadge staff={staff} />
+            <span className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
+              {statusDescription}
+            </span>
           </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {staff.kioskPinLocked && (
-            <Button variant="outline" size="sm" onClick={handleUnlock} disabled={unlock.isPending}>
-              {unlock.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Unlock className="mr-1.5 h-3.5 w-3.5" />}
-              Unlock
-            </Button>
-          )}
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <KeyRound className="mr-1.5 h-3.5 w-3.5" />
-            {staff.kioskPinSet ? 'Change PIN' : 'Create PIN'}
+        </ReadRow>
+      </ReadGrid>
+
+      {/* Actions sit below the status row (3 affordances don't fit the
+          ReadRow action slot cleanly, and the description shouldn't truncate). */}
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        {staff.kioskPinLocked && (
+          <Button variant="outline" size="sm" onClick={handleUnlock} disabled={unlock.isPending}>
+            {unlock.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Unlock className="mr-1.5 h-3.5 w-3.5" />}
+            Unlock
           </Button>
-          {staff.kioskPinSet && (
-            <Button variant="outline" size="sm" onClick={handleRemove} disabled={remove.isPending}>
-              {remove.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
-              Remove
-            </Button>
-          )}
-        </div>
+        )}
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+          {staff.kioskPinSet ? 'Change PIN' : 'Create PIN'}
+        </Button>
+        {staff.kioskPinSet && (
+          <Button variant="outline" size="sm" onClick={handleRemove} disabled={remove.isPending}>
+            {remove.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
+            Remove
+          </Button>
+        )}
       </div>
 
       <KioskPinDialog
@@ -266,7 +285,7 @@ export function KioskPinSection({ staff }: { staff: Staff }) {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 

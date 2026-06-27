@@ -50,7 +50,7 @@ export default function CreateStaffPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="mx-auto max-w-2xl space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link href="/staff">
           <ArrowLeft className="mr-1 h-4 w-4" />
