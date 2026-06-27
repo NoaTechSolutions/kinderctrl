@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Edit, Eye } from 'lucide-react';
@@ -11,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n';
 import { useAuthStore } from '@/store/auth';
@@ -18,17 +20,52 @@ import { StatusBadge } from './status-badge';
 import { AdminCenterBadge } from './admin-center-badge';
 import { AdminActionsMenu } from './admin-actions-menu';
 import { formatPhoneUS } from '@/lib/utils/phone';
-import type { Center } from '@/lib/types/center';
+import type { Center, CenterStatus } from '@/lib/types/center';
 
 interface CenterTableProps {
   centers: Center[];
 }
+
+// Sort order for the Status column. Active → Setup → Suspended → Closed.
+type SortKey = 'name' | 'location' | 'status';
+const STATUS_ORDER: Record<CenterStatus, number> = {
+  ACTIVE: 0,
+  SETUP_PENDING: 1,
+  SUSPENDED: 2,
+  CLOSED: 3,
+};
 
 export function CenterTable({ centers }: CenterTableProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(
+    null,
+  );
+  const toggleSort = (key: SortKey) =>
+    setSort((prev) =>
+      prev?.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' },
+    );
+
+  const sorted = useMemo(() => {
+    if (!sort) return centers;
+    const cmp = (a: Center, b: Center): number => {
+      switch (sort.key) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'location':
+          return `${a.city}, ${a.state}`.localeCompare(`${b.city}, ${b.state}`);
+        case 'status':
+          return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      }
+    };
+    const arr = [...centers].sort(cmp);
+    return sort.dir === 'asc' ? arr : arr.reverse();
+  }, [centers, sort]);
 
   return (
     <div
@@ -41,15 +78,30 @@ export function CenterTable({ centers }: CenterTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>{t('centers.name')}</TableHead>
-            <TableHead>Location</TableHead>
+            <SortableTableHead
+              label={t('centers.name')}
+              active={sort?.key === 'name'}
+              dir={sort?.dir ?? 'asc'}
+              onClick={() => toggleSort('name')}
+            />
+            <SortableTableHead
+              label="Location"
+              active={sort?.key === 'location'}
+              dir={sort?.dir ?? 'asc'}
+              onClick={() => toggleSort('location')}
+            />
             <TableHead className="hidden lg:table-cell">Contact</TableHead>
-            <TableHead>Status</TableHead>
+            <SortableTableHead
+              label="Status"
+              active={sort?.key === 'status'}
+              dir={sort?.dir ?? 'asc'}
+              onClick={() => toggleSort('status')}
+            />
             <TableHead className="w-[110px] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {centers.map((center) => {
+          {sorted.map((center) => {
             const detailHref = `/centers/${center.id}`;
             const navigate = () => router.push(detailHref);
             return (

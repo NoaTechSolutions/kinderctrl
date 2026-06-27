@@ -180,6 +180,10 @@ export const translations = {
       searchPlaceholder: 'Search by name, city, or state…',
       searchAria: 'Search centers',
       filterAria: 'Filter centers by status',
+      // v-list-overhaul: table/cards toggle (Children-style list)
+      viewToggle: 'View as',
+      viewTable: 'Table view',
+      viewCards: 'Card view',
       noMatchSearchStatus: 'No centers match "{query}" with the selected status.',
       noMatchSearch: 'No centers match "{query}".',
       noMatchStatus: 'No centers match the selected status.',
@@ -1420,6 +1424,10 @@ export const translations = {
       searchPlaceholder: 'Buscar por nombre, ciudad o estado…',
       searchAria: 'Buscar centros',
       filterAria: 'Filtrar centros por estado',
+      // v-list-overhaul: toggle tabla/tarjetas (lista estilo Children)
+      viewToggle: 'Ver como',
+      viewTable: 'Vista tabla',
+      viewCards: 'Vista tarjetas',
       noMatchSearchStatus: 'Ningún centro coincide con "{query}" con el estado seleccionado.',
       noMatchSearch: 'Ningún centro coincide con "{query}".',
       noMatchStatus: 'Ningún centro coincide con el estado seleccionado.',

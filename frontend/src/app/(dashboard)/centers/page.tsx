@@ -1,35 +1,28 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import {
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { LayoutGrid, Plus, Table as TableIcon } from 'lucide-react';
 import { useCenters } from '@/lib/hooks/use-centers';
 import { useMediaQuery } from '@/lib/hooks/use-media-query';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 import { useTranslation } from '@/lib/i18n';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
-import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Pagination } from '@/components/ui/pagination';
-import { FilterTabs, type FilterTab } from '@/components/ui/filter-tabs';
-import { FilterDropdown } from '@/components/ui/filter-dropdown';
 import { CenterCard } from '@/components/centers/center-card';
 import { CenterTable } from '@/components/centers/center-table';
+import {
+  CentersFilterBar,
+  type StatusFilter,
+} from '@/components/centers/center-filter-bar';
 import { EmptyState } from '@/components/centers/empty-state';
-import { CriticalAlerts } from '@/components/admin/critical-alerts';
 import type { CenterStatus, CentersQuery } from '@/lib/types/center';
 
-type StatusFilter = 'ALL' | CenterStatus;
-
-// Valid filter values, kept module-scoped for parseStatus (which runs
-// during render init before hooks). Labels are localized inside the
-// component via `t()` so they stay in sync with translations.ts.
+// Valid filter values, kept module-scoped for parseStatus (which runs during
+// render init before hooks).
 const STATUS_VALUES: ReadonlyArray<StatusFilter> = [
   'ALL',
   'ACTIVE',
@@ -38,8 +31,6 @@ const STATUS_VALUES: ReadonlyArray<StatusFilter> = [
   'CLOSED',
 ];
 
-// Page size deliberately differs by viewport: mobile lists scroll, desktop
-// has a denser table. Backend caps at 100 so anything we send is honored.
 const MOBILE_LIMIT = 10;
 const DESKTOP_LIMIT = 15;
 
@@ -64,25 +55,31 @@ export default function CentersPage() {
   const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [query, setQuery] = useState('');
-  // 300ms debounce keeps every keystroke from firing a backend request;
-  // the URL gets the committed value too so refresh / shareable links work.
   const debouncedQuery = useDebouncedValue(query, 300);
 
   const page = parsePage(searchParams.get('page'));
   const status = parseStatus(searchParams.get('status'));
   const limit = isDesktop ? DESKTOP_LIMIT : MOBILE_LIMIT;
 
-  // Built inside the component so labels track the active locale.
-  const statusTabs = useMemo<ReadonlyArray<FilterTab<StatusFilter>>>(
-    () => [
-      { value: 'ALL', label: t('centers.statusAll') },
-      { value: 'ACTIVE', label: t('centers.statusActive') },
-      { value: 'SETUP_PENDING', label: t('centers.statusSetupPending') },
-      { value: 'SUSPENDED', label: t('centers.statusSuspended') },
-      { value: 'CLOSED', label: t('centers.statusClosed') },
-    ],
-    [t],
-  );
+  // List view toggle (desktop only; mobile always shows cards). Persisted.
+  // Default = cards (SAAS-wide default); a stored preference overrides it.
+  const [view, setView] = useState<'table' | 'cards'>('cards');
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('kc-centers-view');
+      if (stored === 'cards' || stored === 'table') setView(stored);
+    } catch {
+      // localStorage unavailable
+    }
+  }, []);
+  const changeView = (next: 'table' | 'cards') => {
+    setView(next);
+    try {
+      localStorage.setItem('kc-centers-view', next);
+    } catch {
+      // localStorage unavailable
+    }
+  };
 
   const centersQuery: CentersQuery = {
     page,
@@ -92,62 +89,38 @@ export default function CentersPage() {
   };
   const { data: centers, isLoading, error } = useCenters(centersQuery);
 
-  // STAFF/PARENT don't belong on the centers index — both deep-link to
-  // their assigned center. Backend already filters by role; this matches
-  // the surface to the data.
+  // STAFF/PARENT deep-link to their assigned center.
   useEffect(() => {
     if (!hasHydrated || !user) return;
-    if (
-      (user.role === 'STAFF' || user.role === 'PARENT') &&
-      user.centerId
-    ) {
+    if ((user.role === 'STAFF' || user.role === 'PARENT') && user.centerId) {
       router.replace(`/centers/${user.centerId}`);
     }
   }, [hasHydrated, user, router]);
 
-  // URL is the source of truth for page + status. Routing through
-  // useSearchParams keeps the back button + refresh + shareable links
-  // all consistent. Changing the filter always resets to page 1 — a
-  // stale page number can land on an empty page after the predicate
-  // shrinks the result set.
-  const setSearchParam = (updates: {
-    page?: number;
-    status?: StatusFilter;
-  }) => {
+  // URL is the source of truth for page + status. Changing the filter resets
+  // to page 1 (a stale page can land on an empty slice after the set shrinks).
+  const setSearchParam = (updates: { page?: number; status?: StatusFilter }) => {
     const next = new URLSearchParams(searchParams.toString());
     if (updates.status !== undefined) {
-      if (updates.status === 'ALL') {
-        next.delete('status');
-      } else {
-        next.set('status', updates.status);
-      }
+      if (updates.status === 'ALL') next.delete('status');
+      else next.set('status', updates.status);
       next.delete('page');
     }
     if (updates.page !== undefined) {
-      if (updates.page <= 1) {
-        next.delete('page');
-      } else {
-        next.set('page', String(updates.page));
-      }
+      if (updates.page <= 1) next.delete('page');
+      else next.set('page', String(updates.page));
     }
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
-  // Search now happens server-side via the `search` query param —
-  // useDebouncedValue throttles input + useCenters wires it into the request.
-  // The visible list is just `centers.data`; no client-side filtering.
   const visible = centers?.data ?? [];
 
-  // Typing in the search box must reset pagination — the page the user was
-  // on may no longer exist once the result set shrinks. Wrap setQuery so
-  // the page reset happens in one place.
   const onSearchChange = (next: string) => {
     setQuery(next);
     if (page > 1) setSearchParam({ page: 1 });
   };
 
-  // Suppress the admin list flash while replace() runs.
   if (
     hasHydrated &&
     user &&
@@ -160,11 +133,6 @@ export default function CentersPage() {
   const canCreateCenter =
     user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTOR';
 
-  // PARENT/STAFF are scoped to a single center by data model, so the page
-  // (only reachable when they have no centerId — the redirect above takes
-  // them straight to their center otherwise) reads as singular and skips
-  // the "All centers" subtitle. DIRECTOR keeps the existing rule: singular
-  // only when they genuinely own exactly one center.
   const isSingleCenterRole =
     user?.role === 'PARENT' || user?.role === 'STAFF';
   const isSingularContext =
@@ -174,9 +142,7 @@ export default function CentersPage() {
   const total = centers?.pagination.total ?? 0;
   const hasSearch = debouncedQuery.trim().length > 0;
   const filterActive = status !== 'ALL';
-  // Show the tabs whenever there's any data scoped to the role OR a
-  // filter / search is active (so the user can clear it from an empty result).
-  const showFilterTabs = total > 0 || filterActive || hasSearch;
+  const showFilterBar = total > 0 || filterActive || hasSearch;
   const showEmptyAll = !isLoading && total === 0 && !filterActive && !hasSearch;
   const showEmptyFiltered =
     !isLoading && total === 0 && (filterActive || hasSearch);
@@ -186,20 +152,57 @@ export default function CentersPage() {
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight">
-            {isSingularContext
-              ? t('centers.titleSingular')
-              : t('centers.title')}
+            {isSingularContext ? t('centers.titleSingular') : t('centers.title')}
           </h1>
         </div>
 
-        {canCreateCenter && (
-          <Button asChild className="self-start">
-            <Link href="/centers/new">
-              <Plus className="mr-2 h-4 w-4" />
-              {t('centers.create')}
-            </Link>
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2 self-start">
+          {/* View toggle — desktop only; mobile (<md) always shows cards. */}
+          <div
+            role="group"
+            aria-label={t('centers.viewToggle')}
+            className="hidden rounded-lg border p-0.5 md:inline-flex"
+            style={{ borderColor: 'var(--kc-border)', background: 'var(--kc-surface-2)' }}
+          >
+            <button
+              type="button"
+              onClick={() => changeView('table')}
+              aria-pressed={view === 'table'}
+              aria-label={t('centers.viewTable')}
+              className="flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+              style={
+                view === 'table'
+                  ? { background: 'var(--kc-surface)', color: 'var(--kc-text-1)' }
+                  : { color: 'var(--kc-text-3)' }
+              }
+            >
+              <TableIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView('cards')}
+              aria-pressed={view === 'cards'}
+              aria-label={t('centers.viewCards')}
+              className="flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+              style={
+                view === 'cards'
+                  ? { background: 'var(--kc-surface)', color: 'var(--kc-text-1)' }
+                  : { color: 'var(--kc-text-3)' }
+              }
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+
+          {canCreateCenter && (
+            <Button asChild>
+              <Link href="/centers/new">
+                <Plus className="mr-2 h-4 w-4" />
+                {t('centers.create')}
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -208,8 +211,7 @@ export default function CentersPage() {
           className="rounded-lg border p-4"
           style={{
             background: 'var(--kc-error-bg)',
-            borderColor:
-              'color-mix(in oklch, var(--kc-error), transparent 70%)',
+            borderColor: 'color-mix(in oklch, var(--kc-error), transparent 70%)',
           }}
         >
           <p className="text-sm" style={{ color: 'var(--kc-error)' }}>
@@ -219,70 +221,14 @@ export default function CentersPage() {
         </div>
       )}
 
-      {/* SUPER_ADMIN-only critical alerts banner. The component renders null
-          for other roles, so it's safe to mount unconditionally. */}
-      <CriticalAlerts />
-
-      {/* Desktop status tabs (BUG-015: hidden on mobile because 5 tabs
-          overflow at 375px — mobile uses the dropdown below). */}
-      {showFilterTabs && (
-        <div className="hidden md:block">
-          <FilterTabs
-            tabs={statusTabs}
-            value={status}
-            onChange={(s) => setSearchParam({ status: s })}
-            ariaLabel={t('centers.filterAria')}
-          />
-        </div>
+      {showFilterBar && (
+        <CentersFilterBar
+          query={query}
+          onQueryChange={onSearchChange}
+          status={status}
+          onStatusChange={(s) => setSearchParam({ status: s })}
+        />
       )}
-
-      {/* Mobile filter dropdown — IMPROVEMENT-041: stays visible even when
-          the current filter returns 0 results, so the user can change
-          filters from the empty state without using the "Clear filter"
-          fallback. When there IS data we keep the BUG-015 inline layout
-          (search + dropdown on the same row); when there isn't, the
-          dropdown sits alone aligned right. */}
-      {showFilterTabs && (centers?.data.length || hasSearch) ? (
-        <div className="md:hidden flex items-center gap-2">
-          <SearchInput
-            value={query}
-            onChange={onSearchChange}
-            placeholder={t('centers.searchPlaceholder')}
-            ariaLabel={t('centers.searchAria')}
-            className="flex-1"
-          />
-          <FilterDropdown
-            options={statusTabs}
-            value={status}
-            onChange={(s) => setSearchParam({ status: s })}
-            ariaLabel={t('centers.filterAria')}
-          />
-        </div>
-      ) : null}
-
-      {showFilterTabs && !hasSearch && (!centers || centers.data.length === 0) && (
-        <div className="md:hidden flex justify-end">
-          <FilterDropdown
-            options={statusTabs}
-            value={status}
-            onChange={(s) => setSearchParam({ status: s })}
-            ariaLabel={t('centers.filterAria')}
-          />
-        </div>
-      )}
-
-      {/* Desktop search — always visible alongside the table so users can keep
-          refining the result set even when the current query returns nothing. */}
-      {!isLoading && (centers?.data.length || hasSearch) ? (
-        <div className="hidden md:block max-w-md">
-          <SearchInput
-            value={query}
-            onChange={onSearchChange}
-            placeholder={t('centers.searchPlaceholder')}
-            ariaLabel={t('centers.searchAria')}
-          />
-        </div>
-      ) : null}
 
       {isLoading && (
         <>
@@ -320,7 +266,11 @@ export default function CentersPage() {
               </Button>
             )}
             {filterActive && (
-              <Button variant="outline" size="sm" onClick={() => setSearchParam({ status: 'ALL' })}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSearchParam({ status: 'ALL' })}
+              >
                 {t('centers.clearFilter')}
               </Button>
             )}
@@ -328,18 +278,26 @@ export default function CentersPage() {
         </div>
       )}
 
-      {!isLoading && visible.length > 0 && (
-        <>
-          <div className="hidden md:block">
-            <CenterTable centers={visible} />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:hidden">
+      {!isLoading &&
+        visible.length > 0 &&
+        (view === 'cards' ? (
+          <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {visible.map((c) => (
               <CenterCard key={c.id} center={c} />
             ))}
           </div>
-        </>
-      )}
+        ) : (
+          <>
+            <div className="hidden md:block">
+              <CenterTable centers={visible} />
+            </div>
+            <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 md:hidden">
+              {visible.map((c) => (
+                <CenterCard key={c.id} center={c} />
+              ))}
+            </div>
+          </>
+        ))}
 
       {centers && (
         <Pagination
