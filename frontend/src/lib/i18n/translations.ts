@@ -493,6 +493,32 @@ export const translations = {
       pendingResendAvailableIn: 'Available in {time}',
       // Generic "Actions" header for tables in the staff namespace.
       colActions: 'Actions',
+      // v-list-overhaul: Children-style list (search bar + chips + table/cards
+      // toggle + sortable columns + kebab).
+      colName: 'Name',
+      actionsMenu: 'Actions',
+      searchPlaceholder: 'Search by name or email…',
+      searchAria: 'Search staff',
+      searchClear: 'Clear search',
+      filterAll: 'All',
+      quickFiltersAria: 'Quick status filters',
+      viewToggle: 'View as',
+      viewTable: 'Table view',
+      viewCards: 'Card view',
+      noStaffMatchFilters: 'No staff match the current filters',
+      // Roster-card attendance band (today's time-clock status). Mirrors the
+      // children.att* set. Until the staff list endpoint returns a real
+      // attendanceToday, only the no-record states (NOT_ARRIVED / NOT_SCHEDULED)
+      // appear (derived from staff status).
+      attPresent: 'Present',
+      attEndOfShift: 'End of shift',
+      attNotArrived: 'Not arrived yet',
+      attNotScheduled: 'Not scheduled',
+      attEarlyDeparture: 'Early departure',
+      attCheckIn: 'Check-in',
+      attCheckOut: 'Check-out',
+      attNoRecord: 'No record',
+      attNotAttending: 'Not attending today',
       pendingRevoke: 'Revoke',
       pendingRevokeConfirm:
         'Revoke the invitation to {email}? The link in the previous email will stop working.',
@@ -1783,6 +1809,29 @@ export const translations = {
       pendingResendRemaining: 'Reenviar (te quedan {remaining} esta hora)',
       pendingResendAvailableIn: 'Disponible en {time}',
       colActions: 'Acciones',
+      // v-list-overhaul: lista estilo Children (barra de búsqueda + chips +
+      // toggle tabla/tarjetas + columnas ordenables + kebab).
+      colName: 'Nombre',
+      actionsMenu: 'Acciones',
+      searchPlaceholder: 'Buscar por nombre o email…',
+      searchAria: 'Buscar personal',
+      searchClear: 'Limpiar búsqueda',
+      filterAll: 'Todos',
+      quickFiltersAria: 'Filtros rápidos de estado',
+      viewToggle: 'Ver como',
+      viewTable: 'Vista tabla',
+      viewCards: 'Vista tarjetas',
+      noStaffMatchFilters: 'Ningún miembro coincide con los filtros',
+      // Banda de asistencia de la tarjeta (estado del time-clock de hoy).
+      attPresent: 'Presente',
+      attEndOfShift: 'Fin de turno',
+      attNotArrived: 'No llegó aún',
+      attNotScheduled: 'No programado',
+      attEarlyDeparture: 'Salida temprana',
+      attCheckIn: 'Entrada',
+      attCheckOut: 'Salida',
+      attNoRecord: 'Sin registro',
+      attNotAttending: 'No asiste hoy',
       pendingRevoke: 'Revocar',
       pendingRevokeConfirm:
         '¿Revocar la invitación a {email}? El link del email anterior dejará de funcionar.',

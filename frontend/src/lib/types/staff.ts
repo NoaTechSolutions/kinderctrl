@@ -15,6 +15,32 @@ export const VALID_EMPLOYMENT_TYPES = [
 // not ON_LEAVE (that was a spec-only value that never landed in schema).
 export type StaffStatus = 'INVITED' | 'ACTIVE' | 'SUSPENDED' | 'TERMINATED';
 
+// Today's time-clock attendance status — mirrors ChildAttendanceStatus so the
+// roster card band reads identically across modules. PRESENT/END_OF_SHIFT/
+// EARLY_DEPARTURE come from a real punch; NOT_ARRIVED/NOT_SCHEDULED are the
+// no-record states.
+export type StaffAttendanceStatus =
+  | 'PRESENT'
+  | 'END_OF_SHIFT'
+  | 'NOT_ARRIVED'
+  | 'NOT_SCHEDULED'
+  | 'EARLY_DEPARTURE';
+
+export interface StaffAttendanceToday {
+  status: StaffAttendanceStatus;
+  checkInTime?: string; // ISO — formatted client-side
+  checkOutTime?: string; // ISO
+}
+
+// Client-side proxy used until the staff list endpoint returns a real
+// attendanceToday (the way the children list already does). ACTIVE staff are
+// expected today but we have no punch in the list payload → NOT_ARRIVED;
+// SUSPENDED / INVITED aren't on shift → NOT_SCHEDULED. Once the backend adds
+// a real attendanceToday, callers prefer it and this fallback goes unused.
+export function staffAttendanceProxy(status: StaffStatus): StaffAttendanceToday {
+  return { status: status === 'ACTIVE' ? 'NOT_ARRIVED' : 'NOT_SCHEDULED' };
+}
+
 // PO QA #46 — collapsed to 3 lifecycle states. The previous 5-state
 // model mixed phase ("where in the process") with outcome ("did it
 // pass?"). The outcome now lives on Staff.backgroundCheckApproved
@@ -125,6 +151,12 @@ export interface Staff {
   createdAt: string;
   updatedAt: string;
   activatedAt: string | null;
+
+  // Today's time-clock attendance. Optional: the list endpoint doesn't return
+  // it yet (unlike the children list). When absent the roster card falls back
+  // to staffAttendanceProxy(status). Wire this server-side to light up the
+  // real PRESENT / END_OF_SHIFT / EARLY_DEPARTURE states.
+  attendanceToday?: StaffAttendanceToday;
 }
 
 // PO QA #19 — pagination shape for GET /staff. Mirrors PaginatedCenters

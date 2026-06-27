@@ -53,8 +53,9 @@ export function CenterChildrenList({
   const hasSearch = search.length > 0;
 
   // List view toggle (DIRECTOR/SA, desktop only). Persisted across sessions;
-  // mobile (<md) always renders cards regardless of this. Default = table.
-  const [view, setView] = useState<'table' | 'cards'>('table');
+  // mobile (<md) always renders cards regardless of this. Default = cards
+  // (SAAS-wide default); a stored preference overrides it.
+  const [view, setView] = useState<'table' | 'cards'>('cards');
   useEffect(() => {
     try {
       const stored = localStorage.getItem('kc-children-view');
