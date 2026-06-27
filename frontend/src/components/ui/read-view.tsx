@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import type { Locale } from '@/lib/i18n';
 
@@ -42,12 +43,18 @@ export function ReadRow({
   value,
   full,
   icon: Icon,
+  action,
   children,
 }: {
   label: string;
   value?: string | null;
   full?: boolean;
   icon?: LucideIcon;
+  // Optional right-aligned slot (e.g. an inline "Change" button or a nav
+  // chevron) for action-bearing read rows like Profile's email / password.
+  // When present, the value clamps to one line so a long value yields width
+  // to the action instead of pushing it out of the row.
+  action?: ReactNode;
   children?: ReactNode;
 }) {
   // Empty = empty (global rule). A lone placeholder ('—' / '–' / 'N/A') counts
@@ -56,10 +63,8 @@ export function ReadRow({
   const trimmed = typeof value === 'string' ? value.trim() : '';
   const valueEmpty = trimmed === '' || trimmed === '—' || trimmed === '–' || trimmed === 'N/A';
   const hasValue = children != null || !valueEmpty;
-  return (
-    // Fixed min-height so a value-less field still holds its grid slot (label +
-    // icon only) — the grid never collapses/reflows whether data is present.
-    <div className={full ? 'min-h-12 sm:col-span-full' : 'min-h-12'}>
+  const body = (
+    <>
       <dt
         className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
         style={{ color: 'var(--kc-text-3)' }}
@@ -71,12 +76,31 @@ export function ReadRow({
       </dt>
       {hasValue && (
         <dd
-          className="mt-1 text-[13px] break-words whitespace-pre-wrap"
+          className={cn(
+            'mt-1 text-[13px]',
+            action ? 'truncate' : 'break-words whitespace-pre-wrap',
+          )}
           style={{ color: 'var(--kc-text-1)' }}
         >
           {children ?? value}
         </dd>
       )}
+    </>
+  );
+  return (
+    // Fixed min-height so a value-less field still holds its grid slot (label +
+    // icon only) — the grid never collapses/reflows whether data is present.
+    // With an action the row becomes a flex pair: value block (flex-1) + the
+    // right-aligned action (flex-none).
+    <div
+      className={cn(
+        'min-h-12',
+        full && 'sm:col-span-full',
+        action && 'flex items-start gap-2',
+      )}
+    >
+      {action ? <div className="min-w-0 flex-1">{body}</div> : body}
+      {action && <div className="flex-none">{action}</div>}
     </div>
   );
 }

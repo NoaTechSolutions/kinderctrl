@@ -7,12 +7,12 @@ import {
   MapPin,
   Pencil,
   Phone,
-  ShieldCheck,
+  Tag,
   User as UserIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CardWithHeader } from '@/components/ui/card-with-header';
-import { Separator } from '@/components/ui/separator';
+import { ReadCard } from '@/components/ui/section-frame';
+import { ReadGrid, ReadRow } from '@/components/ui/read-view';
 import { useTranslation, type Locale } from '@/lib/i18n';
 import type { MyProfile } from '@/lib/api/auth';
 import { formatPhoneUS } from '@/lib/utils/phone';
@@ -20,7 +20,6 @@ import { getDisplayRole } from '@/lib/user-display';
 import { useAuthStore } from '@/store/auth';
 import { PersonalInfoModal } from './personal-info-modal';
 import { ChangeEmailModal } from './change-email-modal';
-import { ProfileRow } from './profile-row';
 
 // Profile v3 — Personal Information card. Now hosts every editable
 // identity field in one place: name, email (with inline destructive
@@ -60,7 +59,7 @@ export function PersonalInfoSection({ profile }: PersonalInfoSectionProps) {
 
   // Collapse 4 address columns into one readable line. Empty fields
   // are skipped so we don't render "123 Main St, , , 94102". When all
-  // 4 are null the ProfileRow falls back to the emptyPlaceholder.
+  // 4 are null the value is null and the ReadRow renders blank (empty = empty).
   const addressLine =
     [profile.street, profile.city, profile.state, profile.zipCode]
       .filter((piece) => piece && piece.trim() !== '')
@@ -68,7 +67,7 @@ export function PersonalInfoSection({ profile }: PersonalInfoSectionProps) {
 
   return (
     <>
-      <CardWithHeader
+      <ReadCard
         icon={UserIcon}
         title={t('profile.personalInfoTitle')}
         action={
@@ -85,19 +84,17 @@ export function PersonalInfoSection({ profile }: PersonalInfoSectionProps) {
           </Button>
         }
       >
-          {/* v4: rows separated by <Separator /> instead of pure
-              spacing. Reads as a denser, more deliberate list — the
-              implicit grouping ("these are all my identity fields")
-              comes through stronger. */}
-          <ProfileRow
+        {/* Card pattern: responsive read grid (1 col ≤375, 2 cols sm:up).
+            Email keeps its inline destructive "Change" affordance via the
+            ReadRow action slot; the header Edit opens PersonalInfoModal. */}
+        <ReadGrid cols={2}>
+          <ReadRow
             icon={UserIcon}
             label={t('profile.fullName')}
             value={fullName}
-            emptyPlaceholder={t('profile.notSet')}
           />
-          <Separator />
 
-          <ProfileRow
+          <ReadRow
             icon={Mail}
             label={t('profile.email')}
             value={profile.email}
@@ -128,49 +125,36 @@ export function PersonalInfoSection({ profile }: PersonalInfoSectionProps) {
               </>
             }
           />
-          <Separator />
 
-          <ProfileRow
+          <ReadRow
             icon={Phone}
             label={t('profile.phone')}
             value={profile.phone ? formatPhoneUS(profile.phone) : null}
-            emptyPlaceholder={t('profile.notSet')}
           />
-          <Separator />
 
-          <ProfileRow
-            icon={ShieldCheck}
-            label={t('profile.role')}
-            value={roleLabel ? <RoleBadge label={roleLabel} /> : null}
-            emptyPlaceholder="—"
-          />
-          <Separator />
+          <ReadRow icon={Tag} label={t('profile.role')}>
+            {roleLabel ? <RoleBadge label={roleLabel} /> : null}
+          </ReadRow>
 
-          <ProfileRow
+          <ReadRow
             icon={MapPin}
             label={t('profile.address')}
             value={addressLine}
-            emptyPlaceholder={t('profile.notSet')}
+            full
           />
 
-          {/* v14: STAFF-only DOB row, last in the stack. We don't
-              render it for DIRECTOR / SUPER_ADMIN because they have
-              no Staff satellite (DOB lives on Staff.dateOfBirth) and
-              showing a perma-empty row would just be noise. The role
-              gate stays here so it lives next to the data shape. */}
+          {/* v14: STAFF-only DOB row. We don't render it for DIRECTOR /
+              SUPER_ADMIN because they have no Staff satellite (DOB lives on
+              Staff.dateOfBirth) and a perma-empty row would just be noise. */}
           {isStaff && (
-            <>
-              <Separator />
-              <ProfileRow
-                icon={Cake}
-                label={t('profile.dateOfBirth')}
-                value={dobLabel}
-                emptyPlaceholder={t('profile.notSet')}
-              />
-            </>
+            <ReadRow
+              icon={Cake}
+              label={t('profile.dateOfBirth')}
+              value={dobLabel}
+            />
           )}
-          {/* v5: Edit button moved into the card header's action slot. */}
-      </CardWithHeader>
+        </ReadGrid>
+      </ReadCard>
 
       <PersonalInfoModal
         open={editOpen}
@@ -205,15 +189,12 @@ function formatDOB(iso: string, locale: Locale): string {
 }
 
 // Inline brand-tinted pill for the role row. Same visual tokens as the
-// HeroCard's role badge so they read as the same affordance.
-// v5: `mt-1` gives the badge breathing room from the row's label —
-// without it the compact badge sat flush against the label baseline,
-// which read tighter than the other text-valued rows. inline-flex
-// honors vertical margin so the rule applies here.
+// HeroCard's role badge so they read as the same affordance. Rendered as
+// the ReadRow value (inside the <dd>, which already supplies the top margin).
 function RoleBadge({ label }: { label: string }) {
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium mt-1"
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
       style={{ background: 'var(--kc-p-50)', color: 'var(--kc-p-700)' }}
     >
       {label}

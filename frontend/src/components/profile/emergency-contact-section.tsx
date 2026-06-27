@@ -1,16 +1,15 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { LifeBuoy, Pencil, Phone, PhoneCall, User as UserIcon } from 'lucide-react';
+import { Link2, Pencil, Phone, PhoneCall, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
+import { ReadGrid, ReadRow } from '@/components/ui/read-view';
 import { FilterTabs } from '@/components/ui/filter-tabs';
-import { Separator } from '@/components/ui/separator';
 import { useTranslation } from '@/lib/i18n';
 import type { MyProfile, MyEmergencyContact } from '@/lib/api/auth';
 import { formatPhoneUS } from '@/lib/utils/phone';
 import { EmergencyContactModal } from './emergency-contact-modal';
-import { ProfileRow } from './profile-row';
 
 // Profile v6 — primary + secondary emergency contacts under one card,
 // switched via FilterTabs (Contact 1 / Contact 2). Same pattern Staff
@@ -67,10 +66,9 @@ export function EmergencyContactSection({
 
   return (
     <>
-      <CardWithHeader
+      <ReadCard
         icon={PhoneCall}
         title={t('profile.emergencyContactTitle')}
-        contentClassName="space-y-4"
         // Edit only renders when there's data to edit in the active tab.
         // Empty tab uses the EmptyState's own Add button instead.
         action={
@@ -89,20 +87,22 @@ export function EmergencyContactSection({
           ) : undefined
         }
       >
-        {/* FilterTabs — tablist switches between the two contacts. */}
-        <FilterTabs<ContactSlot>
-          tabs={tabs}
-          value={activeTab}
-          onChange={setActiveTab}
-          ariaLabel={t('profile.emergencyContactTitle')}
-        />
+        <div className="space-y-4">
+          {/* FilterTabs — tablist switches between the two contacts. */}
+          <FilterTabs<ContactSlot>
+            tabs={tabs}
+            value={activeTab}
+            onChange={setActiveTab}
+            ariaLabel={t('profile.emergencyContactTitle')}
+          />
 
-        {ec ? (
-          <ContactDisplay contact={ec} t={t} />
-        ) : (
-          <EmptyState onAdd={() => setOpen(true)} />
-        )}
-      </CardWithHeader>
+          {ec ? (
+            <ContactDisplay contact={ec} t={t} />
+          ) : (
+            <EmptyState onAdd={() => setOpen(true)} />
+          )}
+        </div>
+      </ReadCard>
 
       <EmergencyContactModal
         open={open}
@@ -125,30 +125,23 @@ function ContactDisplay({
     ? RELATIONSHIP_LABELS[contact.relationship]
     : undefined;
   return (
-    <div>
-      <ProfileRow
+    <ReadGrid cols={2}>
+      <ReadRow
         icon={UserIcon}
         label={t('staff.emergencyName')}
         value={contact.name}
-        emptyPlaceholder={t('profile.notSet')}
       />
-      <Separator />
-
-      <ProfileRow
+      <ReadRow
         icon={Phone}
         label={t('staff.emergencyPhone')}
         value={contact.phone ? formatPhoneUS(contact.phone) : null}
-        emptyPlaceholder={t('profile.notSet')}
       />
-      <Separator />
-
-      <ProfileRow
-        icon={LifeBuoy}
+      <ReadRow
+        icon={Link2}
         label={t('staff.emergencyRelationship')}
         value={relKey ? t(relKey) : null}
-        emptyPlaceholder={t('profile.notSet')}
       />
-    </div>
+    </ReadGrid>
   );
 }
 

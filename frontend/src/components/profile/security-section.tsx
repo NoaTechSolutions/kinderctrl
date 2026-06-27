@@ -2,13 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, KeyRound, Pencil, ShieldCheck } from 'lucide-react';
+import { ChevronRight, KeyRound, Lock, Pencil, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CardWithHeader } from '@/components/ui/card-with-header';
-import { Separator } from '@/components/ui/separator';
+import { ReadCard } from '@/components/ui/section-frame';
+import { ReadGrid, ReadRow } from '@/components/ui/read-view';
 import { useTranslation } from '@/lib/i18n';
 import { ChangePasswordModal } from './change-password-modal';
-import { ProfileRow } from './profile-row';
 
 // Profile v4 — Security card. Just two affordances:
 //   1. Change password (destructive, opens modal with current-password
@@ -24,71 +23,78 @@ export function SecuritySection() {
 
   return (
     <>
-      <CardWithHeader icon={ShieldCheck} title={t('profile.securityTitle')}>
-          <ProfileRow
-            icon={KeyRound}
-            label={t('profile.password')}
-            value="••••••••"
-            action={
-              <>
-                {/* Mobile: icon-only for consistency with the Email row. */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 sm:hidden"
-                  onClick={() => setOpen(true)}
-                  aria-label={t('profile.changePassword')}
-                  title={t('profile.changePassword')}
-                >
-                  <Pencil className="h-4 w-4" aria-hidden />
-                </Button>
-                {/* Desktop: full text button (unchanged). */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="hidden sm:inline-flex"
-                  onClick={() => setOpen(true)}
-                >
-                  {t('profile.changePassword')}
-                </Button>
-              </>
-            }
-          />
-          <Separator />
-
-          {/* v4: Forgot password escape hatch. Rendered as a row with
-              description + ChevronRight so it reads as a navigation
-              link, not a destructive action. Goes to /forgot-password
-              — the public reset flow that sends an email and walks
-              the user through resetting via tokenized link. */}
-          <Link
-            href="/forgot-password"
-            className="block -mx-2 -my-1 px-2 py-1 rounded-md transition-colors hover:bg-[var(--kc-surface-2)]"
-            aria-label={t('profile.forgotPasswordLabel')}
-          >
-            <ProfileRow
-              icon={KeyRound}
-              label={t('profile.forgotPasswordLabel')}
-              value={
-                <span
-                  className="text-xs"
-                  style={{ color: 'var(--kc-text-3)' }}
-                >
-                  {t('profile.forgotPasswordHint')}
-                </span>
-              }
+      <ReadCard icon={ShieldCheck} title={t('profile.securityTitle')}>
+        <div className="space-y-4">
+          {/* Password is the one read field here; its inline destructive
+              "Change" affordance rides the ReadRow action slot. */}
+          <ReadGrid cols={2}>
+            <ReadRow
+              icon={Lock}
+              label={t('profile.password')}
+              value="••••••••"
+              full
               action={
-                <ChevronRight
-                  className="h-4 w-4"
-                  style={{ color: 'var(--kc-text-3)' }}
-                  aria-hidden
-                />
+                <>
+                  {/* Mobile: icon-only for consistency with the Email row. */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 sm:hidden"
+                    onClick={() => setOpen(true)}
+                    aria-label={t('profile.changePassword')}
+                    title={t('profile.changePassword')}
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </Button>
+                  {/* Desktop: full text button (unchanged). */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="hidden sm:inline-flex"
+                    onClick={() => setOpen(true)}
+                  >
+                    {t('profile.changePassword')}
+                  </Button>
+                </>
               }
             />
+          </ReadGrid>
+
+          {/* v4: Forgot password escape hatch — a navigation affordance, not
+              a read field, so it stays a custom Link row (the card pattern is
+              for read-mode field values). Goes to /forgot-password — the
+              public reset flow that emails a tokenized reset link. */}
+          <Link
+            href="/forgot-password"
+            className="flex items-center gap-1.5 -mx-2 px-2 py-2 rounded-md transition-colors hover:bg-[var(--kc-surface-2)]"
+            aria-label={t('profile.forgotPasswordLabel')}
+          >
+            <KeyRound
+              className="h-3.5 w-3.5 flex-none"
+              style={{ color: 'var(--kc-p-600)' }}
+              aria-hidden
+            />
+            <span className="min-w-0 flex-1">
+              <span
+                className="block text-[10px] font-semibold uppercase tracking-[0.05em]"
+                style={{ color: 'var(--kc-text-3)' }}
+              >
+                {t('profile.forgotPasswordLabel')}
+              </span>
+              <span className="block text-xs" style={{ color: 'var(--kc-text-3)' }}>
+                {t('profile.forgotPasswordHint')}
+              </span>
+            </span>
+            <ChevronRight
+              className="h-4 w-4 flex-none"
+              style={{ color: 'var(--kc-text-3)' }}
+              aria-hidden
+            />
           </Link>
-      </CardWithHeader>
+        </div>
+      </ReadCard>
 
       <ChangePasswordModal open={open} onOpenChange={setOpen} />
     </>
