@@ -776,6 +776,14 @@ export const translations = {
       forgotPasswordLabel: 'Forgot password?',
       forgotPasswordHint: "We'll email you a reset link.",
 
+      // v5 — Forgot password confirm dialog (Security card click → warn first)
+      forgotPasswordConfirmTitle: 'Reset your password',
+      forgotPasswordConfirmBody:
+        'This will sign you out of all devices and browsers. A password reset link will be sent to your email address. Do you want to continue?',
+      forgotPasswordConfirmAction: 'Send reset link',
+      forgotPasswordSentToast: 'Password reset link sent to your email.',
+      forgotPasswordError: 'Could not send reset link. Please try again.',
+
       // v4 — Emergency Contact illustrated empty state
       emergencyContactAdd: 'Add emergency contact',
 
@@ -2002,6 +2010,14 @@ export const translations = {
       // v4 — Security: row de Forgot password
       forgotPasswordLabel: '¿Olvidaste la contraseña?',
       forgotPasswordHint: 'Te enviamos un link para resetearla por email.',
+
+      // v5 — Forgot password: diálogo de confirmación (click en Security → avisar primero)
+      forgotPasswordConfirmTitle: 'Restablecer tu contraseña',
+      forgotPasswordConfirmBody:
+        'Esto va a cerrar tu sesión en todos los dispositivos y navegadores. Te enviaremos un link para restablecer la contraseña a tu correo. ¿Querés continuar?',
+      forgotPasswordConfirmAction: 'Enviar link',
+      forgotPasswordSentToast: 'Te enviamos el link para restablecer la contraseña a tu correo.',
+      forgotPasswordError: 'No pudimos enviar el link. Probá de nuevo.',
 
       // v4 — Emergency Contact empty state ilustrado
       emergencyContactAdd: 'Agregar contacto de emergencia',

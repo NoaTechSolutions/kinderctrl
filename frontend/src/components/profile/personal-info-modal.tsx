@@ -26,6 +26,7 @@ import { useUpdateMyAuthProfile } from '@/lib/hooks/use-profile';
 import { useUnsavedChangesPrompt } from '@/lib/hooks/use-unsaved-changes-prompt';
 import { formatPhoneUS, parsePhoneDigits } from '@/lib/utils/phone';
 import type { MyProfile } from '@/lib/api/auth';
+import { ChangeEmailModal } from './change-email-modal';
 
 // Issue #6 — Personal info editor. Same dialog-wrapped-form pattern as
 // SendInvitationDialog (single confirm source at the dialog level for
@@ -113,6 +114,11 @@ export function PersonalInfoModal({
   const confirm = useConfirm();
   const mutation = useUpdateMyAuthProfile();
   const [isFormDirty, setIsFormDirty] = useState(false);
+  // Email change is a separate destructive flow (session revoke). It now
+  // lives INSIDE this modal — the "Change" button opens ChangeEmailModal
+  // nested over this dialog. Its router.replace('/login') on success is
+  // programmatic, so useUnsavedChangesPrompt won't block the redirect.
+  const [emailOpen, setEmailOpen] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -215,6 +221,7 @@ export function PersonalInfoModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {/* v3: bumped from max-w-md to max-w-lg to comfortably fit the
           address fields without cramping the existing name/phone rows. */}
@@ -317,6 +324,38 @@ export function PersonalInfoModal({
                 {form.formState.errors.phone.message}
               </p>
             )}
+          </div>
+
+          {/* Email — read-only here; the destructive Change flow (session
+              revoke) opens the dedicated ChangeEmailModal. Sits between the
+              core identity fields and the address block, fenced by separators
+              so the destructive affordance reads as its own zone. */}
+          <div
+            className="space-y-1.5 pt-3 border-t"
+            style={{ borderColor: 'var(--kc-border)' }}
+          >
+            <Label htmlFor="profile-email" className="text-sm font-medium">
+              {t('profile.email')}
+            </Label>
+            <div className="flex items-center gap-3">
+              <span
+                id="profile-email"
+                className="min-w-0 flex-1 truncate text-sm"
+                style={{ color: 'var(--kc-text-1)' }}
+              >
+                {profile.email}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-none"
+                onClick={() => setEmailOpen(true)}
+                disabled={mutation.isPending}
+              >
+                {t('profile.change')}
+              </Button>
+            </div>
           </div>
 
           {/* Address — same layout pattern as the staff create form
@@ -471,5 +510,14 @@ export function PersonalInfoModal({
         </form>
       </DialogContent>
     </Dialog>
+
+      {/* Nested destructive email-change flow, triggered from the Email
+          row above. Self-contained — on success it logs out + redirects. */}
+      <ChangeEmailModal
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        currentEmail={profile.email}
+      />
+    </>
   );
 }

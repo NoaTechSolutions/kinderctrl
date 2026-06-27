@@ -19,7 +19,6 @@ import { formatPhoneUS } from '@/lib/utils/phone';
 import { getDisplayRole } from '@/lib/user-display';
 import { useAuthStore } from '@/store/auth';
 import { PersonalInfoModal } from './personal-info-modal';
-import { ChangeEmailModal } from './change-email-modal';
 
 // Profile v3 — Personal Information card. Now hosts every editable
 // identity field in one place: name, email (with inline destructive
@@ -36,7 +35,6 @@ export function PersonalInfoSection({ profile }: PersonalInfoSectionProps) {
   const { t, locale } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const [editOpen, setEditOpen] = useState(false);
-  const [emailOpen, setEmailOpen] = useState(false);
 
   // v14: DOB row is STAFF-only and only renders when there's a date
   // on file. Format follows the user's i18n locale — "January 15,
@@ -94,36 +92,13 @@ export function PersonalInfoSection({ profile }: PersonalInfoSectionProps) {
             value={fullName}
           />
 
+          {/* Email is read-only in the card now — the Change affordance
+              (destructive, session-revoking) moved INTO PersonalInfoModal,
+              opened by the header Edit button. */}
           <ReadRow
             icon={Mail}
             label={t('profile.email')}
             value={profile.email}
-            action={
-              <>
-                {/* Mobile: icon-only so the email gets the row width (375px). */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 sm:hidden"
-                  onClick={() => setEmailOpen(true)}
-                  aria-label={t('profile.change')}
-                  title={t('profile.change')}
-                >
-                  <Pencil className="h-4 w-4" aria-hidden />
-                </Button>
-                {/* Desktop: full text button (unchanged). */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="hidden sm:inline-flex"
-                  onClick={() => setEmailOpen(true)}
-                >
-                  {t('profile.change')}
-                </Button>
-              </>
-            }
           />
 
           <ReadRow
@@ -160,11 +135,6 @@ export function PersonalInfoSection({ profile }: PersonalInfoSectionProps) {
         open={editOpen}
         onOpenChange={setEditOpen}
         profile={profile}
-      />
-      <ChangeEmailModal
-        open={emailOpen}
-        onOpenChange={setEmailOpen}
-        currentEmail={profile.email}
       />
     </>
   );

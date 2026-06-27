@@ -80,7 +80,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="min-w-0 space-y-6 md:col-span-5">
-              <SecuritySection />
+              <SecuritySection email={profile.email} />
             </div>
           </div>
 

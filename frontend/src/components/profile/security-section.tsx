@@ -1,25 +1,56 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { useMutation } from '@tanstack/react-query';
 import { ChevronRight, KeyRound, Lock, Pencil, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ReadCard } from '@/components/ui/section-frame';
 import { ReadGrid, ReadRow } from '@/components/ui/read-view';
+import { toast, useConfirm } from '@/lib/toast';
 import { useTranslation } from '@/lib/i18n';
+import { forgotPassword } from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/client';
 import { ChangePasswordModal } from './change-password-modal';
 
 // Profile v4 — Security card. Just two affordances:
 //   1. Change password (destructive, opens modal with current-password
 //      gate + branded ConfirmDialog → server revokes all sessions).
-//   2. Forgot password (passive, navigates to /forgot-password — the
-//      public reset-by-email flow). Useful escape hatch when the user
-//      can't remember their current password and the in-app change
-//      modal therefore can't help.
+//   2. Forgot password (v5) — was a passive navigate to /forgot-password.
+//      Now warns first via the branded ConfirmDialog (same pattern as
+//      Withdraw / Approve All), then fires the existing forgotPassword(email)
+//      flow directly using the signed-in user's email. The escape hatch for
+//      when the user can't recall their current password.
 // Header uses the red icon-badge per spec — destructive area cue.
-export function SecuritySection() {
+export function SecuritySection({ email }: { email: string }) {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
+
+  // Existing forgot-password flow (same api the public /forgot-password page
+  // calls). We already know the email, so we send straight from here.
+  const forgotMutation = useMutation({
+    mutationFn: () => forgotPassword(email),
+    onSuccess: () => toast.success(t('profile.forgotPasswordSentToast')),
+    onError: (error: Error) => {
+      const message =
+        error instanceof ApiError && error.message
+          ? error.message
+          : t('profile.forgotPasswordError');
+      toast.error(message);
+    },
+  });
+
+  const handleForgotPassword = async () => {
+    const ok = await confirm({
+      title: t('profile.forgotPasswordConfirmTitle'),
+      description: t('profile.forgotPasswordConfirmBody'),
+      confirmText: t('profile.forgotPasswordConfirmAction'),
+      cancelText: t('staff.cancel'),
+      variant: 'warning',
+    });
+    if (!ok) return;
+    forgotMutation.mutate();
+  };
 
   return (
     <>
@@ -62,13 +93,15 @@ export function SecuritySection() {
             />
           </ReadGrid>
 
-          {/* v4: Forgot password escape hatch — a navigation affordance, not
-              a read field, so it stays a custom Link row (the card pattern is
-              for read-mode field values). Goes to /forgot-password — the
-              public reset flow that emails a tokenized reset link. */}
-          <Link
-            href="/forgot-password"
-            className="flex items-center gap-1.5 -mx-2 px-2 py-2 rounded-md transition-colors hover:bg-[var(--kc-surface-2)]"
+          {/* v5: Forgot password escape hatch — a navigation affordance, not
+              a read field, so it stays a custom row (the card pattern is for
+              read-mode field values). Now a button: click warns via the
+              branded ConfirmDialog, then fires forgotPassword(email). */}
+          <button
+            type="button"
+            onClick={() => void handleForgotPassword()}
+            disabled={forgotMutation.isPending}
+            className="flex w-full items-center gap-1.5 -mx-2 px-2 py-2 rounded-md text-left transition-colors hover:bg-[var(--kc-surface-2)] disabled:opacity-60"
             aria-label={t('profile.forgotPasswordLabel')}
           >
             <KeyRound
@@ -92,7 +125,7 @@ export function SecuritySection() {
               style={{ color: 'var(--kc-text-3)' }}
               aria-hidden
             />
-          </Link>
+          </button>
         </div>
       </ReadCard>
 
