@@ -45,7 +45,7 @@ export default function NewCenterPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div className="space-y-2">
         {isFirstTimeOnboarding ? (
           <div

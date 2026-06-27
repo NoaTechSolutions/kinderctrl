@@ -1,7 +1,7 @@
 'use client';
 
 import { Clock } from 'lucide-react';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
 import { HoursFormDialog } from '@/components/centers/hours-form';
 import { useTimeFormat } from '@/lib/preferences/time-format';
 import { formatTimeRange } from '@/lib/utils/time';
@@ -45,7 +45,7 @@ export function CenterHoursDisplay({
     !!centerId && !!centerName && centerStatus !== 'CLOSED';
 
   return (
-    <CardWithHeader
+    <ReadCard
       icon={Clock}
       title="Operating Hours"
       action={
@@ -113,6 +113,6 @@ export function CenterHoursDisplay({
             })()}
           </ul>
         )}
-    </CardWithHeader>
+    </ReadCard>
   );
 }

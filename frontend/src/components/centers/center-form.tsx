@@ -4,9 +4,23 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building2, Loader2, MapPin, Phone as PhoneIcon } from 'lucide-react';
+import {
+  Building2,
+  Clock,
+  FileText,
+  Globe,
+  Hash,
+  Loader2,
+  Mail,
+  Map,
+  MapPin,
+  Phone as PhoneIcon,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { ReadCard } from '@/components/ui/section-frame';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NumericInput } from '@/components/ui/numeric-input';
@@ -210,6 +224,7 @@ export function CenterForm({
       <Section icon={Building2} title={t('centers.titleSingular')}>
         <Field
           id="name"
+          icon={Building2}
           label={t('centers.name')}
           error={form.formState.errors.name?.message}
           required={isRequired('name')}
@@ -226,6 +241,7 @@ export function CenterForm({
 
         <Field
           id="licenseNumber"
+          icon={FileText}
           label={t('centers.licenseNumber')}
           error={form.formState.errors.licenseNumber?.message}
           required={isRequired('licenseNumber')}
@@ -241,6 +257,7 @@ export function CenterForm({
 
         <Field
           id="capacity"
+          icon={Users}
           label={t('centers.capacity')}
           error={form.formState.errors.capacity?.message}
           required={isRequired('capacity')}
@@ -262,6 +279,7 @@ export function CenterForm({
       <Section icon={MapPin} title="Address">
         <Field
           id="street"
+          icon={MapPin}
           label={t('centers.street')}
           error={form.formState.errors.street?.message}
           required={isRequired('street')}
@@ -278,6 +296,7 @@ export function CenterForm({
 
         <Field
           id="city"
+          icon={Building2}
           label={t('centers.city')}
           error={form.formState.errors.city?.message}
           required={isRequired('city')}
@@ -293,6 +312,7 @@ export function CenterForm({
 
         <Field
           id="state"
+          icon={Map}
           label={t('centers.state')}
           error={form.formState.errors.state?.message}
           required={isRequired('state')}
@@ -311,6 +331,7 @@ export function CenterForm({
 
         <Field
           id="zipCode"
+          icon={Hash}
           label={t('centers.zipCode')}
           error={form.formState.errors.zipCode?.message}
           required={isRequired('zipCode')}
@@ -337,6 +358,7 @@ export function CenterForm({
 
         <Field
           id="timezone"
+          icon={Clock}
           label={t('centers.timezone')}
           error={form.formState.errors.timezone?.message}
           required={isRequired('timezone')}
@@ -380,6 +402,7 @@ export function CenterForm({
       <Section icon={PhoneIcon} title="Contact">
         <Field
           id="phone"
+          icon={PhoneIcon}
           label={t('centers.phone')}
           error={form.formState.errors.phone?.message}
           required={isRequired('phone')}
@@ -411,6 +434,7 @@ export function CenterForm({
 
         <Field
           id="email"
+          icon={Mail}
           label={t('centers.email')}
           error={form.formState.errors.email?.message}
           required={isRequired('email')}
@@ -427,6 +451,7 @@ export function CenterForm({
 
         <Field
           id="website"
+          icon={Globe}
           label={t('centers.website')}
           error={form.formState.errors.website?.message}
           required={isRequired('website')}
@@ -513,34 +538,16 @@ function Section({
   title,
   children,
 }: {
-  icon: typeof Building2;
+  icon: LucideIcon;
   title: string;
   children: React.ReactNode;
 }) {
+  // Card pattern: ReadCard gives the circular purple icon badge + 15px title
+  // header (same shell as the detail cards + Children/Staff form sections).
   return (
-    <fieldset
-      className="rounded-lg border p-5"
-      style={{
-        background: 'var(--kc-surface)',
-        borderColor:
-          'color-mix(in oklch, var(--kc-border), transparent 30%)',
-      }}
-    >
-      <legend className="px-2 flex items-center gap-2">
-        <Icon
-          className="h-4 w-4"
-          style={{ color: 'var(--kc-p-600)' }}
-          aria-hidden
-        />
-        <span
-          className="text-sm font-semibold"
-          style={{ color: 'var(--kc-text-1)' }}
-        >
-          {title}
-        </span>
-      </legend>
-      <div className="grid gap-4 sm:grid-cols-2 mt-3">{children}</div>
-    </fieldset>
+    <ReadCard icon={Icon} title={title}>
+      <div className="grid gap-4 sm:grid-cols-2">{children}</div>
+    </ReadCard>
   );
 }
 
@@ -552,6 +559,7 @@ function Field({
   required,
   requiredLabel,
   hint,
+  icon: Icon,
   children,
 }: {
   id: string;
@@ -561,6 +569,8 @@ function Field({
   required?: boolean;
   requiredLabel?: string;
   hint?: string;
+  // Card-pattern: a semantic Lucide icon beside the label (purple --kc-p-600).
+  icon?: LucideIcon;
   children: React.ReactNode;
 }) {
   const hintId = hint ? `${id}-hint` : undefined;
@@ -569,8 +579,16 @@ function Field({
     <div className={full ? 'sm:col-span-2 space-y-1.5' : 'space-y-1.5'}>
       <Label
         htmlFor={id}
-        className="text-sm font-medium inline-flex items-center gap-1"
+        className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
+        style={{ color: 'var(--kc-text-3)' }}
       >
+        {Icon && (
+          <Icon
+            className="h-3.5 w-3.5 flex-none"
+            style={{ color: 'var(--kc-p-600)' }}
+            aria-hidden
+          />
+        )}
         {label}
         {required && (
           <span

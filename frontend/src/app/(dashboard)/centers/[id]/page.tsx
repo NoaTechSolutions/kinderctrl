@@ -6,27 +6,35 @@ import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigat
 import {
   AlertTriangle,
   ArrowLeft,
-  Baby,
   Building2,
-  CalendarDays,
+  CalendarClock,
+  Circle,
   Clock,
+  Coffee,
   DollarSign,
   Edit,
   Eye,
   EyeOff,
-  FileEdit,
   FileText,
   Globe,
+  KeyRound,
   Loader2,
   Mail,
   MapPin,
   Phone,
+  RefreshCw,
   TabletSmartphone,
+  Timer,
+  User,
   Users,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { Card, CardContent } from '@/components/ui/card';
+import { ReadCard } from '@/components/ui/section-frame';
+import { ReadGrid, ReadRow } from '@/components/ui/read-view';
+import type { CenterStats } from '@/lib/api/centers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FilterTabs, type FilterTab } from '@/components/ui/filter-tabs';
 import { useCenter, useCenterStats, useUpdateCenter } from '@/lib/hooks/use-centers';
@@ -50,7 +58,6 @@ import { usePayrollSettings, useUpsertPayrollSettings } from '@/lib/hooks/use-at
 import { PayrollReports } from '@/components/payroll/payroll-reports';
 import { useKioskSettings, useSetupKiosk } from '@/lib/hooks/use-kiosk';
 import { toast } from '@/lib/toast';
-import type { CenterStats } from '@/lib/api/centers';
 import type { PayrollSettings } from '@/lib/api/attendance';
 import type { Center } from '@/lib/types/center';
 
@@ -264,11 +271,10 @@ function OverviewTab({
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatTile icon={Users} label="Active Staff" value={String(stats?.counts.staff ?? 0)} />
-              <StatTile icon={Baby} label="Active Children" value={String(stats?.counts.children ?? 0)} />
-              <StatTile icon={CalendarDays} label="Schedules" value={String(stats?.counts.schedules ?? 0)} />
+              <StatTile label="Active Staff" value={String(stats?.counts.staff ?? 0)} />
+              <StatTile label="Active Children" value={String(stats?.counts.children ?? 0)} />
+              <StatTile label="Schedules" value={String(stats?.counts.schedules ?? 0)} />
               <StatTile
-                icon={FileEdit}
                 label="Pending Corrections"
                 value={String(stats?.counts.corrections ?? 0)}
                 color={(stats?.counts.corrections ?? 0) > 0 ? 'var(--kc-warning)' : undefined}
@@ -281,69 +287,76 @@ function OverviewTab({
         </>
       )}
 
-      {/* Info + Hours grid (same as before) */}
+      {/* Info + Hours grid. ReadCard has no className → wrap for the 2-col span. */}
       <div className="grid gap-4 md:grid-cols-3">
-        <CardWithHeader
-          icon={Building2}
-          title="Center Information"
-          className="md:col-span-2"
-          action={
-            // Admin center is system-managed — hide the edit action entirely.
-            canManage && !center.isAdminCenter ? (
-              <Button asChild variant="ghost" size="icon" className="h-7 w-7" title="Edit center" aria-label="Edit center" disabled={isClosed}>
-                <Link
-                  href={isClosed ? '#' : `/centers/${center.id}/edit`}
-                  aria-disabled={isClosed}
-                  tabIndex={isClosed ? -1 : 0}
-                >
-                  <Edit className="h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            ) : undefined
-          }
-        >
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <InfoRow icon={MapPin} label="Address">
-              {center.street}
-              <br />
-              {center.city}, {center.state} {center.zipCode}
-            </InfoRow>
-            <InfoRow icon={Phone} label={t('centers.phone')}>
-              <span className="font-mono">{formatPhoneUS(center.phone)}</span>
-            </InfoRow>
-            <InfoRow icon={Mail} label={t('centers.email')}>
-              <span className="break-all">{center.email}</span>
-            </InfoRow>
-            {center.website && (
-              <InfoRow icon={Globe} label={t('centers.website')}>
-                <a
-                  href={center.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="break-all hover:underline"
-                  style={{ color: 'var(--kc-p-600)' }}
-                >
-                  {center.website}
-                </a>
-              </InfoRow>
-            )}
-            {canManage && (
-              <InfoRow icon={Users} label={t('centers.capacity')}>
-                {center.capacity} children
-              </InfoRow>
-            )}
-            {canManage && (
-              <InfoRow icon={Globe} label={t('centers.timezone')}>
-                <span className="font-mono text-xs">{center.timezone}</span>
-              </InfoRow>
-            )}
-            {center.licenseNumber && (
-              <InfoRow icon={FileText} label={t('centers.licenseNumber')}>
-                {center.licenseNumber}
-              </InfoRow>
-            )}
-          </dl>
-        </CardWithHeader>
+        <div className="md:col-span-2">
+          <ReadCard
+            icon={Building2}
+            title="Center Information"
+            action={
+              // Admin center is system-managed — hide the edit action entirely.
+              canManage && !center.isAdminCenter ? (
+                <Button asChild variant="ghost" size="icon" className="h-7 w-7" title="Edit center" aria-label="Edit center" disabled={isClosed}>
+                  <Link
+                    href={isClosed ? '#' : `/centers/${center.id}/edit`}
+                    aria-disabled={isClosed}
+                    tabIndex={isClosed ? -1 : 0}
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              ) : undefined
+            }
+          >
+            <ReadGrid cols={2}>
+              <ReadRow icon={MapPin} label="Address">
+                {center.street}
+                <br />
+                {center.city}, {center.state} {center.zipCode}
+              </ReadRow>
+              <ReadRow
+                icon={Phone}
+                label={t('centers.phone')}
+                value={formatPhoneUS(center.phone)}
+              />
+              <ReadRow icon={Mail} label={t('centers.email')} value={center.email} />
+              {center.website && (
+                <ReadRow icon={Globe} label={t('centers.website')}>
+                  <a
+                    href={center.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all hover:underline"
+                    style={{ color: 'var(--kc-p-600)' }}
+                  >
+                    {center.website}
+                  </a>
+                </ReadRow>
+              )}
+              {canManage && (
+                <ReadRow
+                  icon={Users}
+                  label={t('centers.capacity')}
+                  value={`${center.capacity} children`}
+                />
+              )}
+              {canManage && (
+                <ReadRow
+                  icon={Clock}
+                  label={t('centers.timezone')}
+                  value={center.timezone}
+                />
+              )}
+              {center.licenseNumber && (
+                <ReadRow
+                  icon={FileText}
+                  label={t('centers.licenseNumber')}
+                  value={center.licenseNumber}
+                />
+              )}
+            </ReadGrid>
+          </ReadCard>
+        </div>
 
         <CenterHoursDisplay
           hours={center.centerHours}
@@ -353,33 +366,36 @@ function OverviewTab({
         />
       </div>
 
-      {/* Director card */}
-      <CardWithHeader icon={Users} title="Director">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-0.5">
-            <p className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-              {currentDirectorName}
-            </p>
-            {center.owner?.email &&
-              currentDirectorName !== center.owner.email && (
-                <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
-                  {center.owner.email}
-                </p>
-              )}
-          </div>
-          {/* Admin center is system-managed — director change is not permitted. */}
-          {isSuperAdmin && !center.isAdminCenter && (
+      {/* Director card — Change Director moved to the header action slot. */}
+      <ReadCard
+        icon={Users}
+        title="Director"
+        action={
+          // Admin center is system-managed — director change is not permitted.
+          isSuperAdmin && !center.isAdminCenter ? (
             <Button
               variant="outline"
+              size="sm"
               onClick={() => setChangeDirectorOpen(true)}
-              className="self-start sm:self-auto"
             >
               <Edit className="mr-2 h-3.5 w-3.5" />
               Change Director
             </Button>
-          )}
-        </div>
-      </CardWithHeader>
+          ) : undefined
+        }
+      >
+        <ReadGrid cols={2}>
+          <ReadRow icon={User} label="Name" value={currentDirectorName} />
+          {center.owner?.email &&
+            currentDirectorName !== center.owner.email && (
+              <ReadRow
+                icon={Mail}
+                label={t('centers.email')}
+                value={center.owner.email}
+              />
+            )}
+        </ReadGrid>
+      </ReadCard>
 
       {isSuperAdmin && !center.isAdminCenter && (
         <ChangeDirectorDialog
@@ -403,26 +419,35 @@ function OverviewTab({
   );
 }
 
+// KPI tile — big centered number + small label below, NO icon (per spec).
+// Default tint is brand purple; Pending Corrections passes a warning tint when
+// there are any.
 function StatTile({
-  icon: Icon,
   label,
   value,
   color,
 }: {
-  icon: typeof Users;
   label: string;
   value: string;
   color?: string;
 }) {
   return (
-    <CardWithHeader icon={Icon} title={label}>
-      <p
-        className="text-2xl font-bold text-center tabular-nums"
-        style={{ color: color ?? 'var(--kc-p-600)' }}
-      >
-        {value}
-      </p>
-    </CardWithHeader>
+    <Card className="h-24 gap-0 py-0">
+      <CardContent className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center">
+        <p
+          className="text-[32px] font-bold leading-none tabular-nums"
+          style={{ color: color ?? 'var(--kc-p-600)' }}
+        >
+          {value}
+        </p>
+        <p
+          className="text-xs font-medium uppercase tracking-wide leading-tight"
+          style={{ color: 'var(--kc-text-3)' }}
+        >
+          {label}
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -430,73 +455,67 @@ function CenterAlerts({ alerts }: { alerts: CenterStats['alerts'] }) {
   const total = alerts.oldCorrections + alerts.overduePayrolls + alerts.staffWithoutClockIn;
   if (total === 0) {
     return (
-      <CardWithHeader icon={AlertTriangle} title="Alerts">
+      <ReadCard icon={AlertTriangle} title="Alerts">
         <p className="text-sm text-center py-4" style={{ color: 'var(--kc-text-3)' }}>
           ✅ Everything looks healthy for this center.
         </p>
-      </CardWithHeader>
+      </ReadCard>
     );
   }
   return (
-    <CardWithHeader icon={AlertTriangle} title="Alerts">
-      <div className="space-y-2">
+    <ReadCard icon={AlertTriangle} title="Alerts">
+      <ReadGrid cols={2}>
         {alerts.oldCorrections > 0 && (
-          <AlertRow
-            icon={FileEdit}
-            color="var(--kc-warning)"
-            label={`${alerts.oldCorrections} correction request${alerts.oldCorrections > 1 ? 's' : ''} pending more than 48h`}
+          <ReadRow
+            icon={AlertTriangle}
+            label="Corrections"
+            full
+            value={`${alerts.oldCorrections} correction request${alerts.oldCorrections > 1 ? 's' : ''} pending more than 48h`}
           />
         )}
         {alerts.overduePayrolls > 0 && (
-          <AlertRow
-            icon={DollarSign}
-            color="var(--kc-error)"
-            label={`${alerts.overduePayrolls} payroll period${alerts.overduePayrolls > 1 ? 's' : ''} overdue`}
+          <ReadRow
+            icon={AlertTriangle}
+            label="Payroll"
+            full
+            value={`${alerts.overduePayrolls} payroll period${alerts.overduePayrolls > 1 ? 's' : ''} overdue`}
           />
         )}
         {alerts.staffWithoutClockIn > 0 && (
-          <AlertRow
-            icon={Clock}
-            color="var(--kc-warning)"
-            label={`${alerts.staffWithoutClockIn} active staff with no clock-in in the last 7 days`}
+          <ReadRow
+            icon={AlertTriangle}
+            label="Staff"
+            full
+            value={`${alerts.staffWithoutClockIn} active staff with no clock-in in the last 7 days`}
           />
         )}
-      </div>
-    </CardWithHeader>
+      </ReadGrid>
+    </ReadCard>
   );
 }
 
-function AlertRow({ icon: Icon, color, label }: { icon: typeof FileEdit; color: string; label: string }) {
-  return (
-    <div
-      className="flex items-center gap-3 py-2 px-3 rounded-md"
-      style={{ background: 'var(--kc-surface-2)' }}
-    >
-      <Icon className="h-4 w-4 flex-none" style={{ color }} aria-hidden />
-      <p className="flex-1 text-sm" style={{ color: 'var(--kc-text-1)' }}>{label}</p>
-    </div>
-  );
-}
-
-function InfoRow({
+// Card-pattern label for the inline-editable Settings forms (10px uppercase +
+// purple icon, matching ReadRow / the StaffForm Field). The Settings cards stay
+// always-editable (no read mode) — only the header + labels get the new look.
+function SettingLabel({
   icon: Icon,
-  label,
   children,
 }: {
-  icon: typeof MapPin;
-  label: string;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex gap-3">
-      <Icon className="h-4 w-4 mt-1 flex-none" style={{ color: 'var(--kc-text-3)' }} aria-hidden />
-      <div className="min-w-0">
-        <dt className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--kc-text-3)' }}>
-          {label}
-        </dt>
-        <dd className="mt-0.5 text-sm">{children}</dd>
-      </div>
-    </div>
+    <label
+      className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
+      style={{ color: 'var(--kc-text-3)' }}
+    >
+      <Icon
+        className="h-3.5 w-3.5 flex-none"
+        style={{ color: 'var(--kc-p-600)' }}
+        aria-hidden
+      />
+      {children}
+    </label>
   );
 }
 
@@ -638,7 +657,7 @@ function PayrollSettingsCard({
   } as const;
 
   return (
-    <CardWithHeader icon={DollarSign} title="Payroll Settings">
+    <ReadCard icon={DollarSign} title="Payroll Settings">
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -648,9 +667,7 @@ function PayrollSettingsCard({
       ) : (
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-              Payment Frequency
-            </label>
+            <SettingLabel icon={RefreshCw}>Payment Frequency</SettingLabel>
             <select
               value={freq}
               onChange={(e) => setFreq(e.target.value as typeof freq)}
@@ -665,9 +682,7 @@ function PayrollSettingsCard({
           </div>
 
           <div>
-            <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-              Break Paid
-            </label>
+            <SettingLabel icon={Coffee}>Break Paid</SettingLabel>
             <select
               value={breakPaid ? 'yes' : 'no'}
               onChange={(e) => setBreakPaid(e.target.value === 'yes')}
@@ -682,9 +697,7 @@ function PayrollSettingsCard({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-                Daily OT After (h)
-              </label>
+              <SettingLabel icon={Clock}>Daily OT After (h)</SettingLabel>
               <input
                 type="number"
                 value={dailyOT}
@@ -697,9 +710,7 @@ function PayrollSettingsCard({
               />
             </div>
             <div>
-              <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-                Weekly OT After (h)
-              </label>
+              <SettingLabel icon={CalendarClock}>Weekly OT After (h)</SettingLabel>
               <input
                 type="number"
                 value={weeklyOT}
@@ -714,9 +725,7 @@ function PayrollSettingsCard({
           </div>
 
           <div>
-            <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-              Overtime Rate
-            </label>
+            <SettingLabel icon={DollarSign}>Overtime Rate</SettingLabel>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -743,7 +752,7 @@ function PayrollSettingsCard({
           )}
         </div>
       )}
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 
@@ -799,7 +808,7 @@ function KioskSettingsCard({
   } as const;
 
   return (
-    <CardWithHeader icon={TabletSmartphone} title="Kiosk Settings">
+    <ReadCard icon={TabletSmartphone} title="Kiosk Settings">
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -832,9 +841,9 @@ function KioskSettingsCard({
             <>
               {/* PIN fields */}
               <div>
-                <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
+                <SettingLabel icon={KeyRound}>
                   {isConfigured ? 'New PIN' : 'PIN'} (4–6 digits)
-                </label>
+                </SettingLabel>
                 <div className="relative">
                   <input
                     type={showPin ? 'text' : 'password'}
@@ -859,9 +868,7 @@ function KioskSettingsCard({
               </div>
 
               <div>
-                <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-                  Confirm PIN
-                </label>
+                <SettingLabel icon={KeyRound}>Confirm PIN</SettingLabel>
                 <input
                   type="password"
                   value={confirmPin}
@@ -875,9 +882,7 @@ function KioskSettingsCard({
 
               {/* Timeout picker */}
               <div>
-                <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-                  Inactivity Timeout
-                </label>
+                <SettingLabel icon={Timer}>Inactivity Timeout</SettingLabel>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mt-1.5">
                   {TIMEOUT_OPTIONS.map((t) => (
                     <button
@@ -914,7 +919,7 @@ function KioskSettingsCard({
           )}
         </div>
       )}
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 
@@ -974,7 +979,7 @@ function GeofenceCard({
   } as const;
 
   return (
-    <CardWithHeader icon={MapPin} title="Geofence">
+    <ReadCard icon={MapPin} title="Geofence">
       <div className="space-y-4">
         <p className="text-xs" style={{ color: 'var(--kc-text-3)' }}>
           Set the center&apos;s geographic coordinates and the radius used to
@@ -983,9 +988,7 @@ function GeofenceCard({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-              Latitude
-            </label>
+            <SettingLabel icon={MapPin}>Latitude</SettingLabel>
             <input
               type="number"
               value={lat}
@@ -1000,9 +1003,7 @@ function GeofenceCard({
             />
           </div>
           <div>
-            <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-              Longitude
-            </label>
+            <SettingLabel icon={MapPin}>Longitude</SettingLabel>
             <input
               type="number"
               value={lng}
@@ -1019,9 +1020,7 @@ function GeofenceCard({
         </div>
 
         <div>
-          <label className="text-sm font-medium" style={{ color: 'var(--kc-text-1)' }}>
-            Radius (meters)
-          </label>
+          <SettingLabel icon={Circle}>Radius (meters)</SettingLabel>
           <input
             type="number"
             value={radius}
@@ -1049,6 +1048,6 @@ function GeofenceCard({
           </Button>
         )}
       </div>
-    </CardWithHeader>
+    </ReadCard>
   );
 }
