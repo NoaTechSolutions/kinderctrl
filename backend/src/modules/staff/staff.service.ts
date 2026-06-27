@@ -11,6 +11,7 @@ import {
   BackgroundCheckStatus,
   CprStatus,
   Prisma,
+  PunchType,
   StaffRole,
   StaffStatus,
   UserRole,
@@ -29,7 +30,10 @@ import { staffInvitationTemplate } from '../email/templates/staff-invitation.tem
 // sets their own password — admin never sees it.
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
-import { StaffResponseDto } from './dto/staff-response.dto';
+import {
+  StaffResponseDto,
+  StaffAttendanceTodayDto,
+} from './dto/staff-response.dto';
 import { InviteStaffDto } from './dto/invite-staff.dto';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import {
@@ -168,7 +172,9 @@ const STAFF_SELECT = {
   createdAt: true,
   updatedAt: true,
   activatedAt: true,
-  center: { select: { id: true, name: true } },
+  // timezone drives attendanceToday's "today" in findAll (additive — the
+  // client only reads center.{id,name}; timezone is mapped out in toResponseDto).
+  center: { select: { id: true, name: true, timezone: true } },
   user: { select: { email: true } },
   kioskPin: true,
   kioskPinLocked: true,
@@ -516,8 +522,13 @@ export class StaffService {
       this.prisma.staff.count({ where: fullWhere }),
     ]);
 
+    // Attach today's time-clock attendance (mirrors the children list). One
+    // extra query for the whole page, then map each row to PRESENT/END_OF_SHIFT
+    // (real punch) or the status proxy.
+    const attendance = await this.attendanceTodayByStaff(list);
+
     return {
-      data: list.map((s) => this.toResponseDto(s)),
+      data: list.map((s) => this.toResponseDto(s, attendance.get(s.id))),
       pagination: {
         page,
         limit,
@@ -525,6 +536,56 @@ export class StaffService {
         totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     };
+  }
+
+  /**
+   * Resolves today's attendance for a page of staff. Like the children list's
+   * toListItems: "today" depends on each staff's center timezone, so we collect
+   * the distinct per-center days, fetch the CLOCK_IN/CLOCK_OUT punches for all
+   * listed staff on those days in one query, then map each staff to its status.
+   */
+  private async attendanceTodayByStaff(
+    list: StaffWithCenter[],
+  ): Promise<Map<string, StaffAttendanceTodayDto>> {
+    const result = new Map<string, StaffAttendanceTodayDto>();
+    if (list.length === 0) return result;
+
+    const now = new Date();
+    const todayByStaff = new Map<string, Date>();
+    for (const s of list) {
+      todayByStaff.set(s.id, dateInTimezone(now, s.center?.timezone ?? 'UTC'));
+    }
+    const distinctDates = [
+      ...new Map(
+        [...todayByStaff.values()].map((d) => [d.toISOString(), d]),
+      ).values(),
+    ];
+
+    const rows = await this.prisma.staffTimeEntry.findMany({
+      where: {
+        staffId: { in: list.map((s) => s.id) },
+        date: { in: distinctDates },
+        type: { in: [PunchType.CLOCK_IN, PunchType.CLOCK_OUT] },
+      },
+      select: { staffId: true, date: true, type: true, deviceTimestamp: true },
+    });
+
+    // Group by staff + day → the in/out device timestamps for that shift.
+    const punches = new Map<string, { clockIn?: Date; clockOut?: Date }>();
+    for (const r of rows) {
+      const key = `${r.staffId}|${r.date.toISOString()}`;
+      const entry = punches.get(key) ?? {};
+      if (r.type === PunchType.CLOCK_IN) entry.clockIn = r.deviceTimestamp;
+      else if (r.type === PunchType.CLOCK_OUT) entry.clockOut = r.deviceTimestamp;
+      punches.set(key, entry);
+    }
+
+    for (const s of list) {
+      const today = todayByStaff.get(s.id)!;
+      const punch = punches.get(`${s.id}|${today.toISOString()}`);
+      result.set(s.id, mapStaffAttendanceToday(punch, s.status));
+    }
+    return result;
   }
 
   async findOne(
@@ -1886,7 +1947,10 @@ export class StaffService {
     throw new ForbiddenException('Parents cannot access staff');
   }
 
-  private toResponseDto(staff: StaffWithCenter): StaffResponseDto {
+  private toResponseDto(
+    staff: StaffWithCenter,
+    attendanceToday?: StaffAttendanceTodayDto,
+  ): StaffResponseDto {
     return {
       id: staff.id,
       firstName: staff.firstName,
@@ -1932,6 +1996,8 @@ export class StaffService {
       createdAt: staff.createdAt,
       updatedAt: staff.updatedAt,
       activatedAt: staff.activatedAt,
+      // Only the list endpoint passes this; detail/update omit it (undefined).
+      attendanceToday,
     };
   }
 
@@ -1951,4 +2017,37 @@ export class StaffService {
     }
     return verifier.email;
   }
+}
+
+// ================================================================= helpers
+
+// Calendar day (UTC-midnight Date, matching Prisma @db.Date) for a timezone.
+// Mirrors the convention in children.service.ts / staff-attendance.service.ts
+// (dedup is pre-existing tech debt — no shared date util in the codebase yet).
+function dateInTimezone(date: Date, timezone: string): Date {
+  const dateStr = date.toLocaleDateString('en-CA', { timeZone: timezone });
+  return new Date(dateStr + 'T00:00:00.000Z');
+}
+
+// Maps today's punches (if any) + lifecycle status to the roster attendance
+// state. With a CLOCK_OUT → END_OF_SHIFT; with only CLOCK_IN → PRESENT; no
+// punch → proxy off status (ACTIVE expected today → NOT_ARRIVED, else
+// NOT_SCHEDULED). EARLY_DEPARTURE is in the contract but never emitted here.
+function mapStaffAttendanceToday(
+  punch: { clockIn?: Date; clockOut?: Date } | undefined,
+  status: StaffStatus,
+): StaffAttendanceTodayDto {
+  if (punch?.clockOut) {
+    return {
+      status: 'END_OF_SHIFT',
+      checkInTime: punch.clockIn?.toISOString(),
+      checkOutTime: punch.clockOut.toISOString(),
+    };
+  }
+  if (punch?.clockIn) {
+    return { status: 'PRESENT', checkInTime: punch.clockIn.toISOString() };
+  }
+  return {
+    status: status === StaffStatus.ACTIVE ? 'NOT_ARRIVED' : 'NOT_SCHEDULED',
+  };
 }

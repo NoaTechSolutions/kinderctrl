@@ -5,6 +5,25 @@ import {
   StaffStatus,
 } from '@prisma/client';
 
+// Today's time-clock attendance, derived for the roster list. Mirrors the
+// children list's ChildAttendanceToday so the frontend card band reads one
+// shape across modules. PRESENT/END_OF_SHIFT come from a real StaffTimeEntry
+// punch; NOT_ARRIVED/NOT_SCHEDULED are the no-punch proxy off staff status.
+// EARLY_DEPARTURE is part of the contract but never emitted by this proxy
+// (same as the children list).
+export type StaffAttendanceStatus =
+  | 'PRESENT'
+  | 'END_OF_SHIFT'
+  | 'NOT_ARRIVED'
+  | 'NOT_SCHEDULED'
+  | 'EARLY_DEPARTURE';
+
+export class StaffAttendanceTodayDto {
+  status: StaffAttendanceStatus;
+  checkInTime?: string; // ISO — formatted client-side
+  checkOutTime?: string; // ISO
+}
+
 export class StaffResponseDto {
   id: string;
   firstName: string;
@@ -67,4 +86,9 @@ export class StaffResponseDto {
   createdAt: Date;
   updatedAt: Date;
   activatedAt: Date | null;
+
+  // Today's time-clock attendance — only populated by the list endpoint
+  // (findAll). Detail/update responses omit it (the detail page doesn't render
+  // the roster band).
+  attendanceToday?: StaffAttendanceTodayDto;
 }
