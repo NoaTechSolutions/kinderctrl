@@ -4,7 +4,6 @@ import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
-  AlertTriangle,
   ArrowLeft,
   Building2,
   CalendarClock,
@@ -34,7 +33,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ReadCard } from '@/components/ui/section-frame';
 import { ReadGrid, ReadRow } from '@/components/ui/read-view';
-import type { CenterStats } from '@/lib/api/centers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FilterTabs, type FilterTab } from '@/components/ui/filter-tabs';
 import { useCenter, useCenterStats, useUpdateCenter } from '@/lib/hooks/use-centers';
@@ -281,9 +279,7 @@ function OverviewTab({
               />
             </div>
           )}
-
-          {/* Critical alerts for this center */}
-          {!isLoading && stats && <CenterAlerts alerts={stats.alerts} />}
+          {/* Center alerts moved to the topbar bell (AlertsBell). */}
         </>
       )}
 
@@ -448,49 +444,6 @@ function StatTile({
         </p>
       </CardContent>
     </Card>
-  );
-}
-
-function CenterAlerts({ alerts }: { alerts: CenterStats['alerts'] }) {
-  const total = alerts.oldCorrections + alerts.overduePayrolls + alerts.staffWithoutClockIn;
-  if (total === 0) {
-    return (
-      <ReadCard icon={AlertTriangle} title="Alerts">
-        <p className="text-sm text-center py-4" style={{ color: 'var(--kc-text-3)' }}>
-          ✅ Everything looks healthy for this center.
-        </p>
-      </ReadCard>
-    );
-  }
-  return (
-    <ReadCard icon={AlertTriangle} title="Alerts">
-      <ReadGrid cols={2}>
-        {alerts.oldCorrections > 0 && (
-          <ReadRow
-            icon={AlertTriangle}
-            label="Corrections"
-            full
-            value={`${alerts.oldCorrections} correction request${alerts.oldCorrections > 1 ? 's' : ''} pending more than 48h`}
-          />
-        )}
-        {alerts.overduePayrolls > 0 && (
-          <ReadRow
-            icon={AlertTriangle}
-            label="Payroll"
-            full
-            value={`${alerts.overduePayrolls} payroll period${alerts.overduePayrolls > 1 ? 's' : ''} overdue`}
-          />
-        )}
-        {alerts.staffWithoutClockIn > 0 && (
-          <ReadRow
-            icon={AlertTriangle}
-            label="Staff"
-            full
-            value={`${alerts.staffWithoutClockIn} active staff with no clock-in in the last 7 days`}
-          />
-        )}
-      </ReadGrid>
-    </ReadCard>
   );
 }
 

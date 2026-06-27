@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ThemeDropdown } from '@/components/auth/theme-dropdown';
+import { TopbarAlertsBell } from '@/components/layout/alerts-bell';
 import { UserAvatar } from '@/components/profile/user-avatar';
 import { useAuthStore } from '@/store/auth';
 import { logout as logoutApi } from '@/lib/api/auth';
@@ -95,6 +96,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       <div className="flex-1 lg:flex-none" />
 
       <div className="flex items-center gap-2">
+        {/* Alerts bell — left of the theme toggle, always visible. */}
+        <TopbarAlertsBell />
         <ThemeDropdown />
 
         {canAccessKiosk && (
