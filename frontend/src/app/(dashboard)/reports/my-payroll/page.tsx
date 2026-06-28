@@ -11,7 +11,8 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
+import { StatTile } from '@/components/ui/stat-tile';
 import { CompactStatCard } from '@/components/ui/compact-stat-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -144,8 +145,9 @@ function MonthPicker({ value, onChange }: { value: string; onChange: (m: string)
 
 // ============================================ StatCard
 
+// Thin wrapper over the shared big-number StatTile (icon dropped — the new
+// tile style is icon-less). Call sites keep passing icon for now.
 function StatCard({
-  icon: Icon,
   label,
   value,
   color,
@@ -155,17 +157,7 @@ function StatCard({
   value: string;
   color: string;
 }) {
-  return (
-    <Card>
-      <CardContent className="pt-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Icon className="h-4 w-4" style={{ color }} />
-          <span className="text-xs font-medium" style={{ color: 'var(--kc-text-3)' }}>{label}</span>
-        </div>
-        <p className="text-2xl font-display font-semibold tabular-nums" style={{ color }}>{value}</p>
-      </CardContent>
-    </Card>
-  );
+  return <StatTile label={label} value={value} color={color} />;
 }
 
 // ============================================ MyWeeklyBreakdown
@@ -494,9 +486,9 @@ export default function MyPayrollPage() {
           <MyWeeklyBreakdown />
 
           {/* Per-day detail with the director's approval status */}
-          <CardWithHeader icon={CalendarDays} title="Daily Breakdown">
+          <ReadCard icon={CalendarDays} title="Daily Breakdown">
             <DaysTable days={data.days} />
-          </CardWithHeader>
+          </ReadCard>
         </div>
       )}
     </div>

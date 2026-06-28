@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 /**
  * Big-number KPI tile (SAAS standard): a large centered value over a small
@@ -17,19 +18,23 @@ export function StatTile({
   value,
   color,
   href,
+  className,
 }: {
   label: string;
   value: string;
   color?: string;
   href?: string;
+  // Grid-item overrides (e.g. col-span-2 to span a full mobile row). When
+  // there's an href the <Link> is the grid item, so the class goes there.
+  className?: string;
 }) {
   const card = (
     <Card
-      className={
-        href
-          ? 'h-24 gap-0 py-0 transition-shadow hover:shadow-md'
-          : 'h-24 gap-0 py-0'
-      }
+      className={cn(
+        'h-24 gap-0 py-0',
+        href && 'transition-shadow hover:shadow-md',
+        !href && className,
+      )}
     >
       <CardContent className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center">
         <p
@@ -48,7 +53,7 @@ export function StatTile({
     </Card>
   );
   return href ? (
-    <Link href={href} className="block">
+    <Link href={href} className={cn('block', className)}>
       {card}
     </Link>
   ) : (

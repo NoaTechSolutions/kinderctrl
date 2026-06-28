@@ -56,7 +56,8 @@ import {
 } from 'recharts';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
+import { StatTile } from '@/components/ui/stat-tile';
 import { FilterTabs } from '@/components/ui/filter-tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -165,8 +166,10 @@ function fmtCurrency(n: number): string {
 
 // ============================================================ StatCard
 
+// Thin wrapper over the shared big-number StatTile primitive. Keeps the
+// existing call sites (which pass an icon) unchanged; the icon is intentionally
+// dropped — the new tile style is icon-less big-number.
 function StatCard({
-  icon: Icon,
   label,
   value,
   color,
@@ -181,29 +184,15 @@ function StatCard({
   // Grid-item overrides (e.g. col-span-2 to make a card span a full mobile row).
   className?: string;
 }) {
-  const content = (
-    <Card
-      className={cn(
-        href && 'cursor-pointer transition-colors hover:bg-muted/40',
-        // When there's an href the grid item is the <Link>, so className goes
-        // there instead (below); otherwise the Card itself is the grid item.
-        !href && className,
-      )}
-    >
-      <CardContent className="flex flex-col items-center pt-4 text-center">
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <Icon className="h-4 w-4 flex-none" style={{ color }} />
-          <span className="text-xs font-medium" style={{ color: 'var(--kc-text-3)' }}>
-            {label}
-          </span>
-        </div>
-        <p className="text-2xl font-display font-semibold tabular-nums" style={{ color }}>
-          {value}
-        </p>
-      </CardContent>
-    </Card>
+  return (
+    <StatTile
+      label={label}
+      value={value}
+      color={color}
+      href={href}
+      className={className}
+    />
   );
-  return href ? <Link href={href} className={cn('block', className)}>{content}</Link> : content;
 }
 
 // ============================================================ MonthPicker
@@ -315,7 +304,7 @@ function WeeklyHoursChart({ month, centerId }: { month: string; centerId?: strin
   }));
 
   return (
-    <CardWithHeader icon={BarChart3} title="Weekly Hours">
+    <ReadCard icon={BarChart3} title="Weekly Hours">
       {isLoading ? (
         <div className="space-y-2 pt-2">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -376,7 +365,7 @@ function WeeklyHoursChart({ month, centerId }: { month: string; centerId?: strin
           </BarChart>
         </ResponsiveContainer>
       )}
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 
@@ -395,7 +384,7 @@ function MonthlyCostChart({ centerId }: { centerId?: string }) {
   }));
 
   return (
-    <CardWithHeader icon={TrendingUp} title="Cost Trend (3 months)">
+    <ReadCard icon={TrendingUp} title="Cost Trend (3 months)">
       {isLoading ? (
         <div className="space-y-2 pt-2">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -447,7 +436,7 @@ function MonthlyCostChart({ centerId }: { centerId?: string }) {
           </LineChart>
         </ResponsiveContainer>
       )}
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 
@@ -516,7 +505,7 @@ function RangeExportSection({ centerId }: { centerId?: string }) {
   const canExport = !!from && !!to && !rangeError;
 
   return (
-    <CardWithHeader icon={Download} title="Custom Range Export">
+    <ReadCard icon={Download} title="Custom Range Export">
       <div className="flex flex-wrap items-center gap-3">
         <DateField
           aria-label="From date"
@@ -535,7 +524,7 @@ function RangeExportSection({ centerId }: { centerId?: string }) {
       {rangeError && (
         <p className="mt-2 text-xs" style={{ color: 'var(--kc-error)' }}>{rangeError}</p>
       )}
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 
@@ -680,7 +669,8 @@ function DirectorCurrentPeriodSection({
 
   return (
     <>
-    <CardWithHeader icon={CalendarDays} title="Current Period" contentClassName="space-y-4">
+    <ReadCard icon={CalendarDays} title="Current Period">
+      <div className="space-y-4">
       {/* Month navigation: current + 2 previous months */}
       <div className="flex gap-1 border-b" style={{ borderColor: 'var(--kc-border)' }}>
         {months.map((m) => {
@@ -804,7 +794,8 @@ function DirectorCurrentPeriodSection({
           </div>
         </>
       )}
-    </CardWithHeader>
+      </div>
+    </ReadCard>
 
       {/* Create Period dialog — opened from the empty-month state */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -887,7 +878,7 @@ function PreviousPeriodsSection({ centerId }: { centerId?: string }) {
   };
 
   return (
-    <CardWithHeader icon={History} title="Previous Periods">
+    <ReadCard icon={History} title="Previous Periods">
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -973,7 +964,7 @@ function PreviousPeriodsSection({ centerId }: { centerId?: string }) {
           )}
         </div>
       )}
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 
@@ -1078,7 +1069,7 @@ function TeamTabContent({ month, centerId }: TeamTabContentProps) {
 
   return (
     <div className="space-y-6">
-      <CardWithHeader icon={Users} title="Team Payroll">
+      <ReadCard icon={Users} title="Team Payroll">
         {isLoading ? (
           <div className="space-y-2 pt-1">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -1242,7 +1233,7 @@ function TeamTabContent({ month, centerId }: TeamTabContentProps) {
             </Table>
           </div>
         )}
-      </CardWithHeader>
+      </ReadCard>
 
       {/* Approve All Pending — right-aligned row below the table */}
       {rows && rows.length > 0 && (
@@ -1529,7 +1520,7 @@ function AuditLogCard({
   ];
 
   return (
-    <CardWithHeader icon={ListChecks} title="Manual Adjustments">
+    <ReadCard icon={ListChecks} title="Manual Adjustments">
       {isLoading ? (
         <div className="space-y-2 pt-1">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -1593,7 +1584,7 @@ function AuditLogCard({
           })}
         </div>
       )}
-    </CardWithHeader>
+    </ReadCard>
   );
 }
 
@@ -1700,7 +1691,7 @@ function IndividualTabContent({
               the tab's month picker (defaults to the current month). */}
           <StaffWeeklyChart staffId={selectedStaffId} centerId={centerId} />
 
-          <CardWithHeader icon={CalendarDays} title="Daily Breakdown">
+          <ReadCard icon={CalendarDays} title="Daily Breakdown">
             {staffLoading ? (
               <div className="space-y-2 pt-1">
                 {Array.from({ length: 7 }).map((_, i) => (
@@ -1836,7 +1827,7 @@ function IndividualTabContent({
                 </Table>
               </div>
             )}
-          </CardWithHeader>
+          </ReadCard>
 
           {/* Audit log — adjustments for this staff/month */}
           <AuditLogCard staffId={selectedStaffId} month={month} centerId={centerId} />
