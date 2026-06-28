@@ -111,6 +111,8 @@ export class StaffAttendanceService {
         id: true,
         firstName: true,
         lastName: true,
+        // role drives the roster card's "Teacher / Assistant" line.
+        role: true,
         timeEntries: {
           where: { date: today },
           orderBy: { deviceTimestamp: 'asc' },
@@ -122,7 +124,7 @@ export class StaffAttendanceService {
       date: today,
       centerId,
       data: staffMembers.map((s) => ({
-        staff: { id: s.id, firstName: s.firstName, lastName: s.lastName },
+        staff: { id: s.id, firstName: s.firstName, lastName: s.lastName, role: s.role },
         entries: s.timeEntries,
         shiftStatus: buildShiftStatus(s.timeEntries),
       })),

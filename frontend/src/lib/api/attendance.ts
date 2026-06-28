@@ -38,7 +38,12 @@ export interface TodayResponse {
 }
 
 export interface TeamMember {
-  staff: { id: string; firstName: string; lastName: string };
+  staff: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    role: 'TEACHER' | 'ASSISTANT' | 'ADMIN';
+  };
   entries: StaffTimeEntry[];
   shiftStatus: ShiftStatus;
 }
