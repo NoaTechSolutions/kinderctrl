@@ -11,7 +11,7 @@ the page keeps an unsaved-changes guard). The three primitives:
 | Primitive | File | Role |
 |-----------|------|------|
 | `SectionFrame` / `ReadCard` | `ui/section-frame.tsx` | The card shell: header (icon + title + Edit pill / Editing badge + Cancel/Save) + body. Owns the read↔edit chrome. `ReadCard` is the read-only variant (optional `action` slot). |
-| `ReadRow` (+ `ReadGrid`) | `ui/read-view.tsx` | One read field: `[icon] LABEL` + clean value text (no box). |
+| `ReadRow` (+ `ReadGrid`) | `ui/read-view.tsx` | One read field: `[icon] LABEL` + clean value text (no box). Optional `action?` slot — a right-aligned button/chevron (e.g. an inline "Change"); the value truncates when it's present. |
 | `Field` | `ui/field.tsx` | One edit field: `[icon] LABEL` (purple in edit) + the input. (Re-exported from `children/child-form-fields` for back-compat.) |
 
 The read↔edit lifecycle (seed / dirty / save / cancel) is `useSectionEditor`
@@ -99,12 +99,22 @@ match.
 
 - **List cards** (roster cards, the children grid card) — those are their own
   thing; see `SEARCH-FILTER-PATTERN.md`.
-- **Stat / KPI tiles** — `compact-stat-card.tsx`.
-- **Pure read dashboards** (e.g. the Overview tab) — fine to use `CardWithHeader`
-  + `ReadRow` without the edit chrome; they have no edit mode.
+- **Stat / KPI tiles** — `stat-tile.tsx` (big-number value + small uppercase
+  label, no icon; optional `color` / `href` / `className`) is the standard tile;
+  `compact-stat-card.tsx` is the dense icon+value variant for mobile stat rows.
+- **Pure read dashboards** (e.g. the Overview tab) — use `ReadCard` + `ReadRow`
+  without the edit chrome; they have no edit mode.
+
+> `CardWithHeader` is the OLD card shell — it was replaced by `ReadCard`
+> (circular purple icon + title) across the whole SAAS. Don't use it for new
+> cards; reskin any remaining one to `ReadCard`.
 
 ## Rule for new cards
 
 Any new **editable** card uses `SectionFrame` + `ReadRow` + `Field` (+
-`useSectionEditor`). Do **not** create a bespoke card/edit layout — extend these
-primitives if something's missing.
+`useSectionEditor`). Read-only cards use `ReadCard`. Do **not** create a bespoke
+card/edit layout — extend these primitives if something's missing.
+
+> **Rollout status:** the card pattern is applied SAAS-wide across all 8 modules
+> (Children / Profile / Staff / Centers / Settings / Attendance / Kiosk /
+> Reports). New surfaces follow these primitives by default.

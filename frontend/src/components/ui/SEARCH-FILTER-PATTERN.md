@@ -1,9 +1,11 @@
 # List Search & Filter Pattern
 
-> **Apply this pattern to all new list views from here on.** Staff and Centers
-> will migrate when next touched. The reference implementation lives in the
-> Children module (`components/children/children-filter-bar.tsx` +
-> `center-children-list.tsx`).
+> **Apply this pattern to all new list views from here on.** Children, Staff and
+> Centers lists are all on this pattern now (default list view = **cards**
+> SAAS-wide, persisted per module in localStorage `kc-<module>-view`). The
+> reference implementation lives in the Children module
+> (`components/children/children-filter-bar.tsx` + `center-children-list.tsx`);
+> see `staff-filter-bar.tsx` / `center-filter-bar.tsx` for the per-module bars.
 
 A unified, two-row block that sits **directly under the page header** (the
 page's primary actions — view toggle, "New X" — stay in the header). It gives
@@ -143,8 +145,8 @@ CTA) from *filtered-to-nothing* (show a "no match" line). The reference computes
 # Table patterns
 
 > **Every new list table includes column sort + an actions kebab by default.**
-> Reference: `components/children/child-table.tsx`. Staff/Centers migrate when
-> next touched.
+> Reference: `components/children/child-table.tsx` (also `staff-table.tsx` /
+> `center-table.tsx`, all using `SortableTableHead` + a kebab).
 
 ## Sortable columns
 
