@@ -171,13 +171,8 @@ export default function KioskSettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg" style={{ background: 'var(--kc-p-600)1A' }}>
-            <TabletSmartphone className="h-5 w-5" style={{ color: 'var(--kc-p-600)' }} />
-          </div>
-          <div>
-            <h1 className="font-display text-2xl font-semibold">Kiosk Mode</h1>
-          </div>
+        <div>
+          <h1 className="font-display text-2xl font-semibold">Kiosk</h1>
         </div>
         {/* PIN Settings — desktop only (lg+). Tablet/mobile use the row below. */}
         <Button variant="outline" size="sm" className="hidden lg:inline-flex" onClick={openPinModal}>
