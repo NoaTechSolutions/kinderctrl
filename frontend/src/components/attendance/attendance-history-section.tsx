@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { CheckCircle, ChevronLeft, ChevronRight, Clock, Coffee, History, LogIn, LogOut, Pencil, XCircle } from 'lucide-react';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -463,7 +463,7 @@ export function AttendanceHistorySection() {
 
   return (
     <>
-      <CardWithHeader icon={History} title="Attendance History">
+      <ReadCard icon={History} title="Attendance History">
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-1">
@@ -532,7 +532,7 @@ export function AttendanceHistorySection() {
             </div>
           )}
         </div>
-      </CardWithHeader>
+      </ReadCard>
 
       <CorrectionModal
         open={modal.open}

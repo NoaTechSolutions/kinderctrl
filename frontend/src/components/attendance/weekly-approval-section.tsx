@@ -12,7 +12,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -217,7 +217,7 @@ export function WeeklyApprovalSection({ centerId }: { centerId?: string } = {}) 
 
   return (
     <>
-      <CardWithHeader icon={ClipboardCheck} title="Attendance Approval">
+      <ReadCard icon={ClipboardCheck} title="Attendance Approval">
         <div className="space-y-4">
           {/* Week selector */}
           <div className="flex items-center justify-center gap-3">
@@ -369,7 +369,7 @@ export function WeeklyApprovalSection({ centerId }: { centerId?: string } = {}) 
             </>
           )}
         </div>
-      </CardWithHeader>
+      </ReadCard>
 
       {/* Day detail modal */}
       <Dialog open={!!dayDetail} onOpenChange={(o) => !o && setDayDetail(null)}>

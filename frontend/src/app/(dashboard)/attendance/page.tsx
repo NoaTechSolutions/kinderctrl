@@ -5,8 +5,9 @@ import { Calendar, CalendarDays, Clock, FileEdit, Loader2 } from 'lucide-react';
 import { useTimeFormat } from '@/lib/preferences/time-format';
 import { formatTime as fmtTimeUtil } from '@/lib/format-time';
 import { toast } from 'sonner';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
 import { CompactStatCard } from '@/components/ui/compact-stat-card';
+import { StatTile } from '@/components/ui/stat-tile';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
 import {
@@ -129,33 +130,6 @@ function getNextShift(schedules: Schedule[] | undefined): { label: string; time:
   return { label, time: next.time };
 }
 
-function StatTile({
-  icon: Icon,
-  label,
-  value,
-  color,
-  href,
-}: {
-  icon: typeof Clock;
-  label: string;
-  value: string;
-  color: string;
-  href?: string;
-}) {
-  const content = (
-    <CardWithHeader
-      icon={Icon}
-      title={label}
-      className={href ? 'transition-colors cursor-pointer' : ''}
-    >
-      <p className="text-2xl font-bold text-center tabular-nums" style={{ color }}>
-        {value}
-      </p>
-    </CardWithHeader>
-  );
-  return href ? <Link href={href}>{content}</Link> : content;
-}
-
 function StaffTimeClockStats() {
   const week = thisWeekRange();
   const month = thisMonthRange();
@@ -186,18 +160,17 @@ function StaffTimeClockStats() {
         <CompactStatCard icon={Calendar} iconColor="var(--kc-text-2)" valueColor="var(--kc-text-2)" label="Next Shift" value={nextVal} />
       </div>
 
-      {/* Tablet/desktop: original StatTile grid — unchanged. */}
+      {/* Tablet/desktop: big-number stat tiles (shared StatTile primitive). */}
       <div className="hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Clock} label="Hours This Week" value={weekVal} color="var(--kc-p-600)" />
-        <StatTile icon={CalendarDays} label="Hours This Month" value={monthVal} color="var(--kc-text-2)" />
+        <StatTile label="Hours This Week" value={weekVal} color="var(--kc-p-600)" />
+        <StatTile label="Hours This Month" value={monthVal} color="var(--kc-text-2)" />
         <StatTile
-          icon={FileEdit}
           label="Pending Corrections"
           value={String(pending)}
           color={pendingColor}
           href="/attendance/my-corrections"
         />
-        <StatTile icon={Calendar} label="Next Shift" value={nextVal} color="var(--kc-text-2)" />
+        <StatTile label="Next Shift" value={nextVal} color="var(--kc-text-2)" />
       </div>
     </>
   );
@@ -275,7 +248,8 @@ export default function AttendancePage() {
         <AttendanceSkeleton />
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
-          <CardWithHeader icon={Clock} title="Time Clock" contentClassName="space-y-4">
+          <ReadCard icon={Clock} title="Time Clock">
+            <div className="space-y-4">
               <p className="text-sm font-medium" style={{ color: 'var(--kc-text-2)' }}>
                 {status?.clockedOut
                   ? 'Shift Complete'
@@ -331,9 +305,10 @@ export default function AttendancePage() {
                   </Link>
                 </Button>
               )}
-          </CardWithHeader>
+            </div>
+          </ReadCard>
 
-          <CardWithHeader title="Today's Entries">
+          <ReadCard title="Today's Entries">
             {entries.length === 0 ? (
               <p className="text-sm py-4 text-center" style={{ color: 'var(--kc-text-3)' }}>
                 No entries yet
@@ -345,7 +320,7 @@ export default function AttendancePage() {
                 ))}
               </div>
             )}
-          </CardWithHeader>
+          </ReadCard>
         </div>
       )}
 
