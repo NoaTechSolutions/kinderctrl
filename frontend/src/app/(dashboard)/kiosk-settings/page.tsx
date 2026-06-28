@@ -12,12 +12,11 @@ import {
   Mail,
   Play,
   Settings,
-  Store,
   TabletSmartphone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
-import { CardWithHeader } from '@/components/ui/card-with-header';
+import { ReadCard } from '@/components/ui/section-frame';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -264,11 +263,11 @@ export default function KioskSettingsPage() {
               const Icon = card.icon;
               return (
                 <Card key={card.label}>
-                  <CardContent className="py-3 px-4 flex items-center gap-3">
+                  <CardContent className="py-3 px-4 flex flex-col items-center gap-2 text-center">
                     <div className="p-2 rounded-lg" style={{ background: card.color + '1A' }}>
                       <Icon className="h-4 w-4" style={{ color: card.color }} />
                     </div>
-                    <div className="min-w-0">
+                    <div className="w-full min-w-0">
                       <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--kc-text-3)' }}>{card.label}</p>
                       <p className="text-sm font-semibold truncate" style={{ color: 'var(--kc-text-1)' }}>{card.value}</p>
                     </div>
@@ -281,7 +280,7 @@ export default function KioskSettingsPage() {
           {/* Launch Card — desktop only (lg+). Mobile + tablet use the 2-button
               row under the title; desktop (lg+) is unchanged. */}
           <div className="hidden lg:block">
-            <CardWithHeader icon={Store} title="Kiosk Mode">
+            <ReadCard title="Kiosk">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -301,11 +300,11 @@ export default function KioskSettingsPage() {
                   </Button>
                 </div>
               </div>
-            </CardWithHeader>
+            </ReadCard>
           </div>
 
           {/* Recent Activity */}
-          <CardWithHeader icon={Activity} title="Recent Activity">
+          <ReadCard icon={Activity} title="Recent Activity">
             {!activity?.entries.length ? (
               <p className="text-sm py-4 text-center" style={{ color: 'var(--kc-text-3)' }}>No kiosk activity yet</p>
             ) : (
@@ -330,7 +329,7 @@ export default function KioskSettingsPage() {
                 ))}
               </div>
             )}
-          </CardWithHeader>
+          </ReadCard>
         </>
       )}
 
